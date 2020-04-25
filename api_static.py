@@ -22,3 +22,10 @@ class RepositoryStatic:
     URL = "url"
     WATCHERS = "watchers"
     UPDATED_AT = "updatedAt"
+
+
+class LanguagesStatic:
+    ID = "id"
+    LANGUAGES = "languages"
+    CREATED_AT = "createdAt"
+    TOTAL_SIZE = "totalSize"
