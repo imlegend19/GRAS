@@ -6,11 +6,22 @@ class APIStatic:
     ID = "id"
     LOGIN = "login"
     TOTAL_COUNT = "totalCount"
+    CREATED_AT = "createdAt"
+    UPDATED_AT = "updatedAt"
+    PAGE_INFO = "pageInfo"
+    HAS_NEXT_PAGE = "hasNextPage"
+    END_CURSOR = "endCursor"
+    NODES = "nodes"
+    NODE = "node"
+    EDGES = "edges"
+    CREATOR = "creator"
+    URL = "url"
+    DESCRIPTION = "description"
+    REPOSITORY = "repository"
 
 
 class RepositoryStatic:
-    CREATED_AT = "createdAt"
-    DESCRIPTION = "description"
+    REPOSITORY = "repository"
     DISK_USAGE = "diskUsage"
     FORK_COUNT = "forkCount"
     HOMEPAGE_URL = "homepageUrl"
@@ -19,13 +30,18 @@ class RepositoryStatic:
     OWNER = "owner"
     PRIMARY_LANGUAGE = "primaryLanguage"
     STARGAZERS = "stargazers"
-    URL = "url"
     WATCHERS = "watchers"
-    UPDATED_AT = "updatedAt"
 
 
-class LanguagesStatic:
-    ID = "id"
+class MilestoneStatic:
+    MILESTONES = "milestones"
+    DUE_ON = "dueOn"
+    TITLE = "title"
+    CLOSED_AT = "closedAt"
+    NUMBER = "number"
+    STATE = "state"
+
+
+class LanguageStatic:
     LANGUAGES = "languages"
-    CREATED_AT = "createdAt"
-    TOTAL_SIZE = "totalSize"
+    SIZE = "size"

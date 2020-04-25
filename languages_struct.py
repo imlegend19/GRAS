@@ -1,32 +1,30 @@
 from string import Template
 
-from api_static import APIStatic, LanguageStatic
+from api_static import APIStatic, LanguageStatic, RepositoryStatic
 from gh_query import GitHubQuery
-from local_settings import AUTH_KEY  # Not changing this
+from local_settings import AUTH_KEY
 
 
-class Languages:
-    def __init__(self, Id, languages, created_at, total_size):
-        self.Id = Id
-        self.languages = languages
-        self.created_at = created_at
-        self.total_size = total_size
+class Language:
+    def __init__(self, language, size):
+        self.language = language
+        self.size = size
 
 
-def object_decoder(dic) -> Languages:
-    obj = Languages(
-
+def object_decoder(dic) -> Language:
+    obj = Language(
+        language=dic[APIStatic.NODE][APIStatic.NAME],
+        size=dic[LanguageStatic.SIZE]
     )
+
     return obj
 
 
-class LanguagesStruct(GitHubQuery):
-    LANGUAGES_QUERY_TEMPLATE = Template(
+class LanguageStruct(GitHubQuery):
+    LANGUAGE_QUERY_TEMPLATE = Template(
         """
             {
-                repository(name: $name, owner: $owner) {
-                    id
-                    createdAt
+                repository(name: "$name", owner: "$owner") {
                     languages(first: 100, orderBy: {field: SIZE, direction: ASC}) {
                         edges {
                             size
@@ -42,14 +40,22 @@ class LanguagesStruct(GitHubQuery):
     )
 
     def __init__(self, github_token, name, owner):
-        LANGUAGES_QUERY = LanguagesStruct.LANGUAGES_QUERY_TEMPLATE.substitute(
-            name=name, owner=owner)
-        super().__init__(github_token, query=LANGUAGES_QUERY)
+        LANGUAGE_QUERY = LanguageStruct.LANGUAGE_QUERY_TEMPLATE.substitute(name=name, owner=owner)
+        super().__init__(github_token, query=LANGUAGE_QUERY)
 
 
 if __name__ == "__main__":
-    languages = LanguagesStruct(
-        github_token=AUTH_KEY, owner="sympy", name="sympy")
+    lang = LanguageStruct(github_token=AUTH_KEY,
+                          owner="sympy",
+                          name="sympy")
 
-    languages_obj = object_decoder(
-        dict(next(languages.generator())[APIStatic.DATA][APIStatic.RESOURCE]))
+    lang_list = []
+    result = dict(next(lang.generator())
+                  [APIStatic.DATA]
+                  [RepositoryStatic.REPOSITORY]
+                  [LanguageStatic.LANGUAGES])
+    for item in result[APIStatic.EDGES]:
+        lang_list.append(object_decoder(item))
+
+    for i in lang_list:
+        print(i.language, i.size)
