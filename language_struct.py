@@ -14,7 +14,7 @@ class Language:
 def object_decoder(dic) -> Language:
     obj = Language(
         language=dic[APIStatic.NODE][APIStatic.NAME],
-        size=dic[LanguageStatic.SIZE]
+        size=dic[LanguageStatic.SIZE]/1024
     )
 
     return obj
