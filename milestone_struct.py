@@ -20,10 +20,6 @@ class Milestone:
         self.closed_at = closed_at
 
 
-def object_decoder(dic: dict) -> Milestone:
-    pass
-
-
 class MilestoneStruct(GitHubQuery):
     MILESTONE_QUERY = """
         {{
