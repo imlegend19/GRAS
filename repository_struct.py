@@ -8,8 +8,6 @@ from local_settings import AUTH_KEY
 class Repository:
     def __init__(self, created_at, updated_at, disk_usage, url, owner_login, name, description, fork_count,
                  homepage_url, is_archived, is_fork, primary_language, stargazer_count, watcher_count):
-        super().__init__(created_at, updated_at, disk_usage, url, owner_login, name, description, fork_count,
-                         homepage_url, is_archived, is_fork, primary_language, stargazer_count, watcher_count)
 
         self.name = name
         self.description = description

@@ -74,4 +74,4 @@ if __name__ == '__main__':
 
     ms_list = ms.iterator()
 
-    pprint(len(ms_list))
+    pprint(ms_list)

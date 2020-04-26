@@ -52,4 +52,14 @@ class LabelStatic:
     NAME = "name"
     ID = "id"
     COLOR = "color"
+
+
+class IssueStatic:
+    ASSIGNEES = "assignees"
+    ISSUES = "issues"
+    TITLE = "title"
+    BODY_TEXT = "bodyText"
+    AUTHOR = "author"
+    NUMBER = "number"
+    MILESTONE = "milestone"
     CREATED_AT = "createdAt"
