@@ -36,7 +36,7 @@ class MilestoneStruct(GitHubQuery):
 
     def __init__(self, github_token, name, owner):
         super().__init__(
-            github_token,
+            github_token=github_token,
             query=MilestoneStruct.MILESTONE_QUERY,
             query_params=dict(name=name, owner=owner, after="null")
         )
@@ -53,7 +53,7 @@ class MilestoneStruct(GitHubQuery):
                 [MilestoneStatic.MILESTONES][APIStatic.PAGE_INFO] \
                 [APIStatic.END_CURSOR]
 
-            self.query_params["after"] = "\"" + endCursor + "\""
+            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
 
             milestones.extend(response[APIStatic.DATA]
                               [APIStatic.REPOSITORY]

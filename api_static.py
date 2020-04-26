@@ -18,6 +18,7 @@ class APIStatic:
     URL = "url"
     DESCRIPTION = "description"
     REPOSITORY = "repository"
+    AFTER = "after"
 
 
 class RepositoryStatic:
@@ -45,3 +46,15 @@ class MilestoneStatic:
 class LanguageStatic:
     LANGUAGES = "languages"
     SIZE = "size"
+
+
+class IssueStatic:
+    ISSUES = "issues"
+    TITLE = "title"
+    BODY_TEXT = "bodyText"
+    AUTHOR = "author"
+    NUMBER = "number"
+    MILESTONE = "milestone"
+    LABELS = "labels"
+    STATE = "state"
+    REACTIONS = "reactions"
