@@ -5,21 +5,6 @@ from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 
 
-class Milestone:
-    def __init__(self, closed_at, created_at, creator_login, description, due_on, state, title, updated_at, url):
-        super().__init__(closed_at, created_at, creator_login, description, due_on, state, title, updated_at, url)
-
-        self.url = url
-        self.updated_at = updated_at
-        self.title = title
-        self.state = state
-        self.due_on = due_on
-        self.description = description
-        self.creator_login = creator_login
-        self.created_at = created_at
-        self.closed_at = closed_at
-
-
 class MilestoneStruct(GitHubQuery):
     MILESTONE_QUERY = """
         {{
@@ -34,6 +19,7 @@ class MilestoneStruct(GitHubQuery):
                             login
                             url
                         }}
+                        number
                         description
                         dueOn
                         url

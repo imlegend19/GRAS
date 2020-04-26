@@ -35,7 +35,6 @@ class GitHubQuery:
                         json=dict(query=self.query)
                     ).json()
                 else:
-                    print(self.query_params)
                     yield request(
                         'post',
                         APIStatic.BASE_URL,
