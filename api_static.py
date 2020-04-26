@@ -18,7 +18,6 @@ class APIStatic:
     URL = "url"
     DESCRIPTION = "description"
     REPOSITORY = "repository"
-    AFTER = "after"
 
 
 class RepositoryStatic:
@@ -48,13 +47,9 @@ class LanguageStatic:
     SIZE = "size"
 
 
-class IssueStatic:
-    ISSUES = "issues"
-    TITLE = "title"
-    BODY_TEXT = "bodyText"
-    AUTHOR = "author"
-    NUMBER = "number"
-    MILESTONE = "milestone"
+class LabelStatic:
     LABELS = "labels"
-    STATE = "state"
-    REACTIONS = "reactions"
+    NAME = "name"
+    ID = "id"
+    COLOR = "color"
+    CREATED_AT = "createdAt"
