@@ -1,6 +1,6 @@
 from pprint import pprint
 
-from api_static import APIStatic, WatcherStatic
+from api_static import APIStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 
@@ -39,18 +39,18 @@ class WatcherStruct(GitHubQuery):
             response = next(generator)
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                WatcherStatic.WATCHERS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                APIStatic.WATCHERS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
             self.query_params["after"] = "\"" + endCursor + "\""
 
             watchers.extend(response[APIStatic.DATA]
                             [APIStatic.REPOSITORY]
-                            [WatcherStatic.WATCHERS]
+                            [APIStatic.WATCHERS]
                             [APIStatic.NODES]
                             )
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                WatcherStatic.WATCHERS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+                APIStatic.WATCHERS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
         return watchers
 

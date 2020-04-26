@@ -19,6 +19,7 @@ class APIStatic:
     DESCRIPTION = "description"
     REPOSITORY = "repository"
     AFTER = "after"
+    WATCHERS = "watchers"
 
 
 class RepositoryStatic:
@@ -68,9 +69,3 @@ class IssueStatic:
     NUMBER = "number"
     MILESTONE = "milestone"
     CREATED_AT = "createdAt"
-
-
-class WatcherStatic:
-    WATCHERS = "watchers"
-    LOGIN = "login"
-    ID = "id"
