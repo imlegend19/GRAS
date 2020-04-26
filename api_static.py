@@ -19,6 +19,7 @@ class APIStatic:
     DESCRIPTION = "description"
     REPOSITORY = "repository"
     AFTER = "after"
+    WATCHERS = "watchers"
 
 
 class RepositoryStatic:
