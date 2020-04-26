@@ -41,6 +41,7 @@ class MilestoneStatic:
     CLOSED_AT = "closedAt"
     NUMBER = "number"
     STATE = "state"
+    CREATOR = "creator"
 
 
 class LanguageStatic:

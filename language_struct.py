@@ -1,6 +1,6 @@
-from string import Template
+from pprint import pprint
 
-from api_static import APIStatic, LanguageStatic, RepositoryStatic
+from api_static import APIStatic, LanguageStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 
@@ -14,34 +14,63 @@ class Language:
 def object_decoder(dic) -> Language:
     obj = Language(
         language=dic[APIStatic.NODE][APIStatic.NAME],
-        size=dic[LanguageStatic.SIZE]/1024
+        size=dic[LanguageStatic.SIZE] / 1024
     )
 
     return obj
 
 
 class LanguageStruct(GitHubQuery):
-    LANGUAGE_QUERY_TEMPLATE = Template(
-        """
-            {
-                repository(name: "$name", owner: "$owner") {
-                    languages(first: 100, orderBy: {field: SIZE, direction: ASC}) {
-                        edges {
-                            size
-                            node {
-                                name
-                                id
-                            }
-                        }
-                    }
-                }
-            }   
-        """
-    )
+    LANGUAGE_QUERY = """
+        {{
+            repository(name: "{name}", owner: "{owner}") {{
+                languages(first: 100, orderBy: {{field: SIZE, direction: ASC}}, after: {after}) {{
+                    edges {{
+                        size
+                        node {{
+                            name
+                        }}
+                    }}
+                    pageInfo {{
+                        endCursor
+                        hasNextPage
+                    }}
+                }}
+            }}
+        }}
+    """
 
     def __init__(self, github_token, name, owner):
-        LANGUAGE_QUERY = LanguageStruct.LANGUAGE_QUERY_TEMPLATE.substitute(name=name, owner=owner)
-        super().__init__(github_token, query=LANGUAGE_QUERY)
+        super().__init__(
+            github_token=github_token,
+            query=LanguageStruct.LANGUAGE_QUERY,
+            query_params=dict(name=name, owner=owner, after="null")
+        )
+
+    def iterator(self):
+        generator = self.generator()
+        hasNextPage = True
+        languages = []
+
+        while hasNextPage:
+            response = next(generator)
+
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [LanguageStatic.LANGUAGES][APIStatic.PAGE_INFO] \
+                [APIStatic.END_CURSOR]
+
+            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
+
+            languages.extend(response[APIStatic.DATA]
+                              [APIStatic.REPOSITORY]
+                              [LanguageStatic.LANGUAGES]
+                              [APIStatic.EDGES])
+
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [LanguageStatic.LANGUAGES][APIStatic.PAGE_INFO] \
+                [APIStatic.HAS_NEXT_PAGE]
+
+        return languages
 
 
 if __name__ == "__main__":
@@ -49,13 +78,9 @@ if __name__ == "__main__":
                           owner="sympy",
                           name="sympy")
 
-    lang_list = []
-    result = dict(next(lang.generator())
-                  [APIStatic.DATA]
-                  [RepositoryStatic.REPOSITORY]
-                  [LanguageStatic.LANGUAGES])
-    for item in result[APIStatic.EDGES]:
-        lang_list.append(object_decoder(item))
+    lang_list = lang.iterator()
+    for i in range(len(lang_list)):
+        lang_list[i] = object_decoder(lang_list[i])
 
-    for i in lang_list:
-        print(i.language, i.size)
+    for _ in lang_list:
+        print(_.language)
