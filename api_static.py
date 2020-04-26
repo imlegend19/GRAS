@@ -68,3 +68,9 @@ class IssueStatic:
     NUMBER = "number"
     MILESTONE = "milestone"
     CREATED_AT = "createdAt"
+
+
+class WatcherStatic:
+    WATCHERS = "watchers"
+    LOGIN = "login"
+    ID = "id"
