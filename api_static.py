@@ -49,6 +49,7 @@ class LanguageStatic:
 
 
 class IssueStatic:
+    ASSIGNEES = "assignees"
     ISSUES = "issues"
     TITLE = "title"
     BODY_TEXT = "bodyText"
