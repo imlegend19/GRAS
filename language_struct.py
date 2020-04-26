@@ -1,5 +1,3 @@
-from pprint import pprint
-
 from api_static import APIStatic, LanguageStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -62,9 +60,9 @@ class LanguageStruct(GitHubQuery):
             self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
 
             languages.extend(response[APIStatic.DATA]
-                              [APIStatic.REPOSITORY]
-                              [LanguageStatic.LANGUAGES]
-                              [APIStatic.EDGES])
+                             [APIStatic.REPOSITORY]
+                             [LanguageStatic.LANGUAGES]
+                             [APIStatic.EDGES])
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [LanguageStatic.LANGUAGES][APIStatic.PAGE_INFO] \

@@ -18,6 +18,7 @@ class APIStatic:
     URL = "url"
     DESCRIPTION = "description"
     REPOSITORY = "repository"
+    AFTER = "after"
 
 
 class RepositoryStatic:
@@ -56,6 +57,9 @@ class LabelStatic:
 
 
 class IssueStatic:
+    STATE = "state"
+    REACTIONS = "reactions"
+    LABELS = "labels"
     ASSIGNEES = "assignees"
     ISSUES = "issues"
     TITLE = "title"
