@@ -1,6 +1,5 @@
 from label_struct import LabelStruct
 from language_struct import LanguageStruct
-#from issue_struct import IssueStruct
 from milestone_struct import MilestoneStruct
 from repository_struct import RepositoryStruct
 from watcher_struct import WatcherStruct
@@ -11,7 +10,7 @@ from local_settings import AUTH_KEY
 
 
 parser = argparse.ArgumentParser(description='GITSTRUCT \n gather data from software repositories')
-#parser.add_argument("action", type=str,default="generate",help="actions: gen/generate \n")
+# parser.add_argument("action", type=str,default="generate",help="actions: gen/generate \n")
 parser.add_argument("name",type=str,help="name of the repo ")
 parser.add_argument("owner",type=str,help="owner of the repo ")
 parser.add_argument("-w","--struct", type=str,default="all", help="what you wish to parse")
@@ -44,6 +43,7 @@ def generate(name,owner):
     # elif args.struct in ("issue","iss"):
     #     issue_list = IssueStruct(*params).iterator(args.limit)
 
+    # TODO: @ayankashyap Raise an exception for entering invalid parameter. 
 
 
 if __name__ == '__main__':
