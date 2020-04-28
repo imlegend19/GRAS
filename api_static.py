@@ -68,3 +68,9 @@ class IssueStatic:
     NUMBER = "number"
     MILESTONE = "milestone"
     CREATED_AT = "createdAt"
+
+
+class BranchStatic:
+    REFS = "refs"
+    TARGET = "target"
+    OID = "oid"

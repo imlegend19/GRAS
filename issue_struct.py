@@ -133,7 +133,8 @@ if __name__ == '__main__':
     issue = IssueStruct(
         github_token=AUTH_KEY,
         name="sympy",
-        owner="sympy")
+        owner="sympy"
+    )
 
     issue_list = issue.iterator(limit=100)
     for i in range(len(issue_list)):
