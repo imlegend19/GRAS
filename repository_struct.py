@@ -8,7 +8,6 @@ from local_settings import AUTH_KEY
 class Repository:
     def __init__(self, created_at, updated_at, disk_usage, url, owner_login, name, description, fork_count,
                  homepage_url, is_archived, is_fork, primary_language, stargazer_count, watcher_count):
-
         self.name = name
         self.description = description
         self.fork_count = fork_count
@@ -90,10 +89,11 @@ class RepositoryStruct(GitHubQuery):
         generator = self.generator()
         return dict(next(generator)[APIStatic.DATA][APIStatic.RESOURCE])
 
+
 if __name__ == '__main__':
     repo = RepositoryStruct(github_token=AUTH_KEY,
                             url="https://github.com/sympy/sympy")
 
-    #repo_obj = object_decoder(dict(next(repo.generator())[APIStatic.DATA][APIStatic.RESOURCE]))
+    # repo_obj = object_decoder(dict(next(repo.generator())[APIStatic.DATA][APIStatic.RESOURCE]))
     repo_obj = object_decoder(repo.iterator())
     print(repo_obj.name)

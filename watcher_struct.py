@@ -10,12 +10,12 @@ class WatcherStruct(GitHubQuery):
         {{
             repository(name: "{name}", owner: "{owner}") {{
                 watchers(first: 100, after: {after}) {{
-                    nodes{{
+                    nodes {{
                         login
                         id
                         createdAt
                     }}
-                    pageInfo{{
+                    pageInfo {{
                         endCursor
                         hasNextPage
                     }}

@@ -9,15 +9,15 @@ class StargazerStruct(GitHubQuery):
     STARGAZER_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
-                stargazers(first:100, orderBy: {{field:STARRED_AT, direction:ASC}}, after: {after}){{
-                    edges{{
+                stargazers(first: 100, orderBy: {{ field: STARRED_AT, direction:ASC }}, after: {after}) {{
+                    edges {{
                         starredAt
-                        node{{
+                        node {{
                             login
                             id
                         }}
                     }}
-                    pageInfo{{
+                    pageInfo {{
                         endCursor
                         hasNextPage
                     }}

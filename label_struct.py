@@ -9,15 +9,15 @@ class LabelStruct(GitHubQuery):
     LABEL_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
-                labels(first: 100, orderBy: {{field:  NAME, direction: ASC}}, after: {after}) {{
-                    edges{{
-                        node{{
+                labels(first: 100, orderBy: {{ field:  NAME, direction: ASC }}, after: {after}) {{
+                    edges {{
+                        node {{
                             color
                             name
                             createdAt
                         }}
                     }}
-                    pageInfo{{
+                    pageInfo {{
                         endCursor
                         hasNextPage
                     }}
