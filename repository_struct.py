@@ -4,7 +4,6 @@ from string import Template
 from api_static import APIStatic, RepositoryStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-
 from models import RepositoryModel
 
 

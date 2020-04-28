@@ -3,7 +3,6 @@ from abc import ABC
 from api_static import APIStatic, LanguageStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-
 from models import LanguageModel
 
 
@@ -42,21 +41,20 @@ class LanguageStruct(GitHubQuery, ABC):
         while hasNextPage:
             response = next(generator)
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LanguageStatic.LANGUAGES
-            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [LanguageStatic.LANGUAGES][APIStatic.PAGE_INFO] \
+                [APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
+            self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
 
             languages.extend(
-                response[APIStatic.DATA][APIStatic.REPOSITORY][
-                    LanguageStatic.LANGUAGES
-                ][APIStatic.EDGES]
+                response[APIStatic.DATA][APIStatic.REPOSITORY]
+                [LanguageStatic.LANGUAGES][APIStatic.EDGES]
             )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LanguageStatic.LANGUAGES
-            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [LanguageStatic.LANGUAGES][APIStatic.PAGE_INFO] \
+                [APIStatic.HAS_NEXT_PAGE]
 
         return languages
 

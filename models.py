@@ -1,20 +1,20 @@
 class RepositoryModel:
     def __init__(
-        self,
-        created_at,
-        updated_at,
-        disk_usage,
-        url,
-        owner_login,
-        name,
-        description,
-        fork_count,
-        homepage_url,
-        is_archived,
-        is_fork,
-        primary_language,
-        stargazer_count,
-        watcher_count,
+            self,
+            created_at,
+            updated_at,
+            disk_usage,
+            url,
+            owner_login,
+            name,
+            description,
+            fork_count,
+            homepage_url,
+            is_archived,
+            is_fork,
+            primary_language,
+            stargazer_count,
+            watcher_count,
     ):
         self.name = name
         self.description = description
@@ -34,16 +34,16 @@ class RepositoryModel:
 
 class MilestoneModel:
     def __init__(
-        self,
-        closed_at,
-        created_at,
-        creator_login,
-        description,
-        due_on,
-        state,
-        title,
-        updated_at,
-        number,
+            self,
+            closed_at,
+            created_at,
+            creator_login,
+            description,
+            due_on,
+            state,
+            title,
+            updated_at,
+            number,
     ):
         self.number = number
         self.title = title

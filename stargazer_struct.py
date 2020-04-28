@@ -1,10 +1,8 @@
 from abc import ABC
-from pprint import pprint
 
 from api_static import APIStatic, StargazerStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-
 from models import StargazerModel
 
 
@@ -44,21 +42,20 @@ class StargazerStruct(GitHubQuery, ABC):
         while hasNextPage:
             response = next(generator)
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                StargazerStatic.STARGAZERS
-            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [StargazerStatic.STARGAZERS][APIStatic.PAGE_INFO] \
+                [APIStatic.END_CURSOR]
 
-            self.query_params["after"] = '"' + endCursor + '"'
+            self.query_params["after"] = '\"' + endCursor + '\"'
 
             stargazers.extend(
-                response[APIStatic.DATA][APIStatic.REPOSITORY][
-                    StargazerStatic.STARGAZERS
-                ][APIStatic.EDGES]
+                response[APIStatic.DATA][APIStatic.REPOSITORY]
+                [StargazerStatic.STARGAZERS][APIStatic.EDGES]
             )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                StargazerStatic.STARGAZERS
-            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [StargazerStatic.STARGAZERS][APIStatic.PAGE_INFO] \
+                [APIStatic.HAS_NEXT_PAGE]
 
         return stargazers
 
@@ -72,7 +69,6 @@ class StargazerStruct(GitHubQuery, ABC):
 
 
 if __name__ == "__main__":
-
     stargazer = StargazerStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
 
     stargazer_list = list(filter(None.__ne__, stargazer.iterator()))

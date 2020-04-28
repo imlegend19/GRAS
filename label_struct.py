@@ -1,10 +1,8 @@
 from abc import ABC
-from pprint import pprint
 
 from api_static import APIStatic, LabelStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-
 from models import LabelModel
 
 
@@ -44,21 +42,20 @@ class LabelStruct(GitHubQuery, ABC):
         while hasNextPage:
             response = next(generator)
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LabelStatic.LABELS
-            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [LabelStatic.LABELS][APIStatic.PAGE_INFO] \
+                [APIStatic.END_CURSOR]
 
-            self.query_params["after"] = '"' + endCursor + '"'
+            self.query_params["after"] = '\"' + endCursor + '\"'
 
             labels.extend(
-                response[APIStatic.DATA][APIStatic.REPOSITORY][LabelStatic.LABELS][
-                    APIStatic.EDGES
-                ]
+                response[APIStatic.DATA][APIStatic.REPOSITORY]
+                [LabelStatic.LABELS][APIStatic.EDGES]
             )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LabelStatic.LABELS
-            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [LabelStatic.LABELS][APIStatic.PAGE_INFO] \
+                [APIStatic.HAS_NEXT_PAGE]
 
         return labels
 
@@ -68,6 +65,7 @@ class LabelStruct(GitHubQuery, ABC):
             name=dic[APIStatic.NODE][APIStatic.NAME],
             created_at=dic[APIStatic.NODE][APIStatic.CREATED_AT],
         )
+
         return obj
 
 
@@ -81,4 +79,3 @@ if __name__ == "__main__":
 
     for _ in label_list:
         print(_.name)
-    pprint(len(label_list))

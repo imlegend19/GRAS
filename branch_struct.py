@@ -42,20 +42,20 @@ class BranchStruct(GitHubQuery, ABC):
         while hasNextPage:
             response = next(generator)
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY]
-                                [BranchStatic.REFS][APIStatic.PAGE_INFO]
-                                [APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [BranchStatic.REFS][APIStatic.PAGE_INFO] \
+                [APIStatic.END_CURSOR]
 
             self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
 
             branches.extend(
                 response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS]
-                        [APIStatic.NODES]
+                [APIStatic.NODES]
             )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY]
-                                  [BranchStatic.REFS][APIStatic.PAGE_INFO]
-                                  [APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [BranchStatic.REFS][APIStatic.PAGE_INFO] \
+                [APIStatic.HAS_NEXT_PAGE]
 
         return branches
 

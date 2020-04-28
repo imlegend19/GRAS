@@ -3,7 +3,6 @@ from abc import ABC
 from api_static import APIStatic, MilestoneStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-
 from models import MilestoneModel
 
 
