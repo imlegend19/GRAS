@@ -53,8 +53,6 @@ class LanguageStatic:
 
 class LabelStatic:
     LABELS = "labels"
-    NAME = "name"
-    ID = "id"
     COLOR = "color"
 
 
@@ -76,3 +74,8 @@ class BranchStatic:
     REFS = "refs"
     TARGET = "target"
     OID = "oid"
+
+
+class StargazerStatic:
+    STARGAZERS = "stargazers"
+    STARRED_AT = "starredAt"

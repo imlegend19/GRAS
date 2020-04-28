@@ -4,18 +4,7 @@ from api_static import APIStatic, MilestoneStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 
-
-class Milestone:
-    def __init__(self, closed_at, created_at, creator_login, description, due_on, state, title, updated_at, number):
-        self.number = number
-        self.title = title
-        self.state = state
-        self.due_on = due_on
-        self.description = description
-        self.creator_login = creator_login
-        self.created_at = created_at
-        self.updated_at = updated_at
-        self.closed_at = closed_at
+from models import MilestoneModel
 
 
 class MilestoneStruct(GitHubQuery, ABC):
@@ -60,9 +49,8 @@ class MilestoneStruct(GitHubQuery, ABC):
         while hasNextPage:
             response = next(generator)
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [MilestoneStatic.MILESTONES][APIStatic.PAGE_INFO] \
-                [APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                MilestoneStatic.MILESTONES][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
             self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
 
@@ -71,14 +59,13 @@ class MilestoneStruct(GitHubQuery, ABC):
                               [MilestoneStatic.MILESTONES]
                               [APIStatic.NODES])
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [MilestoneStatic.MILESTONES][APIStatic.PAGE_INFO] \
-                [APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                MilestoneStatic.MILESTONES][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
         return milestones
 
-    def object_decoder(self, dic) -> Milestone:
-        obj = Milestone(
+    def object_decoder(self, dic) -> MilestoneModel:
+        obj = MilestoneModel(
             number=dic[MilestoneStatic.NUMBER],
             title=dic[MilestoneStatic.TITLE],
             state=dic[MilestoneStatic.STATE],
