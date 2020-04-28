@@ -100,10 +100,10 @@ class IssueStruct(GitHubQuery, ABC):
 
                 self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
 
-                issues.extend(response[APIStatic.DATA]
-                              [APIStatic.REPOSITORY]
-                              [IssueStatic.ISSUES]
-                              [APIStatic.NODES])
+                yield response[APIStatic.DATA] \
+                    [APIStatic.REPOSITORY] \
+                    [IssueStatic.ISSUES] \
+                    [APIStatic.NODES]
 
                 hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                     [IssueStatic.ISSUES][APIStatic.PAGE_INFO] \
@@ -111,14 +111,14 @@ class IssueStruct(GitHubQuery, ABC):
 
                 limit -= 100
 
-        return issues
+        return
 
     def object_decoder(self, dic) -> Issue:
         obj = Issue(
             created_at=dic[APIStatic.CREATED_AT],
             title=dic[IssueStatic.TITLE],
             body=dic[IssueStatic.BODY_TEXT],
-            author_login=dic[IssueStatic.AUTHOR][APIStatic.LOGIN],
+            author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][APIStatic.LOGIN],
             assignees=list(node[APIStatic.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStatic.NODES]),
             number=dic[IssueStatic.NUMBER],
             milestone_number=dic[IssueStatic.MILESTONE],
@@ -137,9 +137,6 @@ if __name__ == '__main__':
         owner="sympy"
     )
 
-    issue_list = issue.iterator(limit=100)
-    for i in range(len(issue_list)):
-        issue_list[i] = issue.object_decoder(issue_list[i])
-
-    for _ in issue_list:
-        print(_.number, ":", _.title)
+    for lst in issue.iterator(limit=1000):
+        for iss in lst:
+            print(issue.object_decoder(iss).created_at)
