@@ -4,11 +4,7 @@ from api_static import APIStatic, BranchStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 
-
-class Branch:
-    def __init__(self, name, commit_id):
-        self.commit_id = commit_id
-        self.name = name
+from models import BranchModel
 
 
 class BranchStruct(GitHubQuery, ABC):
@@ -36,7 +32,7 @@ class BranchStruct(GitHubQuery, ABC):
         super().__init__(
             github_token=github_token,
             query=BranchStruct.BRANCH_QUERY,
-            query_params=dict(name=name, owner=owner, after="null")
+            query_params=dict(name=name, owner=owner, after="null"),
         )
 
     def iterator(self):
@@ -47,38 +43,35 @@ class BranchStruct(GitHubQuery, ABC):
         while hasNextPage:
             response = next(generator)
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [BranchStatic.REFS][APIStatic.PAGE_INFO] \
-                [APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                BranchStatic.REFS
+            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
+            self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
 
-            branches.extend(response[APIStatic.DATA]
-                            [APIStatic.REPOSITORY]
-                            [BranchStatic.REFS]
-                            [APIStatic.NODES])
+            branches.extend(
+                response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS][
+                    APIStatic.NODES
+                ]
+            )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [BranchStatic.REFS][APIStatic.PAGE_INFO] \
-                [APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                BranchStatic.REFS
+            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
         return branches
 
-    def object_decoder(self, dic) -> Branch:
-        obj = Branch(
+    def object_decoder(self, dic) -> BranchModel:
+        obj = BranchModel(
             name=dic[APIStatic.NAME],
-            commit_id=dic[BranchStatic.TARGET][BranchStatic.OID]
+            commit_id=dic[BranchStatic.TARGET][BranchStatic.OID],
         )
 
         return obj
 
 
-if __name__ == '__main__':
-    branch = BranchStruct(
-        github_token=AUTH_KEY,
-        name="sympy",
-        owner="sympy"
-    )
+if __name__ == "__main__":
+    branch = BranchStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
 
     branch_list = branch.iterator()
     for i in range(len(branch_list)):
