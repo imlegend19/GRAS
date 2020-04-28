@@ -3,7 +3,6 @@ from abc import ABC
 from api_static import APIStatic, BranchStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-
 from models import BranchModel
 
 
@@ -11,7 +10,7 @@ class BranchStruct(GitHubQuery, ABC):
     BRANCH_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
-                refs(refPrefix: "refs/heads/", first: 100, orderBy: {{field: TAG_COMMIT_DATE, direction: ASC}}, 
+                refs(refPrefix: "refs/heads/", first: 100, orderBy: {{ field: TAG_COMMIT_DATE, direction: ASC }}, 
                      after: {after}) {{
                     nodes {{
                         name
@@ -43,28 +42,27 @@ class BranchStruct(GitHubQuery, ABC):
         while hasNextPage:
             response = next(generator)
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                BranchStatic.REFS
-            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY]
+                                [BranchStatic.REFS][APIStatic.PAGE_INFO]
+                                [APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
+            self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
 
             branches.extend(
-                response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS][
-                    APIStatic.NODES
-                ]
+                response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS]
+                        [APIStatic.NODES]
             )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                BranchStatic.REFS
-            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY]
+                                  [BranchStatic.REFS][APIStatic.PAGE_INFO]
+                                  [APIStatic.HAS_NEXT_PAGE]
 
         return branches
 
     def object_decoder(self, dic) -> BranchModel:
         obj = BranchModel(
             name=dic[APIStatic.NAME],
-            commit_id=dic[BranchStatic.TARGET][BranchStatic.OID],
+            commit_id=dic[BranchStatic.TARGET][BranchStatic.OID]
         )
 
         return obj
