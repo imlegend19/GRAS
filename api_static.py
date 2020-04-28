@@ -33,6 +33,7 @@ class RepositoryStatic:
     PRIMARY_LANGUAGE = "primaryLanguage"
     STARGAZERS = "stargazers"
     WATCHERS = "watchers"
+    STARRED_AT = "starredAt"
 
 
 class MilestoneStatic:

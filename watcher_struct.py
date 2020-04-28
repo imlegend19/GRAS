@@ -13,6 +13,7 @@ class WatcherStruct(GitHubQuery):
                     nodes{{
                         login
                         id
+                        createdAt
                     }}
                     pageInfo{{
                         endCursor
