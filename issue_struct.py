@@ -70,7 +70,6 @@ class IssueStruct(GitHubQuery, ABC):
     def iterator(self, limit=None):
         generator = self.generator()
         hasNextPage = True
-        issues = []
 
         if limit is None:
             while hasNextPage:
@@ -82,10 +81,10 @@ class IssueStruct(GitHubQuery, ABC):
 
                 self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
 
-                issues.extend(response[APIStatic.DATA]
-                              [APIStatic.REPOSITORY]
-                              [IssueStatic.ISSUES]
-                              [APIStatic.NODES])
+                yield response[APIStatic.DATA] \
+                    [APIStatic.REPOSITORY] \
+                    [IssueStatic.ISSUES] \
+                    [APIStatic.NODES]
 
                 hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                     [IssueStatic.ISSUES][APIStatic.PAGE_INFO] \
