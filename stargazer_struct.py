@@ -37,7 +37,6 @@ class StargazerStruct(GitHubQuery, ABC):
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
-        stargazers = []
 
         while hasNextPage:
             response = next(generator)
@@ -48,16 +47,16 @@ class StargazerStruct(GitHubQuery, ABC):
 
             self.query_params["after"] = '\"' + endCursor + '\"'
 
-            stargazers.extend(
-                response[APIStatic.DATA][APIStatic.REPOSITORY]
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [StargazerStatic.STARGAZERS][APIStatic.EDGES]
-            )
+
+            if resp is not None:
+                yield response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                    [StargazerStatic.STARGAZERS][APIStatic.EDGES]
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [StargazerStatic.STARGAZERS][APIStatic.PAGE_INFO] \
                 [APIStatic.HAS_NEXT_PAGE]
-
-        return stargazers
 
     def object_decoder(self, dic) -> StargazerModel:
         obj = StargazerModel(
@@ -71,10 +70,6 @@ class StargazerStruct(GitHubQuery, ABC):
 if __name__ == "__main__":
     stargazer = StargazerStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
 
-    stargazer_list = list(filter(None.__ne__, stargazer.iterator()))
-
-    for i in range(len(stargazer_list)):
-        stargazer_list[i] = stargazer.object_decoder(stargazer_list[i])
-
-    for _ in stargazer_list:
-        print(_.login)
+    for lst in stargazer.iterator():
+        for stag in lst:
+            print(stargazer.object_decoder(stag).login)
