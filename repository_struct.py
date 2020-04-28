@@ -25,27 +25,6 @@ class Repository:
         self.created_at = created_at
 
 
-def object_decoder(dic) -> Repository:
-    obj = Repository(
-        name=dic[APIStatic.NAME],
-        url=dic[APIStatic.URL],
-        created_at=dic[APIStatic.CREATED_AT],
-        updated_at=dic[APIStatic.UPDATED_AT],
-        description=dic[APIStatic.DESCRIPTION],
-        disk_usage=dic[RepositoryStatic.DISK_USAGE],
-        fork_count=dic[RepositoryStatic.FORK_COUNT],
-        homepage_url=dic[RepositoryStatic.HOMEPAGE_URL],
-        is_archived=dic[RepositoryStatic.IS_ARCHIVED],
-        is_fork=dic[RepositoryStatic.IS_FORK],
-        owner_login=dic[RepositoryStatic.OWNER][APIStatic.LOGIN],
-        primary_language=dic[RepositoryStatic.PRIMARY_LANGUAGE][APIStatic.NAME],
-        stargazer_count=dic[RepositoryStatic.STARGAZERS][APIStatic.TOTAL_COUNT],
-        watcher_count=dic[RepositoryStatic.WATCHERS][APIStatic.TOTAL_COUNT],
-    )
-
-    return obj
-
-
 class RepositoryStruct(GitHubQuery, ABC):
     REPO_QUERY_TEMPLATE = Template(
         """
@@ -90,11 +69,31 @@ class RepositoryStruct(GitHubQuery, ABC):
         generator = self.generator()
         return dict(next(generator)[APIStatic.DATA][APIStatic.RESOURCE])
 
+    def object_decoder(self, dic) -> Repository:
+        obj = Repository(
+            name=dic[APIStatic.NAME],
+            url=dic[APIStatic.URL],
+            created_at=dic[APIStatic.CREATED_AT],
+            updated_at=dic[APIStatic.UPDATED_AT],
+            description=dic[APIStatic.DESCRIPTION],
+            disk_usage=dic[RepositoryStatic.DISK_USAGE],
+            fork_count=dic[RepositoryStatic.FORK_COUNT],
+            homepage_url=dic[RepositoryStatic.HOMEPAGE_URL],
+            is_archived=dic[RepositoryStatic.IS_ARCHIVED],
+            is_fork=dic[RepositoryStatic.IS_FORK],
+            owner_login=dic[RepositoryStatic.OWNER][APIStatic.LOGIN],
+            primary_language=dic[RepositoryStatic.PRIMARY_LANGUAGE][APIStatic.NAME],
+            stargazer_count=dic[RepositoryStatic.STARGAZERS][APIStatic.TOTAL_COUNT],
+            watcher_count=dic[RepositoryStatic.WATCHERS][APIStatic.TOTAL_COUNT],
+        )
+
+        return obj
+
 
 if __name__ == '__main__':
     repo = RepositoryStruct(github_token=AUTH_KEY,
                             url="https://github.com/sympy/sympy")
 
     # repo_obj = object_decoder(dict(next(repo.generator())[APIStatic.DATA][APIStatic.RESOURCE]))
-    repo_obj = object_decoder(repo.iterator())
+    repo_obj = repo.object_decoder(repo.iterator())
     print(repo_obj.name)

@@ -11,15 +11,6 @@ class Branch:
         self.name = name
 
 
-def object_decoder(dic) -> Branch:
-    obj = Branch(
-        name=dic[APIStatic.NAME],
-        commit_id=dic[BranchStatic.TARGET][BranchStatic.OID]
-    )
-
-    return obj
-
-
 class BranchStruct(GitHubQuery, ABC):
     BRANCH_QUERY = """
         {{
@@ -73,6 +64,14 @@ class BranchStruct(GitHubQuery, ABC):
 
         return branches
 
+    def object_decoder(self, dic) -> Branch:
+        obj = Branch(
+            name=dic[APIStatic.NAME],
+            commit_id=dic[BranchStatic.TARGET][BranchStatic.OID]
+        )
+
+        return obj
+
 
 if __name__ == '__main__':
     branch = BranchStruct(
@@ -83,7 +82,7 @@ if __name__ == '__main__':
 
     branch_list = branch.iterator()
     for i in range(len(branch_list)):
-        branch_list[i] = object_decoder(branch_list[i])
+        branch_list[i] = branch.object_decoder(branch_list[i])
 
     for _ in branch_list:
         print(_.name)

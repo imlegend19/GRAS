@@ -20,23 +20,6 @@ class Issue:
         self.created_at = created_at
 
 
-def object_decoder(dic) -> Issue:
-    obj = Issue(
-        created_at=dic[APIStatic.CREATED_AT],
-        title=dic[IssueStatic.TITLE],
-        body=dic[IssueStatic.BODY_TEXT],
-        author_login=dic[IssueStatic.AUTHOR][APIStatic.LOGIN],
-        assignees=list(node[APIStatic.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStatic.NODES]),
-        number=dic[IssueStatic.NUMBER],
-        milestone_number=dic[IssueStatic.MILESTONE],
-        labels=list(node[APIStatic.NAME] for node in dic[IssueStatic.LABELS][APIStatic.NODES]),
-        reaction_count=dic[IssueStatic.REACTIONS][APIStatic.TOTAL_COUNT],
-        state=dic[IssueStatic.STATE]
-    )
-
-    return obj
-
-
 class IssueStruct(GitHubQuery, ABC):
     ISSUE_QUERY = """
         {{
@@ -130,6 +113,22 @@ class IssueStruct(GitHubQuery, ABC):
 
         return issues
 
+    def object_decoder(self, dic) -> Issue:
+        obj = Issue(
+            created_at=dic[APIStatic.CREATED_AT],
+            title=dic[IssueStatic.TITLE],
+            body=dic[IssueStatic.BODY_TEXT],
+            author_login=dic[IssueStatic.AUTHOR][APIStatic.LOGIN],
+            assignees=list(node[APIStatic.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStatic.NODES]),
+            number=dic[IssueStatic.NUMBER],
+            milestone_number=dic[IssueStatic.MILESTONE],
+            labels=list(node[APIStatic.NAME] for node in dic[IssueStatic.LABELS][APIStatic.NODES]),
+            reaction_count=dic[IssueStatic.REACTIONS][APIStatic.TOTAL_COUNT],
+            state=dic[IssueStatic.STATE]
+        )
+
+        return obj
+
 
 if __name__ == '__main__':
     issue = IssueStruct(
@@ -140,7 +139,7 @@ if __name__ == '__main__':
 
     issue_list = issue.iterator(limit=100)
     for i in range(len(issue_list)):
-        issue_list[i] = object_decoder(issue_list[i])
+        issue_list[i] = issue.object_decoder(issue_list[i])
 
     for _ in issue_list:
         print(_.number, ":", _.title)

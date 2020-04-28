@@ -18,22 +18,6 @@ class Milestone:
         self.closed_at = closed_at
 
 
-def object_decoder(dic) -> Milestone:
-    obj = Milestone(
-        number=dic[MilestoneStatic.NUMBER],
-        title=dic[MilestoneStatic.TITLE],
-        state=dic[MilestoneStatic.STATE],
-        due_on=dic[MilestoneStatic.DUE_ON],
-        description=dic[APIStatic.DESCRIPTION],
-        creator_login=dic[MilestoneStatic.CREATOR][APIStatic.LOGIN],
-        created_at=dic[APIStatic.CREATED_AT],
-        updated_at=dic[APIStatic.UPDATED_AT],
-        closed_at=dic[MilestoneStatic.CLOSED_AT]
-    )
-
-    return obj
-
-
 class MilestoneStruct(GitHubQuery, ABC):
     MILESTONE_QUERY = """
         {{
@@ -93,15 +77,31 @@ class MilestoneStruct(GitHubQuery, ABC):
 
         return milestones
 
+    def object_decoder(self, dic) -> Milestone:
+        obj = Milestone(
+            number=dic[MilestoneStatic.NUMBER],
+            title=dic[MilestoneStatic.TITLE],
+            state=dic[MilestoneStatic.STATE],
+            due_on=dic[MilestoneStatic.DUE_ON],
+            description=dic[APIStatic.DESCRIPTION],
+            creator_login=dic[MilestoneStatic.CREATOR][APIStatic.LOGIN],
+            created_at=dic[APIStatic.CREATED_AT],
+            updated_at=dic[APIStatic.UPDATED_AT],
+            closed_at=dic[MilestoneStatic.CLOSED_AT]
+        )
+
+        return obj
+
 
 if __name__ == '__main__':
     ms = MilestoneStruct(github_token=AUTH_KEY,
                          name="sympy",
-                         owner="sympy")
+                         owner="sympy"
+                         )
 
     ms_list = ms.iterator()
     for i in range(len(ms_list)):
-        ms_list[i] = object_decoder(ms_list[i])
+        ms_list[i] = ms.object_decoder(ms_list[i])
 
     for _ in ms_list:
         print(_.number, ":", _.title)

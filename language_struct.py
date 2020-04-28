@@ -11,15 +11,6 @@ class Language:
         self.size = size
 
 
-def object_decoder(dic) -> Language:
-    obj = Language(
-        language=dic[APIStatic.NODE][APIStatic.NAME],
-        size=dic[LanguageStatic.SIZE] / 1024
-    )
-
-    return obj
-
-
 class LanguageStruct(GitHubQuery, ABC):
     LANGUAGE_QUERY = """
         {{
@@ -72,6 +63,14 @@ class LanguageStruct(GitHubQuery, ABC):
 
         return languages
 
+    def object_decoder(self, dic) -> Language:
+        obj = Language(
+            language=dic[APIStatic.NODE][APIStatic.NAME],
+            size=dic[LanguageStatic.SIZE] / 1024
+        )
+
+        return obj
+
 
 if __name__ == "__main__":
     lang = LanguageStruct(github_token=AUTH_KEY,
@@ -80,7 +79,7 @@ if __name__ == "__main__":
 
     lang_list = lang.iterator()
     for i in range(len(lang_list)):
-        lang_list[i] = object_decoder(lang_list[i])
+        lang_list[i] = lang.object_decoder(lang_list[i])
 
     for _ in lang_list:
         print(_.language)

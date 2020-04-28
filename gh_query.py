@@ -57,3 +57,7 @@ class GitHubQuery(object):
     @abstractmethod
     def iterator(self):
         pass
+
+    @abstractmethod
+    def object_decoder(self, dic) -> object:
+        return
