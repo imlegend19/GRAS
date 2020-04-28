@@ -19,6 +19,7 @@ class APIStatic:
     DESCRIPTION = "description"
     REPOSITORY = "repository"
     AFTER = "after"
+    WATCHERS = "watchers"
 
 
 class RepositoryStatic:
@@ -32,6 +33,7 @@ class RepositoryStatic:
     PRIMARY_LANGUAGE = "primaryLanguage"
     STARGAZERS = "stargazers"
     WATCHERS = "watchers"
+    STARRED_AT = "starredAt"
 
 
 class MilestoneStatic:
