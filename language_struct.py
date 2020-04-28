@@ -1,3 +1,5 @@
+from abc import ABC
+
 from api_static import APIStatic, LanguageStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -18,7 +20,7 @@ def object_decoder(dic) -> Language:
     return obj
 
 
-class LanguageStruct(GitHubQuery):
+class LanguageStruct(GitHubQuery, ABC):
     LANGUAGE_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{

@@ -1,3 +1,4 @@
+from abc import ABC
 from pprint import pprint
 
 from api_static import APIStatic
@@ -5,7 +6,7 @@ from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 
 
-class WatcherStruct(GitHubQuery):
+class WatcherStruct(GitHubQuery, ABC):
     WATCHER_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{

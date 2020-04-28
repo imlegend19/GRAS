@@ -1,3 +1,5 @@
+from abc import ABC
+
 from api_static import APIStatic, MilestoneStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -32,7 +34,7 @@ def object_decoder(dic) -> Milestone:
     return obj
 
 
-class MilestoneStruct(GitHubQuery):
+class MilestoneStruct(GitHubQuery, ABC):
     MILESTONE_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{

@@ -1,9 +1,15 @@
+from abc import ABCMeta
+from abc import abstractmethod
+
 from requests import exceptions, request
 
 from api_static import APIStatic
 
 
-class GitHubQuery:
+class GitHubQuery(object):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
     def __init__(
             self,
             github_token=None,
@@ -15,6 +21,7 @@ class GitHubQuery:
         self.query_params = query_params
 
     @property
+    @abstractmethod
     def headers(self):
         default_headers = dict(
             Authorization=f"token {self.github_token}",
@@ -24,6 +31,7 @@ class GitHubQuery:
             **default_headers,
         }
 
+    @abstractmethod
     def generator(self):
         while True:
             try:
@@ -46,5 +54,6 @@ class GitHubQuery:
             except Exception as err:
                 raise err
 
+    @abstractmethod
     def iterator(self):
         pass

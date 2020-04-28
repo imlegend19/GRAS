@@ -1,3 +1,4 @@
+from abc import ABC
 from string import Template
 
 from api_static import APIStatic, RepositoryStatic
@@ -45,7 +46,7 @@ def object_decoder(dic) -> Repository:
     return obj
 
 
-class RepositoryStruct(GitHubQuery):
+class RepositoryStruct(GitHubQuery, ABC):
     REPO_QUERY_TEMPLATE = Template(
         """
              {

@@ -1,3 +1,4 @@
+from abc import ABC
 from pprint import pprint
 
 from api_static import APIStatic, RepositoryStatic
@@ -5,7 +6,7 @@ from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 
 
-class StargazerStruct(GitHubQuery):
+class StargazerStruct(GitHubQuery, ABC):
     STARGAZER_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{

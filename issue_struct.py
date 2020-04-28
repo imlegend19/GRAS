@@ -1,3 +1,5 @@
+from abc import ABC
+
 from api_static import APIStatic, IssueStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -35,7 +37,7 @@ def object_decoder(dic) -> Issue:
     return obj
 
 
-class IssueStruct(GitHubQuery):
+class IssueStruct(GitHubQuery, ABC):
     ISSUE_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{

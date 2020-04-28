@@ -1,3 +1,5 @@
+from abc import ABC
+
 from api_static import APIStatic, BranchStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -18,7 +20,7 @@ def object_decoder(dic) -> Branch:
     return obj
 
 
-class BranchStruct(GitHubQuery):
+class BranchStruct(GitHubQuery, ABC):
     BRANCH_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
