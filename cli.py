@@ -4,62 +4,75 @@ from milestone_struct import MilestoneStruct
 from repository_struct import RepositoryStruct
 from watcher_struct import WatcherStruct
 
-
 from pprint import pprint
 import argparse,sys
 import requests
 from local_settings import AUTH_KEY
 
+structs = ['language','lang', 'label','lab','milestone','miles','repo-data','watchers','watc']
+
+
+#----INITIALIZER----------TODO:AUTHENTICATE AUTH KEY/USERNAME&PASS,UPDATE USAGE AND HELP COMMANDS
+
+def init(args):
+    return args.authkey
 
 parser = argparse.ArgumentParser(description='GITSTRUCT \n gather data from software repositories')
-# parser.add_argument("action", type=str,default="generate",help="actions: gen/generate \n")
-parser.add_argument("repo",type=str,help="enter owner and name of the repo in the formate owner/name) ")
-#parser.add_argument("-o","owner",type=str,help="owner of the repo ")
-parser.add_argument("-w","--struct", type=str,default="all", help="what you wish to parse")
-parser.add_argument("-l","--limit", type=int,default="100", help="what you wish to parse")
-args = parser.parse_args()
+subparsers = parser.add_subparsers(help='command')
+i_parser = subparsers.add_parser('init', help='initialize GitStruct')
+i_parser.add_argument("-a","--authkey",type=str,help="enter your github authentication key")
+i_parser.add_argument("-u","--username",type=str,help="enter your github username")
+i_parser.add_argument("-p","--password",type=str,help="enter your github password")
+i_parser.set_defaults(func=init)
 
-def repo_check(repo):
-    if ('/' not in repo):
+#----STRUCT GENERATION--------
+def generate(args):
+    params = (AUTH_KEY,*args.repo.split('/'))
+    if ('/' not in args.repo):
         parser.error('repo entry must be in the format (owner/name)')
-    elif(not requests.get("https://api.github.com/repos/{}".format(repo)).ok):
+    elif(not requests.get("https://api.github.com/repos/{}".format(args.repo)).ok):
         parser.error("repo does not exist")
     else:
-        return True
-        
-            
-def generate(repo):
-    params = (AUTH_KEY,*repo.split('/'))
+        if args.struct == "all":
+            complete = [LanguageStruct(*params).iterator(), 
+            LabelStruct(*params).iterator(), MilestoneStruct(*params).iterator() ]
+            return complete
+        elif args.struct in ("language", "lang"):
+            lang_list = LanguageStruct(*params).iterator()
+            return lang_list
+        elif args.struct in ("label", "lab"):
+            label_list = LabelStruct(*params).iterator()
+            return label_list
+        elif args.struct in ("milestone", "miles"):
+            ms_list = MilestoneStruct(*params).iterator()
+            return ms_list
+        elif args.struct in ("repo-data"):
+            repodata_list = RepositoryStruct(AUTH_KEY,"https://github.com/{}".format(args.repo)).iterator()
+            return repodata_list
+        elif args.struct in ("watchers", "watc"):
+            watcher_list = WatcherStruct(*params).iterator()
+            return watcher_list   
 
-    if args.struct == "all":
-        complete = [LanguageStruct(*params).iterator(), 
-        LabelStruct(*params).iterator(), MilestoneStruct(*params).iterator() ]
-        return complete
-    elif args.struct in ("language", "lang"):
-        lang_list = LanguageStruct(*params).iterator()
-        return lang_list
-    elif args.struct in ("label", "lab"):
-        label_list = LabelStruct(*params).iterator()
-        return label_list
-    elif args.struct in ("milestone", "miles"):
-        ms_list = MilestoneStruct(*params).iterator()
-        return ms_list
-    elif args.struct in ("repo-data"):
-        repodata_list = RepositoryStruct(AUTH_KEY,"https://github.com/{}".format(repo)).iterator()
-        return repodata_list
-    elif args.struct in ("watchers", "watc"):
-        watcher_list = WatcherStruct(*params).iterator()
-        return watcher_list   
-    # elif args.struct in ("issue","iss"):
-    #     issue_list = IssueStruct(*params).iterator(args.limit)
+gen_parser = subparsers.add_parser('gen', help='parse the given repository')
+gen_parser.add_argument("-r","--repo",type=str,metavar='sympy/sympy',help="enter owner and name of the repo in \
+            the format owner/name")
+    #parser.add_argument("-o","owner",type=str,help="owner of the repo ")
+gen_parser.add_argument("-w","--struct", type=str,default="all",choices=structs,
+            metavar='label',help="what you wish to parse")
+gen_parser.add_argument("-l","--limit", type=int,default="100", help="what you wish to parse")
+gen_parser.set_defaults(func=generate)
+    
+args = parser.parse_args()
 
-    # TODO: @ayankashyap Raise an exception for entering invalid parameter. 
 
 
 if __name__ == '__main__':
-    repo_check(args.repo)
-    list = generate(args.repo)
-    sys.stdout.write(str(pprint(list)))
+    sys.stdout.write(str(pprint(args.func(args))))
+
+
+    #repo_check(args.repo)
+    #list = generate(args.repo)
+    #sys.stdout.write(str(pprint(list)))
     
 
 
