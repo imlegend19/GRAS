@@ -37,32 +37,43 @@ class BranchStruct(GitHubQuery, ABC):
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
-        branches = []
 
         while hasNextPage:
-            response = next(generator)
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [BranchStatic.REFS][APIStatic.PAGE_INFO] \
-                [APIStatic.END_CURSOR]
+                                [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
             self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
 
-            branches.extend(
-                response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS]
-                [APIStatic.NODES]
-            )
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS] \
+                           [APIStatic.NODES]
+
+            if resp is not None:
+                if None not in resp:
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY]
+                                  [BranchStatic.REFS][APIStatic.NODES]
+                else:
+                    yield list(
+                        (
+                            filter(
+                                None.__ne__,
+                                response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                                [BranchStatic.REFS][APIStatic.NODES],
+                            )
+                        )
+                    )
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [BranchStatic.REFS][APIStatic.PAGE_INFO] \
-                [APIStatic.HAS_NEXT_PAGE]
-
-        return branches
+                                  [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
     def object_decoder(self, dic) -> BranchModel:
         obj = BranchModel(
             name=dic[APIStatic.NAME],
-            commit_id=dic[BranchStatic.TARGET][BranchStatic.OID]
+            commit_id=dic[BranchStatic.TARGET][BranchStatic.OID],
         )
 
         return obj
@@ -71,9 +82,6 @@ class BranchStruct(GitHubQuery, ABC):
 if __name__ == "__main__":
     branch = BranchStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
 
-    branch_list = branch.iterator()
-    for i in range(len(branch_list)):
-        branch_list[i] = branch.object_decoder(branch_list[i])
-
-    for _ in branch_list:
-        print(_.name)
+    for lst in branch.iterator():
+        for br in lst:
+            print(branch.object_decoder(br).name)

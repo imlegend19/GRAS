@@ -37,31 +37,47 @@ class MilestoneStruct(GitHubQuery, ABC):
         super().__init__(
             github_token=github_token,
             query=MilestoneStruct.MILESTONE_QUERY,
-            query_params=dict(name=name, owner=owner, after="null")
+            query_params=dict(name=name, owner=owner, after="null"),
         )
 
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
-        milestones = []
 
         while hasNextPage:
-            response = next(generator)
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                MilestoneStatic.MILESTONES][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                MilestoneStatic.MILESTONES
+            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
+            self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
 
-            milestones.extend(response[APIStatic.DATA]
-                              [APIStatic.REPOSITORY]
-                              [MilestoneStatic.MILESTONES]
-                              [APIStatic.NODES])
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                MilestoneStatic.MILESTONES
+            ][APIStatic.NODES]
+
+            if resp is not None:
+                if None not in resp:
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][
+                        MilestoneStatic.MILESTONES
+                    ][APIStatic.NODES]
+                else:
+                    yield list(
+                        filter(
+                            None.__ne__,
+                            response[APIStatic.DATA][APIStatic.REPOSITORY][
+                                MilestoneStatic.MILESTONES
+                            ][APIStatic.NODES],
+                        )
+                    )
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                MilestoneStatic.MILESTONES][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
-
-        return milestones
+                MilestoneStatic.MILESTONES
+            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
     def object_decoder(self, dic) -> MilestoneModel:
         obj = MilestoneModel(
@@ -73,21 +89,15 @@ class MilestoneStruct(GitHubQuery, ABC):
             creator_login=dic[MilestoneStatic.CREATOR][APIStatic.LOGIN],
             created_at=dic[APIStatic.CREATED_AT],
             updated_at=dic[APIStatic.UPDATED_AT],
-            closed_at=dic[MilestoneStatic.CLOSED_AT]
+            closed_at=dic[MilestoneStatic.CLOSED_AT],
         )
 
         return obj
 
 
-if __name__ == '__main__':
-    ms = MilestoneStruct(github_token=AUTH_KEY,
-                         name="sympy",
-                         owner="sympy"
-                         )
+if __name__ == "__main__":
+    milestone = MilestoneStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
 
-    ms_list = ms.iterator()
-    for i in range(len(ms_list)):
-        ms_list[i] = ms.object_decoder(ms_list[i])
-
-    for _ in ms_list:
-        print(_.number, ":", _.title)
+    for lst in milestone.iterator():
+        for ms in lst:
+            print(milestone.object_decoder(ms).title)
