@@ -1,20 +1,20 @@
 class RepositoryModel:
     def __init__(
-            self,
-            created_at,
-            updated_at,
-            disk_usage,
-            url,
-            owner_login,
-            name,
-            description,
-            fork_count,
-            homepage_url,
-            is_archived,
-            is_fork,
-            primary_language,
-            stargazer_count,
-            watcher_count,
+        self,
+        created_at,
+        updated_at,
+        disk_usage,
+        url,
+        owner_login,
+        name,
+        description,
+        fork_count,
+        homepage_url,
+        is_archived,
+        is_fork,
+        primary_language,
+        stargazer_count,
+        watcher_count,
     ):
         self.name = name
         self.description = description
@@ -34,16 +34,16 @@ class RepositoryModel:
 
 class MilestoneModel:
     def __init__(
-            self,
-            closed_at,
-            created_at,
-            creator_login,
-            description,
-            due_on,
-            state,
-            title,
-            updated_at,
-            number,
+        self,
+        closed_at,
+        created_at,
+        creator_login,
+        description,
+        due_on,
+        state,
+        title,
+        updated_at,
+        number,
     ):
         self.number = number
         self.title = title
@@ -88,9 +88,23 @@ class LanguageModel:
 
 
 class IssueModel:
-    def __init__(self, created_at, updated_at, closed_at, title, body, author_login, assignees, number,
-                 milestone_number, labels, state, positive_reaction_count, negative_reaction_count,
-                 ambiguous_reaction_count):
+    def __init__(
+        self,
+        created_at,
+        updated_at,
+        closed_at,
+        title,
+        body,
+        author_login,
+        assignees,
+        number,
+        milestone_number,
+        labels,
+        state,
+        positive_reaction_count,
+        negative_reaction_count,
+        ambiguous_reaction_count,
+    ):
         self.ambiguous_reaction_count = ambiguous_reaction_count
         self.negative_reaction_count = negative_reaction_count
         self.positive_reaction_count = positive_reaction_count
@@ -108,10 +122,22 @@ class IssueModel:
 
 
 class IssueCommentModel:
-    def __init__(self, author_login, body, created_at, updated_at, is_minimized, minimized_reason,
-                 positive_reaction_count, negative_reaction_count, ambiguous_reaction_count):
+    def __init__(
+        self,
+        author_login,
+        author_association,
+        body,
+        created_at,
+        updated_at,
+        is_minimized,
+        minimized_reason,
+        positive_reaction_count,
+        negative_reaction_count,
+        ambiguous_reaction_count,
+    ):
         self.updated_at = updated_at
         self.author_login = author_login
+        self.author_association = author_association
         self.body = body
         self.created_at = created_at
         self.is_minimized = is_minimized
@@ -119,3 +145,37 @@ class IssueCommentModel:
         self.positive_reaction_count = positive_reaction_count
         self.negative_reaction_count = negative_reaction_count
         self.ambiguous_reaction_count = ambiguous_reaction_count
+
+
+class ReleaseModel:
+    def __init__(
+        self,
+        author_login,
+        description,
+        created_at,
+        isPrerelease,
+        name,
+        release_assets,
+        tag_name,
+        updated_at,
+    ):
+        self.author_login = author_login
+        self.description = description
+        self.created_at = created_at
+        self.isPrerelease = isPrerelease
+        self.name = name
+        self.release_assets = release_assets
+        self.tag_name = tag_name
+        self.updated_at = updated_at
+
+
+class AssetModel:
+    def __init__(
+        self, download_count, name, size, updated_at, content_type, created_at
+    ):
+        self.download_count = download_count
+        self.name = name
+        self.size = size
+        self.updated_at = updated_at
+        self.content_type = content_type
+        self.created_at = created_at

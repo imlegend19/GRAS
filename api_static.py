@@ -87,3 +87,14 @@ class BranchStatic:
 class StargazerStatic:
     STARGAZERS = "stargazers"
     STARRED_AT = "starredAt"
+
+
+class ReleaseStatic:
+    IS_PRE_RELEASE = "isPrerelease"
+    DOWNLOAD_COUNT = "downloadCount"
+    SIZE = "size"
+    CONTENT_TYPE = "contentType"
+    TAG_NAME = "tagName"
+    RELEASES = "releases"
+    AUTHOR = "author"
+    RELEASE_ASSETS = "releaseAssets"
