@@ -90,7 +90,7 @@ class StargazerStatic:
 
 
 class ReleaseStatic:
-    ISPRERELEASE = "isPrerelease"
+    IS_PRE_RELEASE = "isPrerelease"
     DOWNLOAD_COUNT = "downloadCount"
     SIZE = "size"
     CONTENT_TYPE = "contentType"
