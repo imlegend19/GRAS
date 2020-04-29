@@ -3,14 +3,18 @@ from abc import ABC
 from api_static import APIStatic, IssueStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
+from utils import Utils
 
 
 class Issue:
     def __init__(self, created_at, updated_at, closed_at, title, body, author_login, assignees, number,
-                 milestone_number, labels, state, reaction_count):
+                 milestone_number, labels, state, positive_reaction_count, negative_reaction_count,
+                 ambiguous_reaction_count):
+        self.ambiguous_reaction_count = ambiguous_reaction_count
+        self.negative_reaction_count = negative_reaction_count
+        self.positive_reaction_count = positive_reaction_count
         self.closed_at = closed_at
         self.updated_at = updated_at
-        self.reaction_count = reaction_count
         self.state = state
         self.labels = labels
         self.milestone_number = milestone_number
@@ -22,7 +26,7 @@ class Issue:
         self.created_at = created_at
 
 
-class IssueStruct(GitHubQuery, ABC):
+class IssueStruct(GitHubQuery, ABC, Utils):
     ISSUE_QUERY = """
         {{
             search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:createdAt", 
@@ -56,8 +60,11 @@ class IssueStruct(GitHubQuery, ABC):
                             }}
                         }}
                         state
-                        reactions {{
-                            totalCount
+                        reactionGroups {{
+                            content
+                            users {{
+                                totalCount
+                            }}
                         }}
                         number
                         repository {{
@@ -85,8 +92,6 @@ class IssueStruct(GitHubQuery, ABC):
         while hasNextPage:
             response = next(generator)
 
-            print(response)
-
             endCursor = response[APIStatic.DATA][APIStatic.SEARCH] \
                 [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
@@ -111,7 +116,9 @@ class IssueStruct(GitHubQuery, ABC):
             number=dic[IssueStatic.NUMBER],
             milestone_number=dic[IssueStatic.MILESTONE],
             labels=list(node[APIStatic.NAME] for node in dic[IssueStatic.LABELS][APIStatic.NODES]),
-            reaction_count=dic[IssueStatic.REACTIONS][APIStatic.TOTAL_COUNT],
+            positive_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
+            negative_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
+            ambiguous_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
             state=dic[IssueStatic.STATE]
         )
 
@@ -129,4 +136,4 @@ if __name__ == '__main__':
 
     for lst in issue.iterator():
         for iss in lst:
-            print(issue.object_decoder(iss).created_at)
+            print(issue.object_decoder(iss).positive_reaction_count, issue.object_decoder(iss).negative_reaction_count)

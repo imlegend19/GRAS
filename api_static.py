@@ -58,17 +58,24 @@ class LabelStatic:
 
 
 class IssueStatic:
+    AUTHOR_ASSOCIATION = "authorAssociation"
     STATE = "state"
     REACTIONS = "reactions"
     LABELS = "labels"
     ASSIGNEES = "assignees"
-    ISSUES = "issues"
+    ISSUE = "issue"
     TITLE = "title"
     BODY_TEXT = "bodyText"
     AUTHOR = "author"
     NUMBER = "number"
     MILESTONE = "milestone"
     CLOSED_AT = "closedAt"
+    REACTION_GROUPS = "reactionGroups"
+    CONTENT = "content"
+    USERS = "users"
+    COMMENTS = "comments"
+    IS_MINIMIZED = "isMinimized"
+    MINIMIZED_REASON = "minimizedReason"
 
 
 class BranchStatic:
