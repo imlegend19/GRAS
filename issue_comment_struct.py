@@ -3,22 +3,8 @@ from abc import ABC
 from api_static import APIStatic, IssueStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
+from models import IssueCommentModel
 from utils import Utils
-
-
-class IssueComment:
-    def __init__(self, author_login, author_association, body, created_at, updated_at, is_minimized, minimized_reason,
-                 positive_reaction_count, negative_reaction_count, ambiguous_reaction_count):
-        self.updated_at = updated_at
-        self.author_login = author_login
-        self.author_association = author_association
-        self.body = body
-        self.created_at = created_at
-        self.is_minimized = is_minimized
-        self.minimized_reason = minimized_reason
-        self.positive_reaction_count = positive_reaction_count
-        self.negative_reaction_count = negative_reaction_count
-        self.ambiguous_reaction_count = ambiguous_reaction_count
 
 
 class IssueCommentStruct(GitHubQuery, ABC, Utils):
@@ -80,8 +66,8 @@ class IssueCommentStruct(GitHubQuery, ABC, Utils):
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
-    def object_decoder(self, dic) -> IssueComment:
-        obj = IssueComment(
+    def object_decoder(self, dic) -> IssueCommentModel:
+        obj = IssueCommentModel(
             created_at=dic[APIStatic.CREATED_AT],
             updated_at=dic[APIStatic.UPDATED_AT],
             body=dic[IssueStatic.BODY_TEXT],

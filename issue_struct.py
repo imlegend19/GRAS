@@ -3,27 +3,8 @@ from abc import ABC
 from api_static import APIStatic, IssueStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
+from models import IssueModel
 from utils import Utils
-
-
-class Issue:
-    def __init__(self, created_at, updated_at, closed_at, title, body, author_login, assignees, number,
-                 milestone_number, labels, state, positive_reaction_count, negative_reaction_count,
-                 ambiguous_reaction_count):
-        self.ambiguous_reaction_count = ambiguous_reaction_count
-        self.negative_reaction_count = negative_reaction_count
-        self.positive_reaction_count = positive_reaction_count
-        self.closed_at = closed_at
-        self.updated_at = updated_at
-        self.state = state
-        self.labels = labels
-        self.milestone_number = milestone_number
-        self.number = number
-        self.assignees = assignees
-        self.author_login = author_login
-        self.body = body
-        self.title = title
-        self.created_at = created_at
 
 
 class IssueStruct(GitHubQuery, ABC, Utils):
@@ -104,8 +85,8 @@ class IssueStruct(GitHubQuery, ABC, Utils):
             hasNextPage = response[APIStatic.DATA][APIStatic.SEARCH] \
                 [APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
-    def object_decoder(self, dic) -> Issue:
-        obj = Issue(
+    def object_decoder(self, dic) -> IssueModel:
+        obj = IssueModel(
             created_at=dic[APIStatic.CREATED_AT],
             updated_at=dic[APIStatic.UPDATED_AT],
             closed_at=dic[IssueStatic.CLOSED_AT],

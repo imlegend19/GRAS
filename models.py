@@ -85,3 +85,38 @@ class LanguageModel:
     def __init__(self, language, size):
         self.language = language
         self.size = size
+
+
+class IssueModel:
+    def __init__(self, created_at, updated_at, closed_at, title, body, author_login, assignees, number,
+                 milestone_number, labels, state, positive_reaction_count, negative_reaction_count,
+                 ambiguous_reaction_count):
+        self.ambiguous_reaction_count = ambiguous_reaction_count
+        self.negative_reaction_count = negative_reaction_count
+        self.positive_reaction_count = positive_reaction_count
+        self.closed_at = closed_at
+        self.updated_at = updated_at
+        self.state = state
+        self.labels = labels
+        self.milestone_number = milestone_number
+        self.number = number
+        self.assignees = assignees
+        self.author_login = author_login
+        self.body = body
+        self.title = title
+        self.created_at = created_at
+
+
+class IssueCommentModel:
+    def __init__(self, author_login, author_association, body, created_at, updated_at, is_minimized, minimized_reason,
+                 positive_reaction_count, negative_reaction_count, ambiguous_reaction_count):
+        self.updated_at = updated_at
+        self.author_login = author_login
+        self.author_association = author_association
+        self.body = body
+        self.created_at = created_at
+        self.is_minimized = is_minimized
+        self.minimized_reason = minimized_reason
+        self.positive_reaction_count = positive_reaction_count
+        self.negative_reaction_count = negative_reaction_count
+        self.ambiguous_reaction_count = ambiguous_reaction_count
