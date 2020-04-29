@@ -10,7 +10,7 @@ from utils import Utils
 class IssueStruct(GitHubQuery, ABC, Utils):
     ISSUE_QUERY = """
         {{
-            search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:createdAt", 
+            search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:created-asc", 
                    type: ISSUE, first: 100, after: {after}) {{
                 pageInfo {{
                     endCursor

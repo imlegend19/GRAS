@@ -21,7 +21,6 @@ class IssueCommentStruct(GitHubQuery, ABC, Utils):
                             author {{
                                 login
                             }}
-                            authorAssociation
                             bodyText
                             createdAt
                             isMinimized
@@ -72,7 +71,6 @@ class IssueCommentStruct(GitHubQuery, ABC, Utils):
             updated_at=dic[APIStatic.UPDATED_AT],
             body=dic[IssueStatic.BODY_TEXT],
             author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][APIStatic.LOGIN],
-            author_association=dic[IssueStatic.AUTHOR_ASSOCIATION],
             positive_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
             negative_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
             ambiguous_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),

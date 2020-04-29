@@ -108,11 +108,10 @@ class IssueModel:
 
 
 class IssueCommentModel:
-    def __init__(self, author_login, author_association, body, created_at, updated_at, is_minimized, minimized_reason,
+    def __init__(self, author_login, body, created_at, updated_at, is_minimized, minimized_reason,
                  positive_reaction_count, negative_reaction_count, ambiguous_reaction_count):
         self.updated_at = updated_at
         self.author_login = author_login
-        self.author_association = author_association
         self.body = body
         self.created_at = created_at
         self.is_minimized = is_minimized
