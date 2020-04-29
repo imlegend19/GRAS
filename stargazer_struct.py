@@ -4,6 +4,7 @@ from api_static import APIStatic, StargazerStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 from models import StargazerModel
+from pprint import pprint
 
 
 class StargazerStruct(GitHubQuery, ABC):
@@ -39,24 +40,39 @@ class StargazerStruct(GitHubQuery, ABC):
         hasNextPage = True
 
         while hasNextPage:
-            response = next(generator)
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [StargazerStatic.STARGAZERS][APIStatic.PAGE_INFO] \
-                [APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                StargazerStatic.STARGAZERS
+            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params["after"] = '\"' + endCursor + '\"'
+            self.query_params["after"] = '"' + endCursor + '"'
 
-            resp = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [StargazerStatic.STARGAZERS][APIStatic.EDGES]
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                StargazerStatic.STARGAZERS
+            ][APIStatic.EDGES]
 
             if resp is not None:
-                yield response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                    [StargazerStatic.STARGAZERS][APIStatic.EDGES]
+                if None not in resp:
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][
+                        StargazerStatic.STARGAZERS
+                    ][APIStatic.EDGES]
+                else:
+                    yield list(
+                        filter(
+                            None.__ne__,
+                            response[APIStatic.DATA][APIStatic.REPOSITORY][
+                                StargazerStatic.STARGAZERS
+                            ][APIStatic.EDGES],
+                        )
+                    )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [StargazerStatic.STARGAZERS][APIStatic.PAGE_INFO] \
-                [APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                StargazerStatic.STARGAZERS
+            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
     def object_decoder(self, dic) -> StargazerModel:
         obj = StargazerModel(

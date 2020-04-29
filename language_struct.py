@@ -36,27 +36,41 @@ class LanguageStruct(GitHubQuery, ABC):
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
-        languages = []
 
         while hasNextPage:
-            response = next(generator)
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [LanguageStatic.LANGUAGES][APIStatic.PAGE_INFO] \
-                [APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                LanguageStatic.LANGUAGES
+            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
+            self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
 
-            languages.extend(
-                response[APIStatic.DATA][APIStatic.REPOSITORY]
-                [LanguageStatic.LANGUAGES][APIStatic.EDGES]
-            )
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                LanguageStatic.LANGUAGES
+            ][APIStatic.EDGES]
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [LanguageStatic.LANGUAGES][APIStatic.PAGE_INFO] \
-                [APIStatic.HAS_NEXT_PAGE]
+            if resp is not None:
+                if None not in resp:
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][
+                        LanguageStatic.LANGUAGES
+                    ][APIStatic.EDGES]
+                else:
+                    yield list(
+                        filter(
+                            None.__ne__,
+                            response[APIStatic.DATA][APIStatic.REPOSITORY][
+                                LanguageStatic.LANGUAGES
+                            ][APIStatic.EDGES],
+                        )
+                    )
 
-        return languages
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                LanguageStatic.LANGUAGES
+            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
     def object_decoder(self, dic) -> LanguageModel:
         obj = LanguageModel(
@@ -70,9 +84,6 @@ class LanguageStruct(GitHubQuery, ABC):
 if __name__ == "__main__":
     lang = LanguageStruct(github_token=AUTH_KEY, owner="sympy", name="sympy")
 
-    lang_list = lang.iterator()
-    for i in range(len(lang_list)):
-        lang_list[i] = lang.object_decoder(lang_list[i])
-
-    for _ in lang_list:
-        print(_.language)
+    for lst in lang.iterator():
+        for lan in lst:
+            print(lang.object_decoder(lan).language)
