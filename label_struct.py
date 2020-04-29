@@ -44,34 +44,29 @@ class LabelStruct(GitHubQuery, ABC):
             except StopIteration:
                 break
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LabelStatic.LABELS
-            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                                [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params["after"] = '"' + endCursor + '"'
+            self.query_params["after"] = '\"' + endCursor + '\"'
 
-            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][LabelStatic.LABELS][
-                APIStatic.EDGES
-            ]
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][LabelStatic.LABELS] \
+                           [APIStatic.EDGES]
 
             if resp is not None:
                 if None not in resp:
-                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][
-                        LabelStatic.LABELS
-                    ][APIStatic.EDGES]
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY]
+                                  [LabelStatic.LABELS][APIStatic.EDGES]
                 else:
                     yield list(
                         filter(
                             None.__ne__,
-                            response[APIStatic.DATA][APIStatic.REPOSITORY][
-                                LabelStatic.LABELS
-                            ][APIStatic.EDGES],
+                            response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                                    [LabelStatic.LABELS][APIStatic.EDGES],
                         )
                     )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LabelStatic.LABELS
-            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                                  [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
     def object_decoder(self, dic) -> LabelModel:
         obj = LabelModel(
