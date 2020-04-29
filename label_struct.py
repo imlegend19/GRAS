@@ -45,37 +45,38 @@ class LabelStruct(GitHubQuery, ABC):
                 break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                                [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
             self.query_params["after"] = '\"' + endCursor + '\"'
 
             resp = response[APIStatic.DATA][APIStatic.REPOSITORY][LabelStatic.LABELS] \
-                           [APIStatic.EDGES]
+                [APIStatic.EDGES]
 
             if resp is not None:
                 if None not in resp:
                     yield response[APIStatic.DATA][APIStatic.REPOSITORY]
-                                  [LabelStatic.LABELS][APIStatic.EDGES]
-                else:
-                    yield list(
-                        filter(
-                            None.__ne__,
-                            response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                                    [LabelStatic.LABELS][APIStatic.EDGES],
-                        )
+                    [LabelStatic.LABELS][APIStatic.EDGES]
+            else:
+                yield list(
+                    filter(
+                        None.__ne__,
+                        response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                            [LabelStatic.LABELS][APIStatic.EDGES],
                     )
+                )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                                  [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+        hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+            [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
-    def object_decoder(self, dic) -> LabelModel:
-        obj = LabelModel(
-            color=dic[APIStatic.NODE][LabelStatic.COLOR],
-            name=dic[APIStatic.NODE][APIStatic.NAME],
-            created_at=dic[APIStatic.NODE][APIStatic.CREATED_AT],
-        )
 
-        return obj
+def object_decoder(self, dic) -> LabelModel:
+    obj = LabelModel(
+        color=dic[APIStatic.NODE][LabelStatic.COLOR],
+        name=dic[APIStatic.NODE][APIStatic.NAME],
+        created_at=dic[APIStatic.NODE][APIStatic.CREATED_AT],
+    )
+
+    return obj
 
 
 if __name__ == "__main__":

@@ -4,7 +4,6 @@ from api_static import APIStatic, StargazerStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 from models import StargazerModel
-from pprint import pprint
 
 
 class StargazerStruct(GitHubQuery, ABC):

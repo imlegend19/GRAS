@@ -45,38 +45,39 @@ class BranchStruct(GitHubQuery, ABC):
                 break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                                [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
             self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
 
             resp = response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS] \
-                           [APIStatic.NODES]
+                [APIStatic.NODES]
 
             if resp is not None:
                 if None not in resp:
                     yield response[APIStatic.DATA][APIStatic.REPOSITORY]
-                                  [BranchStatic.REFS][APIStatic.NODES]
-                else:
-                    yield list(
-                        (
-                            filter(
-                                None.__ne__,
-                                response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                    [BranchStatic.REFS][APIStatic.NODES]
+            else:
+                yield list(
+                    (
+                        filter(
+                            None.__ne__,
+                            response[APIStatic.DATA][APIStatic.REPOSITORY] \
                                 [BranchStatic.REFS][APIStatic.NODES],
-                            )
                         )
                     )
+                )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                                  [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+        hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+            [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
-    def object_decoder(self, dic) -> BranchModel:
-        obj = BranchModel(
-            name=dic[APIStatic.NAME],
-            commit_id=dic[BranchStatic.TARGET][BranchStatic.OID],
-        )
 
-        return obj
+def object_decoder(self, dic) -> BranchModel:
+    obj = BranchModel(
+        name=dic[APIStatic.NAME],
+        commit_id=dic[BranchStatic.TARGET][BranchStatic.OID],
+    )
+
+    return obj
 
 
 if __name__ == "__main__":
