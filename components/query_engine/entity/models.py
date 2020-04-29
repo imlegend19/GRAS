@@ -9,7 +9,7 @@ class BaseModel(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def object_decoder(self, dic):
+    def object_decoder(self, **kwargs):
         pass
 
 
@@ -295,6 +295,60 @@ class PullRequestModel(Utils, BaseModel):
             negative_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
             ambiguous_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
             state=dic[IssueStatic.STATE]
+        )
+
+        return obj
+
+
+class AssetModel(BaseModel):
+    def __init__(self, download_count, name, size, updated_at, content_type, created_at):
+        super().__init__()
+
+        self.download_count = download_count
+        self.name = name
+        self.size = size
+        self.updated_at = updated_at
+        self.content_type = content_type
+        self.created_at = created_at
+
+    @staticmethod
+    def object_decoder(dic, **kwargs):
+        obj = AssetModel(
+            download_count=dic[ReleaseStatic.DOWNLOAD_COUNT],
+            name=dic[APIStatic.NAME],
+            size=dic[ReleaseStatic.SIZE],
+            updated_at=dic[APIStatic.UPDATED_AT],
+            content_type=dic[ReleaseStatic.CONTENT_TYPE],
+            created_at=dic[APIStatic.CREATED_AT],
+        )
+
+        return obj
+
+
+class ReleaseModel(BaseModel):
+    def __init__(self, author_login, description, created_at, isPrerelease, name, release_assets, tag_name, updated_at):
+        super().__init__()
+
+        self.author_login = author_login
+        self.description = description
+        self.created_at = created_at
+        self.isPrerelease = isPrerelease
+        self.name = name
+        self.release_assets = release_assets
+        self.tag_name = tag_name
+        self.updated_at = updated_at
+
+    def object_decoder(self, dic):
+        obj = ReleaseModel(
+            author_login=dic[ReleaseStatic.AUTHOR][APIStatic.LOGIN] if dic[ReleaseStatic.AUTHOR] is not None else None,
+            description=dic[APIStatic.DESCRIPTION],
+            created_at=dic[APIStatic.CREATED_AT],
+            isPrerelease=dic[ReleaseStatic.IS_PRE_RELEASE],
+            name=dic[APIStatic.NAME],
+            release_assets=list(AssetModel.object_decoder(node) for node in
+                                dic[ReleaseStatic.RELEASE_ASSETS][APIStatic.NODES]),
+            tag_name=dic[ReleaseStatic.TAG_NAME],
+            updated_at=dic[APIStatic.UPDATED_AT],
         )
 
         return obj

@@ -47,7 +47,7 @@ class StargazerStruct(GitHubQuery, StargazerModel):
                 RepositoryStatic.STARGAZERS
             ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params["after"] = '"' + endCursor + '"'
+            self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
 
             resp = response[APIStatic.DATA][APIStatic.REPOSITORY][
                 RepositoryStatic.STARGAZERS

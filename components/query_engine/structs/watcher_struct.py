@@ -42,7 +42,7 @@ class WatcherStruct(GitHubQuery, WatcherModel):
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][APIStatic.WATCHERS] \
                 [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params["after"] = '\"' + endCursor + '\"'
+            self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
 
             resp = response[APIStatic.DATA][APIStatic.REPOSITORY][APIStatic.WATCHERS][APIStatic.NODES]
 

@@ -1,9 +1,9 @@
-class BaseModel(type):
+class BaseStatic(type):
     def __setattr__(self, name, value):
         raise ValueError("Cannot change the value of a read-only variable.")
 
 
-class APIStatic(metaclass=BaseModel):
+class APIStatic(metaclass=BaseStatic):
     BASE_URL = "https://api.github.com/graphql"
     NAME = "name"
     DATA = "data"
@@ -29,7 +29,7 @@ class APIStatic(metaclass=BaseModel):
     NUMBER = "number"
 
 
-class RepositoryStatic(metaclass=BaseModel):
+class RepositoryStatic(metaclass=BaseStatic):
     REPOSITORY = "repository"
     DISK_USAGE = "diskUsage"
     FORK_COUNT = "forkCount"
@@ -48,7 +48,7 @@ class RepositoryStatic(metaclass=BaseModel):
     SIZE = "size"
 
 
-class MilestoneStatic(metaclass=BaseModel):
+class MilestoneStatic(metaclass=BaseStatic):
     MILESTONES = "milestones"
     DUE_ON = "dueOn"
     TITLE = "title"
@@ -57,12 +57,12 @@ class MilestoneStatic(metaclass=BaseModel):
     CREATOR = "creator"
 
 
-class LabelStatic(metaclass=BaseModel):
+class LabelStatic(metaclass=BaseStatic):
     LABELS = "labels"
     COLOR = "color"
 
 
-class IssueStatic(metaclass=BaseModel):
+class IssueStatic(metaclass=BaseStatic):
     STATE = "state"
     REACTIONS = "reactions"
     LABELS = "labels"
@@ -90,3 +90,14 @@ class IssueStatic(metaclass=BaseModel):
     MERGED = "merged"
     MERGED_AT = "merged"
     MERGED_BY = "mergedBy"
+
+
+class ReleaseStatic(metaclass=BaseStatic):
+    IS_PRE_RELEASE = "isPrerelease"
+    DOWNLOAD_COUNT = "downloadCount"
+    SIZE = "size"
+    CONTENT_TYPE = "contentType"
+    TAG_NAME = "tagName"
+    RELEASES = "releases"
+    AUTHOR = "author"
+    RELEASE_ASSETS = "releaseAssets"

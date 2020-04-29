@@ -45,7 +45,7 @@ class LabelStruct(GitHubQuery, LabelModel):
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params["after"] = "\"" + endCursor + "\"" if endCursor is not None else None
+            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
 
             resp = response[APIStatic.DATA][APIStatic.REPOSITORY][LabelStatic.LABELS] \
                 [APIStatic.EDGES]
