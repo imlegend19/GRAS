@@ -20,6 +20,7 @@ class APIStatic:
     REPOSITORY = "repository"
     AFTER = "after"
     WATCHERS = "watchers"
+    SEARCH = "search"
 
 
 class RepositoryStatic:
@@ -67,7 +68,7 @@ class IssueStatic:
     AUTHOR = "author"
     NUMBER = "number"
     MILESTONE = "milestone"
-    CREATED_AT = "createdAt"
+    CLOSED_AT = "closedAt"
 
 
 class BranchStatic:
