@@ -1,13 +1,10 @@
-from abc import ABC
-
-from api_static import APIStatic, IssueStatic
-from gh_query import GitHubQuery
+from components.query_engine.entity.api_static import APIStatic, IssueStatic
+from components.query_engine.entity.models import IssueCommentModel
+from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-from models import IssueCommentModel
-from utils import Utils
 
 
-class IssueCommentStruct(GitHubQuery, ABC, Utils):
+class IssueCommentStruct(GitHubQuery, IssueCommentModel):
     ISSUE_COMMENT_QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
@@ -57,28 +54,13 @@ class IssueCommentStruct(GitHubQuery, ABC, Utils):
                 [IssueStatic.ISSUE][IssueStatic.COMMENTS] \
                 [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
+            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
 
             yield response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStatic.NODES]
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
-
-    def object_decoder(self, dic) -> IssueCommentModel:
-        obj = IssueCommentModel(
-            created_at=dic[APIStatic.CREATED_AT],
-            updated_at=dic[APIStatic.UPDATED_AT],
-            body=dic[IssueStatic.BODY_TEXT],
-            author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][APIStatic.LOGIN],
-            positive_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
-            negative_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
-            ambiguous_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
-            is_minimized=dic[IssueStatic.IS_MINIMIZED],
-            minimized_reason=dic[IssueStatic.MINIMIZED_REASON]
-        )
-
-        return obj
 
 
 if __name__ == '__main__':

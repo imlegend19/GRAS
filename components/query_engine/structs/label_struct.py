@@ -1,12 +1,10 @@
-from abc import ABC
-
-from api_static import APIStatic, LabelStatic
-from gh_query import GitHubQuery
+from components.query_engine.entity.api_static import APIStatic, LabelStatic
+from components.query_engine.entity.models import LabelModel
+from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-from models import LabelModel
 
 
-class LabelStruct(GitHubQuery, ABC):
+class LabelStruct(GitHubQuery, LabelModel):
     LABEL_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -47,7 +45,7 @@ class LabelStruct(GitHubQuery, ABC):
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params["after"] = '\"' + endCursor + '\"'
+            self.query_params["after"] = "\"" + endCursor + "\"" if endCursor is not None else None
 
             resp = response[APIStatic.DATA][APIStatic.REPOSITORY][LabelStatic.LABELS] \
                 [APIStatic.EDGES]
@@ -66,15 +64,6 @@ class LabelStruct(GitHubQuery, ABC):
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
                 [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
-
-    def object_decoder(self, dic) -> LabelModel:
-        obj = LabelModel(
-            color=dic[APIStatic.NODE][LabelStatic.COLOR],
-            name=dic[APIStatic.NODE][APIStatic.NAME],
-            created_at=dic[APIStatic.NODE][APIStatic.CREATED_AT],
-        )
-
-        return obj
 
 
 if __name__ == "__main__":

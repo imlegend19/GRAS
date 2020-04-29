@@ -1,13 +1,12 @@
-from abc import ABC
 from string import Template
 
-from api_static import APIStatic, RepositoryStatic
-from gh_query import GitHubQuery
+from components.query_engine.entity.api_static import APIStatic
+from components.query_engine.entity.models import RepositoryModel
+from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-from models import RepositoryModel
 
 
-class RepositoryStruct(GitHubQuery, ABC):
+class RepositoryStruct(GitHubQuery, RepositoryModel):
     REPO_QUERY_TEMPLATE = Template(
         """
              {
@@ -50,26 +49,6 @@ class RepositoryStruct(GitHubQuery, ABC):
     def iterator(self):
         generator = self.generator()
         return dict(next(generator)[APIStatic.DATA][APIStatic.RESOURCE])
-
-    def object_decoder(self, dic) -> RepositoryModel:
-        obj = RepositoryModel(
-            name=dic[APIStatic.NAME],
-            url=dic[APIStatic.URL],
-            created_at=dic[APIStatic.CREATED_AT],
-            updated_at=dic[APIStatic.UPDATED_AT],
-            description=dic[APIStatic.DESCRIPTION],
-            disk_usage=dic[RepositoryStatic.DISK_USAGE],
-            fork_count=dic[RepositoryStatic.FORK_COUNT],
-            homepage_url=dic[RepositoryStatic.HOMEPAGE_URL],
-            is_archived=dic[RepositoryStatic.IS_ARCHIVED],
-            is_fork=dic[RepositoryStatic.IS_FORK],
-            owner_login=dic[RepositoryStatic.OWNER][APIStatic.LOGIN],
-            primary_language=dic[RepositoryStatic.PRIMARY_LANGUAGE][APIStatic.NAME],
-            stargazer_count=dic[RepositoryStatic.STARGAZERS][APIStatic.TOTAL_COUNT],
-            watcher_count=dic[RepositoryStatic.WATCHERS][APIStatic.TOTAL_COUNT],
-        )
-
-        return obj
 
 
 if __name__ == '__main__':

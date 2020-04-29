@@ -6,7 +6,7 @@ from datetime import datetime
 
 from requests import exceptions, request
 
-from api_static import APIStatic
+from components.query_engine.entity.api_static import APIStatic
 
 
 class GitHubQuery(metaclass=ABCMeta):
@@ -98,7 +98,3 @@ class GitHubQuery(metaclass=ABCMeta):
     @abstractmethod
     def iterator(self):
         pass
-
-    @abstractmethod
-    def object_decoder(self, dic) -> object:
-        return

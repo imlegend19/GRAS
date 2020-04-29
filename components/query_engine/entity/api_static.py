@@ -1,4 +1,9 @@
-class APIStatic:
+class BaseModel(type):
+    def __setattr__(self, name, value):
+        raise ValueError("Cannot change the value of a read-only variable.")
+
+
+class APIStatic(metaclass=BaseModel):
     BASE_URL = "https://api.github.com/graphql"
     NAME = "name"
     DATA = "data"
@@ -21,9 +26,10 @@ class APIStatic:
     AFTER = "after"
     WATCHERS = "watchers"
     SEARCH = "search"
+    NUMBER = "number"
 
 
-class RepositoryStatic:
+class RepositoryStatic(metaclass=BaseModel):
     REPOSITORY = "repository"
     DISK_USAGE = "diskUsage"
     FORK_COUNT = "forkCount"
@@ -35,30 +41,28 @@ class RepositoryStatic:
     STARGAZERS = "stargazers"
     WATCHERS = "watchers"
     STARRED_AT = "starredAt"
-
-
-class MilestoneStatic:
-    MILESTONES = "milestones"
-    DUE_ON = "dueOn"
-    TITLE = "title"
-    CLOSED_AT = "closedAt"
-    NUMBER = "number"
-    STATE = "state"
-    CREATOR = "creator"
-
-
-class LanguageStatic:
+    REFS = "refs"
+    TARGET = "target"
+    OID = "oid"
     LANGUAGES = "languages"
     SIZE = "size"
 
 
-class LabelStatic:
+class MilestoneStatic(metaclass=BaseModel):
+    MILESTONES = "milestones"
+    DUE_ON = "dueOn"
+    TITLE = "title"
+    CLOSED_AT = "closedAt"
+    STATE = "state"
+    CREATOR = "creator"
+
+
+class LabelStatic(metaclass=BaseModel):
     LABELS = "labels"
     COLOR = "color"
 
 
-class IssueStatic:
-    AUTHOR_ASSOCIATION = "authorAssociation"
+class IssueStatic(metaclass=BaseModel):
     STATE = "state"
     REACTIONS = "reactions"
     LABELS = "labels"
@@ -67,7 +71,6 @@ class IssueStatic:
     TITLE = "title"
     BODY_TEXT = "bodyText"
     AUTHOR = "author"
-    NUMBER = "number"
     MILESTONE = "milestone"
     CLOSED_AT = "closedAt"
     REACTION_GROUPS = "reactionGroups"
@@ -76,14 +79,14 @@ class IssueStatic:
     COMMENTS = "comments"
     IS_MINIMIZED = "isMinimized"
     MINIMIZED_REASON = "minimizedReason"
-
-
-class BranchStatic:
-    REFS = "refs"
-    TARGET = "target"
-    OID = "oid"
-
-
-class StargazerStatic:
-    STARGAZERS = "stargazers"
-    STARRED_AT = "starredAt"
+    CHANGED_FILES = "changedFiles"
+    CLOSED = "closed"
+    CREATED_AT = "createdAt"
+    UPDATED_AT = "updatedAt"
+    ADDITIONS = "additions"
+    DELETIONS = "deletions"
+    HEAD_REF_NAME = "headRefName"
+    HEAD_REF_OID = "headRefOid"
+    MERGED = "merged"
+    MERGED_AT = "merged"
+    MERGED_BY = "mergedBy"

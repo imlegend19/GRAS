@@ -4,12 +4,12 @@ from pprint import pprint
 
 import requests
 
-from label_struct import LabelStruct
-from language_struct import LanguageStruct
+from components.query_engine.structs.label_struct import LabelStruct
+from components.query_engine.structs.language_struct import LanguageStruct
+from components.query_engine.structs.milestone_struct import MilestoneStruct
+from components.query_engine.structs.repository_struct import RepositoryStruct
+from components.query_engine.structs.watcher_struct import WatcherStruct
 from local_settings import AUTH_KEY
-from milestone_struct import MilestoneStruct
-from repository_struct import RepositoryStruct
-from watcher_struct import WatcherStruct
 
 structs = ['language', 'lang', 'label', 'lab', 'milestone', 'miles', 'repo-data', 'watchers', 'watc']
 

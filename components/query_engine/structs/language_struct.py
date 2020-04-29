@@ -1,16 +1,14 @@
-from abc import ABC
-
-from api_static import APIStatic, LanguageStatic
-from gh_query import GitHubQuery
+from components.query_engine.entity.api_static import APIStatic, RepositoryStatic
+from components.query_engine.entity.models import LanguageModel
+from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-from models import LanguageModel
 
 
-class LanguageStruct(GitHubQuery, ABC):
+class LanguageStruct(GitHubQuery, LanguageModel):
     LANGUAGE_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
-                languages(first: 100, orderBy: {{field: SIZE, direction: ASC}}, after: {after}) {{
+                languages(first: 100, orderBy: {{ field: SIZE, direction: ASC }}, after: {after}) {{
                     edges {{
                         size
                         node {{
@@ -44,41 +42,33 @@ class LanguageStruct(GitHubQuery, ABC):
                 break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LanguageStatic.LANGUAGES
+                RepositoryStatic.LANGUAGES
             ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
             self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
 
             resp = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LanguageStatic.LANGUAGES
+                RepositoryStatic.LANGUAGES
             ][APIStatic.EDGES]
 
             if resp is not None:
                 if None not in resp:
                     yield response[APIStatic.DATA][APIStatic.REPOSITORY][
-                        LanguageStatic.LANGUAGES
+                        RepositoryStatic.LANGUAGES
                     ][APIStatic.EDGES]
                 else:
                     yield list(
                         filter(
                             None.__ne__,
                             response[APIStatic.DATA][APIStatic.REPOSITORY][
-                                LanguageStatic.LANGUAGES
+                                RepositoryStatic.LANGUAGES
                             ][APIStatic.EDGES],
                         )
                     )
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                LanguageStatic.LANGUAGES
+                RepositoryStatic.LANGUAGES
             ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
-
-    def object_decoder(self, dic) -> LanguageModel:
-        obj = LanguageModel(
-            language=dic[APIStatic.NODE][APIStatic.NAME],
-            size=dic[LanguageStatic.SIZE] / 1024,
-        )
-
-        return obj
 
 
 if __name__ == "__main__":

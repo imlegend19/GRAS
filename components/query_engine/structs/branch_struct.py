@@ -1,12 +1,10 @@
-from abc import ABC
-
-from api_static import APIStatic, BranchStatic
-from gh_query import GitHubQuery
+from components.query_engine.entity.api_static import APIStatic, RepositoryStatic
+from components.query_engine.entity.models import BranchModel
+from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-from models import BranchModel
 
 
-class BranchStruct(GitHubQuery, ABC):
+class BranchStruct(GitHubQuery, BranchModel):
     BRANCH_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -45,39 +43,30 @@ class BranchStruct(GitHubQuery, ABC):
                 break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                [RepositoryStatic.REFS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
+            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
 
-            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS] \
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][RepositoryStatic.REFS] \
                 [APIStatic.NODES]
 
             if resp is not None:
                 if None not in resp:
-                    yield response[APIStatic.DATA][APIStatic.REPOSITORY]
-                    [BranchStatic.REFS][APIStatic.NODES]
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                        [RepositoryStatic.REFS][APIStatic.NODES]
             else:
                 yield list(
                     (
                         filter(
                             None.__ne__,
-                            response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                                [BranchStatic.REFS][APIStatic.NODES],
+                            response[APIStatic.DATA][APIStatic.REPOSITORY]
+                            [RepositoryStatic.REFS][APIStatic.NODES],
                         )
                     )
                 )
 
-        hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-            [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
-
-
-def object_decoder(self, dic) -> BranchModel:
-    obj = BranchModel(
-        name=dic[APIStatic.NAME],
-        commit_id=dic[BranchStatic.TARGET][BranchStatic.OID],
-    )
-
-    return obj
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                [RepositoryStatic.REFS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
 
 if __name__ == "__main__":

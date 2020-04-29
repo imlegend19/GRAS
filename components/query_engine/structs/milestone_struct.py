@@ -1,12 +1,10 @@
-from abc import ABC
-
-from api_static import APIStatic, MilestoneStatic
-from gh_query import GitHubQuery
+from components.query_engine.entity.api_static import APIStatic, MilestoneStatic
+from components.query_engine.entity.models import MilestoneModel
+from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-from models import MilestoneModel
 
 
-class MilestoneStruct(GitHubQuery, ABC):
+class MilestoneStruct(GitHubQuery, MilestoneModel):
     MILESTONE_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -78,21 +76,6 @@ class MilestoneStruct(GitHubQuery, ABC):
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
                 MilestoneStatic.MILESTONES
             ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
-
-    def object_decoder(self, dic) -> MilestoneModel:
-        obj = MilestoneModel(
-            number=dic[MilestoneStatic.NUMBER],
-            title=dic[MilestoneStatic.TITLE],
-            state=dic[MilestoneStatic.STATE],
-            due_on=dic[MilestoneStatic.DUE_ON],
-            description=dic[APIStatic.DESCRIPTION],
-            creator_login=dic[MilestoneStatic.CREATOR][APIStatic.LOGIN],
-            created_at=dic[APIStatic.CREATED_AT],
-            updated_at=dic[APIStatic.UPDATED_AT],
-            closed_at=dic[MilestoneStatic.CLOSED_AT],
-        )
-
-        return obj
 
 
 if __name__ == "__main__":

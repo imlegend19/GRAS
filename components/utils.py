@@ -1,11 +1,8 @@
-from abc import abstractmethod
-
-from api_static import IssueStatic, APIStatic
+from components.query_engine.entity.api_static import IssueStatic, APIStatic
 
 
 class Utils:
     @staticmethod
-    @abstractmethod
     def reaction_count(dic, decider) -> int:
         """
         Github supports various reactions. The function classifies them into either positive or negative reaction.

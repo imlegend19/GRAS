@@ -1,25 +1,26 @@
-from abc import ABC
-
-from api_static import APIStatic
-from gh_query import GitHubQuery
+from components.query_engine.entity.api_static import APIStatic, RepositoryStatic
+from components.query_engine.entity.models import StargazerModel
+from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-from models import WatcherModel
 
 
-class WatcherStruct(GitHubQuery, ABC):
-    WATCHER_QUERY = """
+class StargazerStruct(GitHubQuery, StargazerModel):
+    STARGAZER_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
-                watchers(first: 100, after: {after}) {{
-                    nodes {{
-                        login
-                        createdAt
+                stargazers(first: 100, orderBy: {{ field: STARRED_AT, direction:ASC }}, after: {after}) {{
+                    edges {{
+                        starredAt
+                        node {{
+                            login
+                            id
+                        }}
                     }}
                     pageInfo {{
                         endCursor
                         hasNextPage
                     }}
-                }}
+                }} 
             }}
         }}
     """
@@ -27,10 +28,11 @@ class WatcherStruct(GitHubQuery, ABC):
     def __init__(self, github_token, name, owner):
         super().__init__(
             github_token,
-            query=WatcherStruct.WATCHER_QUERY,
+            query=StargazerStruct.STARGAZER_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
 
+    @property
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
@@ -42,45 +44,38 @@ class WatcherStruct(GitHubQuery, ABC):
                 break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                APIStatic.WATCHERS
+                RepositoryStatic.STARGAZERS
             ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
             self.query_params["after"] = '"' + endCursor + '"'
 
-            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][APIStatic.WATCHERS][
-                APIStatic.NODES
-            ]
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][
+                RepositoryStatic.STARGAZERS
+            ][APIStatic.EDGES]
 
             if resp is not None:
                 if None not in resp:
                     yield response[APIStatic.DATA][APIStatic.REPOSITORY][
-                        APIStatic.WATCHERS
-                    ][APIStatic.NODES]
+                        RepositoryStatic.STARGAZERS
+                    ][APIStatic.EDGES]
                 else:
                     yield list(
                         filter(
                             None.__ne__,
                             response[APIStatic.DATA][APIStatic.REPOSITORY][
-                                APIStatic.WATCHERS
-                            ][APIStatic.NODES],
+                                RepositoryStatic.STARGAZERS
+                            ][APIStatic.EDGES],
                         )
                     )
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                APIStatic.WATCHERS
+                RepositoryStatic.STARGAZERS
             ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
-
-    def object_decoder(self, dic) -> WatcherModel:
-        obj = WatcherModel(
-            login=dic[APIStatic.LOGIN], created_at=dic[APIStatic.CREATED_AT]
-        )
-
-        return obj
 
 
 if __name__ == "__main__":
-    watcher = WatcherStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
+    stargazer = StargazerStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
 
-    for lst in watcher.iterator():
-        for w in lst:
-            print(watcher.object_decoder(w).login)
+    for lst in stargazer.iterator:
+        for stag in lst:
+            print(stargazer.object_decoder(stag).login)

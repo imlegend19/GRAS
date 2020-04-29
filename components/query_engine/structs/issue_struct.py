@@ -1,13 +1,10 @@
-from abc import ABC
-
-from api_static import APIStatic, IssueStatic
-from gh_query import GitHubQuery
+from components.query_engine.entity.api_static import APIStatic
+from components.query_engine.entity.models import IssueModel
+from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
-from models import IssueModel
-from utils import Utils
 
 
-class IssueStruct(GitHubQuery, ABC, Utils):
+class IssueStruct(GitHubQuery, IssueModel):
     ISSUE_QUERY = """
         {{
             search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:created-asc", 
@@ -76,7 +73,7 @@ class IssueStruct(GitHubQuery, ABC, Utils):
             endCursor = response[APIStatic.DATA][APIStatic.SEARCH] \
                 [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\""
+            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
 
             yield response[APIStatic.DATA] \
                 [APIStatic.SEARCH] \
@@ -84,26 +81,6 @@ class IssueStruct(GitHubQuery, ABC, Utils):
 
             hasNextPage = response[APIStatic.DATA][APIStatic.SEARCH] \
                 [APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
-
-    def object_decoder(self, dic) -> IssueModel:
-        obj = IssueModel(
-            created_at=dic[APIStatic.CREATED_AT],
-            updated_at=dic[APIStatic.UPDATED_AT],
-            closed_at=dic[IssueStatic.CLOSED_AT],
-            title=dic[IssueStatic.TITLE],
-            body=dic[IssueStatic.BODY_TEXT],
-            author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][APIStatic.LOGIN],
-            assignees=list(node[APIStatic.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStatic.NODES]),
-            number=dic[IssueStatic.NUMBER],
-            milestone_number=dic[IssueStatic.MILESTONE],
-            labels=list(node[APIStatic.NAME] for node in dic[IssueStatic.LABELS][APIStatic.NODES]),
-            positive_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
-            negative_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
-            ambiguous_reaction_count=self.reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
-            state=dic[IssueStatic.STATE]
-        )
-
-        return obj
 
 
 if __name__ == '__main__':
