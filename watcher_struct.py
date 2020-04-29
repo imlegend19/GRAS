@@ -1,20 +1,21 @@
-from pprint import pprint
+from abc import ABC
 
 from api_static import APIStatic
 from gh_query import GitHubQuery
 from local_settings import AUTH_KEY
+from models import WatcherModel
 
 
-class WatcherStruct(GitHubQuery):
+class WatcherStruct(GitHubQuery, ABC):
     WATCHER_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
                 watchers(first: 100, after: {after}) {{
-                    nodes{{
+                    nodes {{
                         login
-                        id
+                        createdAt
                     }}
-                    pageInfo{{
+                    pageInfo {{
                         endCursor
                         hasNextPage
                     }}
@@ -27,39 +28,59 @@ class WatcherStruct(GitHubQuery):
         super().__init__(
             github_token,
             query=WatcherStruct.WATCHER_QUERY,
-            query_params=dict(name=name, owner=owner, after="null")
+            query_params=dict(name=name, owner=owner, after="null"),
         )
 
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
-        watchers = []
 
         while hasNextPage:
-            response = next(generator)
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                APIStatic.WATCHERS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                APIStatic.WATCHERS
+            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params["after"] = "\"" + endCursor + "\""
+            self.query_params["after"] = '"' + endCursor + '"'
 
-            watchers.extend(response[APIStatic.DATA]
-                            [APIStatic.REPOSITORY]
-                            [APIStatic.WATCHERS]
-                            [APIStatic.NODES]
-                            )
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][APIStatic.WATCHERS][
+                APIStatic.NODES
+            ]
+
+            if resp is not None:
+                if None not in resp:
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][
+                        APIStatic.WATCHERS
+                    ][APIStatic.NODES]
+                else:
+                    yield list(
+                        filter(
+                            None.__ne__,
+                            response[APIStatic.DATA][APIStatic.REPOSITORY][
+                                APIStatic.WATCHERS
+                            ][APIStatic.NODES],
+                        )
+                    )
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                APIStatic.WATCHERS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+                APIStatic.WATCHERS
+            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
-        return watchers
+    def object_decoder(self, dic) -> WatcherModel:
+        obj = WatcherModel(
+            login=dic[APIStatic.LOGIN], created_at=dic[APIStatic.CREATED_AT]
+        )
+
+        return obj
 
 
-if __name__ == '__main__':
-    watcher = WatcherStruct(github_token=AUTH_KEY,
-                            name="sympy",
-                            owner="sympy")
+if __name__ == "__main__":
+    watcher = WatcherStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
 
-    watcher_list = watcher.iterator()
-
-    pprint(len(watcher_list))
+    for lst in watcher.iterator():
+        for w in lst:
+            print(watcher.object_decoder(w).login)

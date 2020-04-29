@@ -20,6 +20,7 @@ class APIStatic:
     REPOSITORY = "repository"
     AFTER = "after"
     WATCHERS = "watchers"
+    SEARCH = "search"
 
 
 class RepositoryStatic:
@@ -33,6 +34,7 @@ class RepositoryStatic:
     PRIMARY_LANGUAGE = "primaryLanguage"
     STARGAZERS = "stargazers"
     WATCHERS = "watchers"
+    STARRED_AT = "starredAt"
 
 
 class MilestoneStatic:
@@ -52,8 +54,6 @@ class LanguageStatic:
 
 class LabelStatic:
     LABELS = "labels"
-    NAME = "name"
-    ID = "id"
     COLOR = "color"
 
 
@@ -68,4 +68,15 @@ class IssueStatic:
     AUTHOR = "author"
     NUMBER = "number"
     MILESTONE = "milestone"
-    CREATED_AT = "createdAt"
+    CLOSED_AT = "closedAt"
+
+
+class BranchStatic:
+    REFS = "refs"
+    TARGET = "target"
+    OID = "oid"
+
+
+class StargazerStatic:
+    STARGAZERS = "stargazers"
+    STARRED_AT = "starredAt"
