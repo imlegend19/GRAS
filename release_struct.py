@@ -110,7 +110,7 @@ class ReleaseStruct(GitHubQuery, ABC):
             else dic[ReleaseStatic.AUTHOR][APIStatic.LOGIN],
             description=dic[APIStatic.DESCRIPTION],
             created_at=dic[APIStatic.CREATED_AT],
-            isPrerelease=dic[ReleaseStatic.ISPRERELEASE],
+            isPrerelease=dic[ReleaseStatic.IS_PRE_RELEASE],
             name=dic[APIStatic.NAME],
             release_assets=None
             if dic[ReleaseStatic.RELEASE_ASSETS] is None
