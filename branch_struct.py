@@ -44,36 +44,31 @@ class BranchStruct(GitHubQuery, ABC):
             except StopIteration:
                 break
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                BranchStatic.REFS
-            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                                [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
+            self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
 
-            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS][
-                APIStatic.NODES
-            ]
+            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][BranchStatic.REFS] \
+                           [APIStatic.NODES]
 
             if resp is not None:
                 if None not in resp:
-                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][
-                        BranchStatic.REFS
-                    ][APIStatic.NODES]
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY]
+                                  [BranchStatic.REFS][APIStatic.NODES]
                 else:
                     yield list(
                         (
                             filter(
                                 None.__ne__,
-                                response[APIStatic.DATA][APIStatic.REPOSITORY][
-                                    BranchStatic.REFS
-                                ][APIStatic.NODES],
+                                response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                                [BranchStatic.REFS][APIStatic.NODES],
                             )
                         )
                     )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                BranchStatic.REFS
-            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+                                  [BranchStatic.REFS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
     def object_decoder(self, dic) -> BranchModel:
         obj = BranchModel(
