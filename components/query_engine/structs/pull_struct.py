@@ -8,7 +8,7 @@ class PullRequestStruct(GitHubQuery, PullRequestModel):
     PR_QUERY = """
         {{
             search(query: "repo:{owner}/{name} is:pr created:{start_date}..{end_date} sort:created-asc", 
-                   type: ISSUE, first: 100) {{
+                   type: ISSUE, first: 100, after: {after}) {{
                 pageInfo {{
                     hasNextPage
                     endCursor
@@ -87,17 +87,13 @@ class PullRequestStruct(GitHubQuery, PullRequestModel):
             while hasNextPage:
                 response = next(generator)
 
-                endCursor = response[APIStatic.DATA][APIStatic.SEARCH] \
-                    [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                endCursor = response[APIStatic.DATA][APIStatic.SEARCH][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
                 self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
 
-                yield response[APIStatic.DATA] \
-                    [APIStatic.SEARCH] \
-                    [APIStatic.NODES]
+                yield response[APIStatic.DATA][APIStatic.SEARCH][APIStatic.NODES]
 
-                hasNextPage = response[APIStatic.DATA][APIStatic.SEARCH] \
-                    [APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+                hasNextPage = response[APIStatic.DATA][APIStatic.SEARCH][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
 
 if __name__ == '__main__':
@@ -112,4 +108,4 @@ if __name__ == '__main__':
     for lst in pr.iterator():
         for p in lst:
             o = pr.object_decoder(p)
-            print(o.number, o.created_at)
+            print(o.number, o.number)
