@@ -6,7 +6,7 @@ from datetime import datetime
 
 from requests import exceptions, request
 
-from components.query_engine.entity.api_static import APIStatic
+from components.query_engine.entity.api_static import APIStaticV4
 
 
 class GitHubQuery(metaclass=ABCMeta):
@@ -15,7 +15,7 @@ class GitHubQuery(metaclass=ABCMeta):
             self,
             github_token=None,
             query_params=None,
-            url=APIStatic.BASE_URL,
+            url=APIStaticV4.BASE_URL,
             query=None,
     ):
         self.github_token = github_token

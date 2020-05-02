@@ -3,7 +3,7 @@ class BaseStatic(type):
         raise ValueError("Cannot change the value of a read-only variable.")
 
 
-class APIStatic(metaclass=BaseStatic):
+class APIStaticV4(metaclass=BaseStatic):
     BASE_URL = "https://api.github.com/graphql"
     NAME = "name"
     DATA = "data"
@@ -28,6 +28,24 @@ class APIStatic(metaclass=BaseStatic):
     SEARCH = "search"
     NUMBER = "number"
     OID = "oid"
+
+
+class APIStaticV3(metaclass=BaseStatic):
+    INCOMPLETE_RESULTS = "incomplete_results"
+    ITEMS = "items"
+    TOTAL_COUNT = "total_count"
+    LOGIN = "login"
+    NAME = "name"
+    DATE = "date"
+    EMAIL = "email"
+
+
+class CommitStatic(metaclass=BaseStatic):
+    AUTHOR = "author"
+    COMMIT = "commit"
+    COMMITTER = "committer"
+    MESSAGE = "message"
+    SHA = "sha"
 
 
 class RepositoryStatic(metaclass=BaseStatic):

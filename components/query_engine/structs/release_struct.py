@@ -1,4 +1,4 @@
-from components.query_engine.entity.api_static import APIStatic, ReleaseStatic
+from components.query_engine.entity.api_static import APIStaticV4, ReleaseStatic
 from components.query_engine.entity.models import ReleaseModel
 from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -56,28 +56,28 @@ class ReleaseStruct(GitHubQuery, ReleaseModel):
             except StopIteration:
                 break
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][ReleaseStatic.RELEASES] \
-                [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES] \
+                [APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = '\"' + endCursor + '\"'
+            self.query_params[APIStaticV4.AFTER] = '\"' + endCursor + '\"'
 
-            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][ReleaseStatic.RELEASES][APIStatic.NODES]
+            resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][APIStaticV4.NODES]
 
             if resp is not None:
                 if None not in resp:
-                    yield response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                        [ReleaseStatic.RELEASES][APIStatic.NODES]
+                    yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
+                        [ReleaseStatic.RELEASES][APIStaticV4.NODES]
 
                 else:
                     yield list(
                         filter(
                             None.__ne__,
-                            response[APIStatic.DATA][APIStatic.REPOSITORY][ReleaseStatic.RELEASES][APIStatic.NODES],
+                            response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][APIStaticV4.NODES],
                         )
                     )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][ReleaseStatic.RELEASES] \
-                [APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES] \
+                [APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
 
 if __name__ == "__main__":

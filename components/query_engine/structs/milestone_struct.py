@@ -1,4 +1,4 @@
-from components.query_engine.entity.api_static import APIStatic, MilestoneStatic
+from components.query_engine.entity.api_static import APIStaticV4, MilestoneStatic
 from components.query_engine.entity.models import MilestoneModel
 from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -48,34 +48,34 @@ class MilestoneStruct(GitHubQuery, MilestoneModel):
             except StopIteration:
                 break
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 MilestoneStatic.MILESTONES
-            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            ][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
+            self.query_params[APIStaticV4.AFTER] = '"' + endCursor + '"'
 
-            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][
+            resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 MilestoneStatic.MILESTONES
-            ][APIStatic.NODES]
+            ][APIStaticV4.NODES]
 
             if resp is not None:
                 if None not in resp:
-                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][
+                    yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                         MilestoneStatic.MILESTONES
-                    ][APIStatic.NODES]
+                    ][APIStaticV4.NODES]
                 else:
                     yield list(
                         filter(
                             None.__ne__,
-                            response[APIStatic.DATA][APIStatic.REPOSITORY][
+                            response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                                 MilestoneStatic.MILESTONES
-                            ][APIStatic.NODES],
+                            ][APIStaticV4.NODES],
                         )
                     )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 MilestoneStatic.MILESTONES
-            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            ][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
 
 if __name__ == "__main__":

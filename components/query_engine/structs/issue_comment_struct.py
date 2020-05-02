@@ -1,4 +1,4 @@
-from components.query_engine.entity.api_static import APIStatic, IssueStatic
+from components.query_engine.entity.api_static import APIStaticV4, IssueStatic
 from components.query_engine.entity.models import IssueCommentModel
 from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -50,17 +50,17 @@ class IssueCommentStruct(GitHubQuery, IssueCommentModel):
         while hasNextPage:
             response = next(generator)
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
                 [IssueStatic.ISSUE][IssueStatic.COMMENTS] \
-                [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                [APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
+            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
 
-            yield response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStatic.NODES]
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
+                [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStaticV4.NODES]
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
+                [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
 
 if __name__ == '__main__':

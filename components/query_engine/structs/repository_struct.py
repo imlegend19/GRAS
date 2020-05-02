@@ -1,6 +1,6 @@
 from string import Template
 
-from components.query_engine.entity.api_static import APIStatic
+from components.query_engine.entity.api_static import APIStaticV4
 from components.query_engine.entity.models import RepositoryModel
 from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -48,7 +48,7 @@ class RepositoryStruct(GitHubQuery, RepositoryModel):
 
     def iterator(self):
         generator = self.generator()
-        return dict(next(generator)[APIStatic.DATA][APIStatic.RESOURCE])
+        return dict(next(generator)[APIStaticV4.DATA][APIStaticV4.RESOURCE])
 
 
 if __name__ == '__main__':

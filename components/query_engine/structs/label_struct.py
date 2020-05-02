@@ -1,4 +1,4 @@
-from components.query_engine.entity.api_static import APIStatic, LabelStatic
+from components.query_engine.entity.api_static import APIStaticV4, LabelStatic
 from components.query_engine.entity.models import LabelModel
 from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
@@ -42,28 +42,28 @@ class LabelStruct(GitHubQuery, LabelModel):
             except StopIteration:
                 break
 
-            endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
+                [LabelStatic.LABELS][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
 
-            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
+            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
 
-            resp = response[APIStatic.DATA][APIStatic.REPOSITORY][LabelStatic.LABELS] \
-                [APIStatic.EDGES]
+            resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][LabelStatic.LABELS] \
+                [APIStaticV4.EDGES]
 
             if resp is not None:
                 if None not in resp:
-                    yield response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                        [LabelStatic.LABELS][APIStatic.EDGES]
+                    yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
+                        [LabelStatic.LABELS][APIStaticV4.EDGES]
             else:
                 yield list(
                     filter(
                         None.__ne__,
-                        response[APIStatic.DATA][APIStatic.REPOSITORY][LabelStatic.LABELS][APIStatic.EDGES],
+                        response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][LabelStatic.LABELS][APIStaticV4.EDGES],
                     )
                 )
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY] \
-                [LabelStatic.LABELS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
+                [LabelStatic.LABELS][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
 
 if __name__ == "__main__":
