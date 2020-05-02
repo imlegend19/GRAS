@@ -5,17 +5,14 @@ import click
 import colorama
 colorama.init()
 import json
-from conf import get_item , set_item, reset
+from conf import *
 from PyInquirer import (Token, ValidationError, Validator, print_json, prompt,
-                        style_from_dict,Separator)
+                        style_from_dict, Separator)
 from termcolor import colored
 from pyfiglet import figlet_format
 import requests
-# value = 'sympy'
-# ok = requests.get("https://api.github.com/repos/sympy/{}".format(value)).ok
-# print(ok)
 
-
+#--------Adds color----------------
 style = style_from_dict({
     Token.QuestionMark: '#fac731 bold',
     Token.Answer: '#4688f1 bold',
@@ -28,154 +25,180 @@ style = style_from_dict({
 
 #-------OUTPUT COLORED TEXT-------
 
-def log(string, color, font = "slant",figlet=False):
+
+def log(string, color, font="slant", figlet=False):
     if colored:
         if not figlet:
-            print(colored(string,color))
+            print(colored(string, color))
         else:
-            print(colored(figlet_format(string,font=font),color))
+            print(colored(figlet_format(string, font=font), color))
     else:
         print(string)
 
+
+#TODO: MAYBE ADD ALL VALIDATOR CLASSES IN A SEPARATE UTILS FILE, INSTEAD OF CALLING THE API FROM conf.py
 #----CHECKS IF INPUT IS EMPTY----------
+
 
 class EmptyValidator(Validator):
     def validate(self, value):
         if len(value.text):
             return True
         else:
-            raise ValidationError(
-                message="You can't leave this blank",
-                cursor_position=len(value.text))
+            raise ValidationError(message="You can't leave this blank",
+                                  cursor_position=len(value.text))
 
-#-----TODO: AUTHKEY VALIDATION---------
+
+#-----TODO: AUTHKEY VALIDATION---------args,kwargs
 class AuthKeyValidator(Validator):
-    def validate(self,value):
+    def validate(self, value):
         if len(value.text):
-            return True
+            if auth_key_validator(value.text) != True:
+                raise ValidationError(message="invalid auth key",
+                                      cursor_position=len(value.text))
+            else:
+                set_item("AUTH", "AUTH_KEY", value.text)
         else:
-            raise ValidationError(
-            message="You can't leave this blank",
-            cursor_position=len(value.text))
+            raise ValidationError(message="You can't leave this blank",
+                                  cursor_position=len(value.text))
+
 
 #-------TODO: USER/PASS VALIDATION---------
-class PassValidator(Validator):
-    def validate(self,value):
+class UserValidator(Validator):
+    def validate(self, value):
         if len(value.text):
-            return True
+            ok = user_validator(value.text)
+            if ok != True:
+                raise ValidationError(
+                    message=f"The user {value.text} does not exist",
+                    cursor_position=len(value.text))
+            else:
+                set_item("AUTH", "user_name", value.text)
         else:
-            raise ValidationError(
-            message="You can't leave this blank",
-            cursor_position=len(value.text))
+            raise ValidationError(message="You can't leave this blank",
+                                  cursor_position=len(value.text))
 
-#-------CHECKS IF REPO EXISTS---TODO: currently if the user gets the owner wrong, he has to restart the\
-#         whole thing, need to find fix or the alternative is that we ask them in the format <owner>/<name>
+
+#---PASSWORDVALIDATOR-------------
+class PassValidator(Validator):
+    set_item("AUTH", "pass_attempts", '1')
+
+    def validate(self, value):
+        pass_attempts = int(get_item("AUTH", "pass_attempts"))
+        if len(value.text):
+            user = get_item("AUTH", "user_name")
+            if pass_validator(user, value.text) != True and pass_attempts <= 3:
+                set_item("AUTH", "pass_attempts", str(pass_attempts + 1))
+                raise ValidationError(
+                    message=f"Wrong Password attempt#{pass_attempts}",
+                    cursor_position=len(value.text))
+            elif pass_attempts > 3:
+                raise click.UsageError("ENTERED INVALID PASSWORD 3 TIMES")
+            else:
+                set_item("AUTH", "password", value.text)
+        else:
+            raise ValidationError(message="You can't leave this blank",
+                                  cursor_position=len(value.text))
+
+
+#-------CHECKS IF REPO EXISTS--
 class RepoValidator(Validator):
     def validate(self, value):
         if len(value.text):
-            owner = get_item("repo","owner")
-            ok = requests.get("https://api.github.com/repos/{}/{}".format(owner,value.text)).ok
-            if ok != True:
+            if '/' not in value.text:
                 raise ValidationError(
-                    message=f"The repo {value.text} does not exist",
+                    message="input has to be in the format <owner>/<repo>",
                     cursor_position=len(value.text))
+            else:
+                ok = repo_validator(value.text)
+                if ok == True:
+                    set_item("repo", "owner", value.text.split('/')[0])
+                    set_item("repo", "name", value.text.split('/')[0])
+                else:
+                    raise ValidationError(
+                        message=f"The repo {value.text} does not exist",
+                        cursor_position=len(value.text))
+
         else:
-            raise ValidationError(
-                message="You can't leave this blank",
-                cursor_position=len(value.text))
+            raise ValidationError(message="You can't leave this blank",
+                                  cursor_position=len(value.text))
 
 
-auth_choices = ['Use your gh auth key',
-                'use your username and password']
+auth_choices = ['Use your gh auth key', 'use your username and password']
 
 #----AUTH QUESTION---------------------
 
+
 def ask_AUTH():
     questions = [
-        {  
+        {
             'type': 'list',
             'name': 'auth_option',
             'message': 'How would you like to authenticate?',
             'choices': auth_choices
         },
-        {   
-            'type' : 'input',
-            'name' : 'auth_key',
+        {
+            'type': 'input',
+            'name': 'auth_key',
             'message': 'Enter your auth_key:',
-            'when' : lambda answers: answers['auth_option'] == auth_choices[0],
+            'when': lambda answers: answers['auth_option'] == auth_choices[0],
             'validate': AuthKeyValidator
         },
         {
-            'type' : 'input',
-            'name' : 'user_name',
+            'type': 'input',
+            'name': 'user_name',
             'message': 'Enter your github user name: ',
-            'when' : lambda answers: answers['auth_option'] == auth_choices[1],
-            'validate': EmptyValidator
+            'when': lambda answers: answers['auth_option'] == auth_choices[1],
+            'validate': UserValidator
         },
         {
-            'type' : 'password',
-            'name' : 'password',
-            'message': 'Enter your github password: ',
-            'when' : lambda answers: answers['auth_option'] == auth_choices[1] and answers['user_name'],
-            'validate': PassValidator
+            'type':
+            'password',
+            'name':
+            'password',
+            'message':
+            'Enter your github password: ',
+            'when':
+            lambda answers: answers['auth_option'] == auth_choices[1] and
+            answers['user_name'],
+            'validate':
+            PassValidator
         },
     ]
     answers = prompt(questions, style=style)
     return answers
+
 
 #---------REPO OWNER QUESTION-----------------
-def ask_repo_owner():
-    questions = [
-        {
-            'type': 'input',
-            'name': 'owner',
-            'message': 'Enter name of the owner',
-            'validate': EmptyValidator
-        }
-    ]
+def ask_repo():
+    questions = [{
+        'type': 'input',
+        'name': 'repo',
+        'message': 'Enter name of the repo in the format <owner>/<repo>',
+        'validate': RepoValidator
+    }]
     answers = prompt(questions, style=style)
     return answers
-
-#------------------REPO NAME QUESTION----------------
-def ask_repo_name():
-    questions = [
-        {
-            'type': 'input',
-            'name': 'name',
-            'message': 'Enter name of the name',
-            'validate': RepoValidator
-        }
-    ]
-    answers = prompt(questions, style=style)
-    return answers
-
 
 
 @click.command()
-def main():
+def start():
     """
     CLI for mining repository data
     """
+    #reset()
+
     log("GRAS", color="blue", figlet=True)
     log("Welcome to GRAS CLI", "green")
-
     log("Enter your authentication details", "blue")
-    auth = ask_AUTH()
-    if(auth["auth_option"] == auth_choices[0]):
-        set_item("AUTH", "AUTH_KEY",auth["auth_key"])
-    else:   
-        set_item("AUTH", "user_name",auth["user_name"])
-        set_item("AUTH", "password",auth["password"])
-    log(f"{auth}", "green")
+    ask_AUTH()
 
     log("Enter your repo details", "blue")
-    owner = ask_repo_owner()
-    set_item("repo","owner",owner["owner"])
-    name = ask_repo_name()
-    set_item("repo","name",name["name"])
-    repo_name = get_item("repo","owner")
-    log(f"{repo_name}", "green")
-    reset()
+    ask_repo()
+    repo_name = get_item("repo", "name")
+    repo_owner = get_item("repo", "owner")
+    log(f"name: {repo_name}, owner: {repo_owner}", "green")
+
 
 if __name__ == '__main__':
-    main()
+    start()
