@@ -17,22 +17,23 @@ class GitHubQuery(metaclass=ABCMeta):
             query_params=None,
             url=APIStaticV4.BASE_URL,
             query=None,
+            additional_headers=None
     ):
         self.github_token = github_token
         self.query = query
         self.url = url
         self.query_params = query_params
+        self.additional_headers = additional_headers or dict()
 
     @property
     def headers(self):
         default_headers = dict(
-            Authorization=f"token {self.github_token}",
-            # Accept="application/vnd.github.cloak-preview+json"
-            Accept="application/vnd.github.hawkgirl-preview+json"
+            Authorization=f"token {self.github_token}"
         )
 
         return {
             **default_headers,
+            **self.additional_headers
         }
 
     def __send_request(self, param=None, only_json=True, method="post"):
@@ -86,7 +87,10 @@ class GitHubQuery(metaclass=ABCMeta):
 
         raise exceptions.RequestException(f"Problem with getting data via url {self.url}.")
 
-    def generator(self):
+    def generator(self, accept=None):
+        if accept is not None:
+            pass
+
         while True:
             try:
                 if self.query is not None:

@@ -29,6 +29,7 @@ class CustomQueryStruct(GitHubQuery):
             github_token=github_token,
             query=CustomQueryStruct.QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
+            additional_headers=dict(Accept="application/vnd.github.hawkgirl-preview+json")
         )
 
     def iterator(self):
@@ -40,6 +41,8 @@ class CustomQueryStruct(GitHubQuery):
                 response = next(generator)
             except StopIteration:
                 break
+
+            print(response)
 
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY]["dependencyGraphManifests"][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]

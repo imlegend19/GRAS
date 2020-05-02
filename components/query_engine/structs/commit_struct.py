@@ -11,7 +11,8 @@ class CommitStruct(GitHubQuery, CommitModel):
             query=None,
             url=f"https://api.github.com/search/commits?q=repo:{owner}/{name}+merge:{merge}+"
                 f"committer-date:{start_date}..{end_date}+sort:committer-date-asc&per_page=100&page=1",
-            query_params=None
+            query_params=None,
+            additional_headers=dict(Accept="application/vnd.github.cloak-preview+json")
         )
 
     def iterator(self):
