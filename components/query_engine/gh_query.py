@@ -27,7 +27,8 @@ class GitHubQuery(metaclass=ABCMeta):
     def headers(self):
         default_headers = dict(
             Authorization=f"token {self.github_token}",
-            Accept="application/vnd.github.cloak-preview+json"
+            # Accept="application/vnd.github.cloak-preview+json"
+            Accept="application/vnd.github.hawkgirl-preview+json"
         )
 
         return {
