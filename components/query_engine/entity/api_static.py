@@ -27,6 +27,7 @@ class APIStatic(metaclass=BaseStatic):
     WATCHERS = "watchers"
     SEARCH = "search"
     NUMBER = "number"
+    OID = "oid"
 
 
 class RepositoryStatic(metaclass=BaseStatic):
@@ -43,7 +44,6 @@ class RepositoryStatic(metaclass=BaseStatic):
     STARRED_AT = "starredAt"
     REFS = "refs"
     TARGET = "target"
-    OID = "oid"
     LANGUAGES = "languages"
     SIZE = "size"
 
@@ -63,6 +63,9 @@ class LabelStatic(metaclass=BaseStatic):
 
 
 class IssueStatic(metaclass=BaseStatic):
+    COMMITS = "commits"
+    PULL_REQUEST = "pullRequest"
+    FILES = "files"
     STATE = "state"
     REACTIONS = "reactions"
     LABELS = "labels"
@@ -90,6 +93,7 @@ class IssueStatic(metaclass=BaseStatic):
     MERGED = "merged"
     MERGED_AT = "merged"
     MERGED_BY = "mergedBy"
+    FILE_PATH = "path"
 
 
 class ReleaseStatic(metaclass=BaseStatic):

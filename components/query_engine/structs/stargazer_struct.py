@@ -44,33 +44,27 @@ class StargazerStruct(GitHubQuery, StargazerModel):
                 break
 
             endCursor = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                RepositoryStatic.STARGAZERS
-            ][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+                RepositoryStatic.STARGAZERS][APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
             self.query_params[APIStatic.AFTER] = '"' + endCursor + '"'
 
             resp = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                RepositoryStatic.STARGAZERS
-            ][APIStatic.EDGES]
+                RepositoryStatic.STARGAZERS][APIStatic.EDGES]
 
             if resp is not None:
                 if None not in resp:
-                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][
-                        RepositoryStatic.STARGAZERS
-                    ][APIStatic.EDGES]
+                    yield response[APIStatic.DATA][APIStatic.REPOSITORY][RepositoryStatic.STARGAZERS][APIStatic.EDGES]
                 else:
                     yield list(
                         filter(
                             None.__ne__,
-                            response[APIStatic.DATA][APIStatic.REPOSITORY][
-                                RepositoryStatic.STARGAZERS
-                            ][APIStatic.EDGES],
+                            response[APIStatic.DATA][APIStatic.REPOSITORY][RepositoryStatic.STARGAZERS][
+                                APIStatic.EDGES],
                         )
                     )
 
             hasNextPage = response[APIStatic.DATA][APIStatic.REPOSITORY][
-                RepositoryStatic.STARGAZERS
-            ][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+                RepositoryStatic.STARGAZERS][APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
 
 if __name__ == "__main__":

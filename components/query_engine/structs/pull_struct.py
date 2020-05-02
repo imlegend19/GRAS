@@ -1,5 +1,5 @@
 from components.query_engine.entity.api_static import APIStatic
-from components.query_engine.entity.models import PullRequestModel
+from components.query_engine.entity.models import PullRequestModel, time_period_chunks
 from components.query_engine.gh_query import GitHubQuery
 from local_settings import AUTH_KEY
 
@@ -61,7 +61,7 @@ class PullRequestStruct(GitHubQuery, PullRequestModel):
         }}
     """
 
-    def __init__(self, github_token, name, owner, start_date, end_date):
+    def __init__(self, github_token, name, owner, start_date, end_date, chunk_size=200):
         super().__init__(
             github_token=github_token,
             query=PullRequestStruct.PR_QUERY,
@@ -70,22 +70,34 @@ class PullRequestStruct(GitHubQuery, PullRequestModel):
                               end_date="*" if end_date is None else end_date)
         )
 
+        self.chunk_size = chunk_size
+
     def iterator(self):
-        generator = self.generator()
-        hasNextPage = True
+        assert self.query_params["start_date"] is not None
+        assert self.query_params["end_date"] is not None
 
-        while hasNextPage:
-            response = next(generator)
+        for start, end in time_period_chunks(self.query_params["start_date"],
+                                             self.query_params["end_date"], chunk_size=self.chunk_size):
+            self.query_params["start_date"] = start
+            self.query_params["end_date"] = end
 
-            endCursor = response[APIStatic.DATA][APIStatic.SEARCH] \
-                [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
+            generator = self.generator()
+            hasNextPage = True
 
-            self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
+            while hasNextPage:
+                response = next(generator)
 
-            yield response[APIStatic.DATA][APIStatic.SEARCH][APIStatic.NODES]
+                endCursor = response[APIStatic.DATA][APIStatic.SEARCH] \
+                    [APIStatic.PAGE_INFO][APIStatic.END_CURSOR]
 
-            hasNextPage = response[APIStatic.DATA][APIStatic.SEARCH] \
-                [APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
+                self.query_params[APIStatic.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
+
+                yield response[APIStatic.DATA] \
+                    [APIStatic.SEARCH] \
+                    [APIStatic.NODES]
+
+                hasNextPage = response[APIStatic.DATA][APIStatic.SEARCH] \
+                    [APIStatic.PAGE_INFO][APIStatic.HAS_NEXT_PAGE]
 
 
 if __name__ == '__main__':
@@ -99,4 +111,5 @@ if __name__ == '__main__':
 
     for lst in pr.iterator():
         for p in lst:
-            print(len(pr.object_decoder(p).assignees))
+            o = pr.object_decoder(p)
+            print(o.number, o.created_at)
