@@ -20,9 +20,9 @@ def init(args):
     return args.authkey
 
 
-parser = argparse.ArgumentParser(description='GITSTRUCT \n gather data from software repositories')
+parser = argparse.ArgumentParser(description='GRAS \n gather data from software repositories')
 subparsers = parser.add_subparsers(help='command')
-i_parser = subparsers.add_parser('init', help='initialize GitStruct')
+i_parser = subparsers.add_parser('init', help='initialize GRAS')
 i_parser.add_argument("-a", "--authkey", type=str, help="enter your github authentication key")
 i_parser.add_argument("-u", "--username", type=str, help="enter your github username")
 i_parser.add_argument("-p", "--password", type=str, help="enter your github password")
@@ -71,7 +71,7 @@ config = parser.parse_args()
 
 if __name__ == '__main__':
     sys.stdout.write(str(pprint(config.func(config))))
-
+    
     # repo_check(args.repo)
     # list = generate(args.repo)
     # sys.stdout.write(str(pprint(list)))

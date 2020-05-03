@@ -35,32 +35,31 @@ class IssueCommentStruct(GitHubQuery, IssueCommentModel):
             }}
         }}
     """
-
+    
     def __init__(self, github_token, name, owner, number):
         super().__init__(
             github_token=github_token,
             query=IssueCommentStruct.ISSUE_COMMENT_QUERY,
             query_params=dict(owner=owner, name=name, number=number, after="null")
         )
-
+    
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
-
+        
         while hasNextPage:
             response = next(generator)
-
-            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
-                [IssueStatic.ISSUE][IssueStatic.COMMENTS] \
-                [APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-
-            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
-
-            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
-                [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStaticV4.NODES]
-
-            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
-                [IssueStatic.ISSUE][IssueStatic.COMMENTS][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
+            
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
+                APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
+            
+            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
+            
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
+                APIStaticV4.NODES]
+            
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
+                APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
 
 if __name__ == '__main__':
@@ -70,7 +69,7 @@ if __name__ == '__main__':
         owner="sympy",
         number=2681
     )
-
+    
     for lst in issue_comment.iterator():
         for iss in lst:
             print(issue_comment.object_decoder(iss).positive_reaction_count,

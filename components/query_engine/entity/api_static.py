@@ -28,6 +28,7 @@ class APIStaticV4(metaclass=BaseStatic):
     SEARCH = "search"
     NUMBER = "number"
     OID = "oid"
+    EMAIL = "email"
 
 
 class APIStaticV3(metaclass=BaseStatic):
@@ -40,7 +41,7 @@ class APIStaticV3(metaclass=BaseStatic):
     EMAIL = "email"
 
 
-class CommitStaticV3(metaclass=BaseStatic):
+class CommitStatic(metaclass=BaseStatic):
     AUTHOR = "author"
     COMMIT = "commit"
     COMMITTER = "committer"
@@ -53,6 +54,14 @@ class CommitStaticV3(metaclass=BaseStatic):
     DELETIONS = "deletions"
     CHANGES = "changes"
     PATCH = "patch"
+    AUTHORED_DATE = "authoredDate"
+    USER = "user"
+    COMMITTED_DATE = "committedDate"
+    CHANGED_FILES = "changedFiles"
+    PARENTS = "parents"
+    OBJECT = "object"
+    HISTORY = "history"
+    STATE = "state"
 
 
 class RepositoryStatic(metaclass=BaseStatic):

@@ -23,7 +23,7 @@ class CustomQueryStruct(GitHubQuery):
             }}
         }}
     """
-
+    
     def __init__(self, github_token, name, owner):
         super().__init__(
             github_token=github_token,
@@ -31,29 +31,28 @@ class CustomQueryStruct(GitHubQuery):
             query_params=dict(name=name, owner=owner, after="null"),
             additional_headers=dict(Accept="application/vnd.github.hawkgirl-preview+json")
         )
-
+    
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
-
+        
         while hasNextPage:
             try:
                 response = next(generator)
             except StopIteration:
                 break
-
+            
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY]["dependencyGraphManifests"][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-
-            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else None
-
-            resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY]["dependencyGraphManifests"] \
-                [APIStaticV4.NODES]
-
+            
+            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
+            
+            resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY]["dependencyGraphManifests"][APIStaticV4.NODES]
+            
             if resp is not None:
                 if None not in resp:
-                    yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
-                        ["dependencyGraphManifests"][APIStaticV4.NODES]
+                    yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY]["dependencyGraphManifests"][
+                        APIStaticV4.NODES]
             else:
                 yield list(
                     (
@@ -64,14 +63,14 @@ class CustomQueryStruct(GitHubQuery):
                         )
                     )
                 )
-
-            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY] \
-                ["dependencyGraphManifests"][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
+            
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY]["dependencyGraphManifests"][
+                APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
 
 if __name__ == '__main__':
     cq = CustomQueryStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
-
+    
     for lst in cq.iterator():
         for c in lst:
             print(c)

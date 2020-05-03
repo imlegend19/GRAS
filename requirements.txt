@@ -1,6 +1,16 @@
 certifi==2020.4.5.1
 chardet==3.0.4
+click==7.1.2
+colorama==0.4.3
 idna==2.9
 pprint==0.1
+prompt-toolkit==3.0.5
+pyfiglet==0.8.post1
+Pygments==2.6.1
+PyInquirer==1.0.3
+regex==2020.4.4
 requests==2.23.0
+six==1.14.0
+termcolor==1.1.0
 urllib3==1.25.9
+wcwidth==0.1.9
