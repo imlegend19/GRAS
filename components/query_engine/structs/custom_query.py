@@ -42,8 +42,6 @@ class CustomQueryStruct(GitHubQuery):
             except StopIteration:
                 break
 
-            print(response)
-
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY]["dependencyGraphManifests"][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
 

@@ -359,8 +359,8 @@ class ReleaseModel(BaseModel):
 
     def object_decoder(self, dic):
         obj = ReleaseModel(
-            author_login=dic[ReleaseStatic.AUTHOR][APIStaticV4.LOGIN] if dic[
-                                                                             ReleaseStatic.AUTHOR] is not None else None,
+            author_login=dic[ReleaseStatic.AUTHOR][
+                APIStaticV4.LOGIN] if dic[ReleaseStatic.AUTHOR] is not None else None,
             description=dic[APIStaticV4.DESCRIPTION],
             created_at=dic[APIStaticV4.CREATED_AT],
             isPrerelease=dic[ReleaseStatic.IS_PRE_RELEASE],
@@ -393,24 +393,49 @@ class CommitModel(BaseModel):
 
     def object_decoder(self, dic, merge):
         obj = CommitModel(
-            commit_id=dic[CommitStatic.SHA],
-            author_name=dic[CommitStatic.COMMIT][CommitStatic.AUTHOR][
-                APIStaticV3.NAME] if dic[CommitStatic.COMMIT][CommitStatic.AUTHOR] is not None else None,
-            author_email=dic[CommitStatic.COMMIT][CommitStatic.AUTHOR][
-                APIStaticV3.EMAIL] if dic[CommitStatic.COMMIT][CommitStatic.AUTHOR] is not None else None,
-            authored_date=dic[CommitStatic.COMMIT][CommitStatic.AUTHOR][
-                APIStaticV3.DATE] if dic[CommitStatic.COMMIT][CommitStatic.AUTHOR] is not None else None,
-            author_login=dic[CommitStatic.AUTHOR][APIStaticV3.LOGIN] if dic[CommitStatic.AUTHOR] is not None else None,
-            committed_date=dic[CommitStatic.COMMIT][CommitStatic.COMMITTER][
-                APIStaticV3.DATE] if dic[CommitStatic.COMMIT][CommitStatic.COMMITTER] is not None else None,
-            committer_email=dic[CommitStatic.COMMIT][CommitStatic.COMMITTER][
-                APIStaticV3.EMAIL] if dic[CommitStatic.COMMIT][CommitStatic.COMMITTER] is not None else None,
-            committer_name=dic[CommitStatic.COMMIT][CommitStatic.COMMITTER][
-                APIStaticV3.NAME] if dic[CommitStatic.COMMIT][CommitStatic.COMMITTER] is not None else None,
-            committer_login=dic[CommitStatic.COMMITTER][
-                APIStaticV3.LOGIN] if dic[CommitStatic.COMMITTER] is not None else None,
-            msg=dic[CommitStatic.COMMIT][CommitStatic.MESSAGE],
+            commit_id=dic[CommitStaticV3.SHA],
+            author_name=dic[CommitStaticV3.COMMIT][CommitStaticV3.AUTHOR][
+                APIStaticV3.NAME] if dic[CommitStaticV3.COMMIT][CommitStaticV3.AUTHOR] is not None else None,
+            author_email=dic[CommitStaticV3.COMMIT][CommitStaticV3.AUTHOR][
+                APIStaticV3.EMAIL] if dic[CommitStaticV3.COMMIT][CommitStaticV3.AUTHOR] is not None else None,
+            authored_date=dic[CommitStaticV3.COMMIT][CommitStaticV3.AUTHOR][
+                APIStaticV3.DATE] if dic[CommitStaticV3.COMMIT][CommitStaticV3.AUTHOR] is not None else None,
+            author_login=dic[CommitStaticV3.AUTHOR][
+                APIStaticV3.LOGIN] if dic[CommitStaticV3.AUTHOR] is not None else None,
+            committed_date=dic[CommitStaticV3.COMMIT][CommitStaticV3.COMMITTER][
+                APIStaticV3.DATE] if dic[CommitStaticV3.COMMIT][CommitStaticV3.COMMITTER] is not None else None,
+            committer_email=dic[CommitStaticV3.COMMIT][CommitStaticV3.COMMITTER][
+                APIStaticV3.EMAIL] if dic[CommitStaticV3.COMMIT][CommitStaticV3.COMMITTER] is not None else None,
+            committer_name=dic[CommitStaticV3.COMMIT][CommitStaticV3.COMMITTER][
+                APIStaticV3.NAME] if dic[CommitStaticV3.COMMIT][CommitStaticV3.COMMITTER] is not None else None,
+            committer_login=dic[CommitStaticV3.COMMITTER][
+                APIStaticV3.LOGIN] if dic[CommitStaticV3.COMMITTER] is not None else None,
+            msg=dic[CommitStaticV3.COMMIT][CommitStaticV3.MESSAGE],
             is_merge=merge
+        )
+
+        return obj
+
+
+class CodeChangeModel(BaseModel):
+    def __init__(self, filename, status, additions, deletions, changes, patch):
+        super().__init__()
+
+        self.filename = filename
+        self.status = status
+        self.additions = additions
+        self.deletions = deletions
+        self.changes = changes
+        self.patch = patch
+
+    def object_decoder(self, dic):
+        obj = CodeChangeModel(
+            filename=dic[CommitStaticV3.FILENAME],
+            status=dic[CommitStaticV3.STATUS],
+            additions=dic[CommitStaticV3.ADDITIONS],
+            deletions=dic[CommitStaticV3.DELETIONS],
+            changes=dic[CommitStaticV3.CHANGES],
+            patch=dic[CommitStaticV3.PATCH]
         )
 
         return obj

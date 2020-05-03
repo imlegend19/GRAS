@@ -40,12 +40,19 @@ class APIStaticV3(metaclass=BaseStatic):
     EMAIL = "email"
 
 
-class CommitStatic(metaclass=BaseStatic):
+class CommitStaticV3(metaclass=BaseStatic):
     AUTHOR = "author"
     COMMIT = "commit"
     COMMITTER = "committer"
     MESSAGE = "message"
     SHA = "sha"
+    FILES = "files"
+    STATUS = "status"
+    FILENAME = "filename"
+    ADDITIONS = "additions"
+    DELETIONS = "deletions"
+    CHANGES = "changes"
+    PATCH = "patch"
 
 
 class RepositoryStatic(metaclass=BaseStatic):
