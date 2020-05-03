@@ -1,9 +1,6 @@
 import json
-import requests
 
-config_file = open("config.json", "r")
-config = json.load(config_file)
-config_file.close()
+import requests
 
 
 def get_item(key, item):
@@ -26,7 +23,7 @@ def reset():
         json.dump(data, write_config)
 
 
-#TODO
+# TODO
 def auth_key_validator(auth_key):
     return True
 
@@ -41,6 +38,12 @@ def user_validator(user):
     return res
 
 
-#TODO
+# TODO
 def pass_validator(user, password):
-    return True
+    raise NotImplementedError
+
+
+if __name__ == '__main__':
+    config_file = open("config.json", "r")
+    config = json.load(config_file)
+    config_file.close()
