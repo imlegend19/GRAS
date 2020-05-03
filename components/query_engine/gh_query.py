@@ -86,9 +86,9 @@ class GitHubQuery(metaclass=ABCMeta):
         
         raise exceptions.RequestException(f"Problem with getting data via url {self.url}.")
     
-    def generator(self, accept=None):
-        if accept is not None:
-            pass
+    def generator(self):
+        if self.url is None:
+            self.url = APIStaticV4.BASE_URL
         
         while True:
             try:

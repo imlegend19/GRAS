@@ -8,6 +8,7 @@ prompt-toolkit==3.0.5
 pyfiglet==0.8.post1
 Pygments==2.6.1
 PyInquirer==1.0.3
+python-dateutil==2.8.1
 regex==2020.4.4
 requests==2.23.0
 six==1.14.0

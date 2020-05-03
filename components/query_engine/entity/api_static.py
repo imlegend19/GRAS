@@ -5,11 +5,9 @@ class BaseStatic(type):
 
 class APIStaticV4(metaclass=BaseStatic):
     BASE_URL = "https://api.github.com/graphql"
-    NAME = "name"
     DATA = "data"
     RESOURCE = "resource"
     ID = "id"
-    LOGIN = "login"
     TOTAL_COUNT = "totalCount"
     CREATED_AT = "createdAt"
     UPDATED_AT = "updatedAt"
@@ -19,7 +17,6 @@ class APIStaticV4(metaclass=BaseStatic):
     NODES = "nodes"
     NODE = "node"
     EDGES = "edges"
-    CREATOR = "creator"
     URL = "url"
     DESCRIPTION = "description"
     REPOSITORY = "repository"
@@ -28,7 +25,17 @@ class APIStaticV4(metaclass=BaseStatic):
     SEARCH = "search"
     NUMBER = "number"
     OID = "oid"
+    
+
+class UserStatic(metaclass=BaseStatic):
+    USER = "user"
     EMAIL = "email"
+    LOGIN = "login"
+    NAME = "name"
+    CREATOR = "creator"
+    ASSIGNABLE_USERS = "assignableUsers"
+    FOLLOWERS = "followers"
+    LOCATION = "location"
 
 
 class APIStaticV3(metaclass=BaseStatic):
@@ -55,7 +62,6 @@ class CommitStatic(metaclass=BaseStatic):
     CHANGES = "changes"
     PATCH = "patch"
     AUTHORED_DATE = "authoredDate"
-    USER = "user"
     COMMITTED_DATE = "committedDate"
     CHANGED_FILES = "changedFiles"
     PARENTS = "parents"
@@ -80,6 +86,8 @@ class RepositoryStatic(metaclass=BaseStatic):
     TARGET = "target"
     LANGUAGES = "languages"
     SIZE = "size"
+    TOPICS = "repositoryTopics"
+    TOPIC = "topic"
 
 
 class MilestoneStatic(metaclass=BaseStatic):

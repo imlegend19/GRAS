@@ -35,7 +35,7 @@ class RepositoryModel(BaseModel):
     
     def object_decoder(self, dic):
         obj = RepositoryModel(
-            name=dic[APIStaticV4.NAME],
+            name=dic[UserStatic.NAME],
             url=dic[APIStaticV4.URL],
             created_at=dic[APIStaticV4.CREATED_AT],
             updated_at=dic[APIStaticV4.UPDATED_AT],
@@ -45,8 +45,8 @@ class RepositoryModel(BaseModel):
             homepage_url=dic[RepositoryStatic.HOMEPAGE_URL],
             is_archived=dic[RepositoryStatic.IS_ARCHIVED],
             is_fork=dic[RepositoryStatic.IS_FORK],
-            owner_login=dic[RepositoryStatic.OWNER][APIStaticV4.LOGIN],
-            primary_language=dic[RepositoryStatic.PRIMARY_LANGUAGE][APIStaticV4.NAME],
+            owner_login=dic[RepositoryStatic.OWNER][UserStatic.LOGIN],
+            primary_language=dic[RepositoryStatic.PRIMARY_LANGUAGE][UserStatic.NAME],
             stargazer_count=dic[RepositoryStatic.STARGAZERS][APIStaticV4.TOTAL_COUNT],
             watcher_count=dic[RepositoryStatic.WATCHERS][APIStaticV4.TOTAL_COUNT],
         )
@@ -75,7 +75,7 @@ class MilestoneModel(BaseModel):
             state=dic[MilestoneStatic.STATE],
             due_on=dic[MilestoneStatic.DUE_ON],
             description=dic[APIStaticV4.DESCRIPTION],
-            creator_login=dic[MilestoneStatic.CREATOR][APIStaticV4.LOGIN],
+            creator_login=dic[MilestoneStatic.CREATOR][UserStatic.LOGIN],
             created_at=dic[APIStaticV4.CREATED_AT],
             updated_at=dic[APIStaticV4.UPDATED_AT],
             closed_at=dic[MilestoneStatic.CLOSED_AT],
@@ -94,7 +94,7 @@ class StargazerModel(BaseModel):
     def object_decoder(self, dic):
         obj = StargazerModel(
             starred_at=dic[RepositoryStatic.STARRED_AT],
-            login=dic[APIStaticV4.NODE][APIStaticV4.LOGIN],
+            login=dic[APIStaticV4.NODE][UserStatic.LOGIN],
         )
         
         return obj
@@ -111,7 +111,7 @@ class LabelModel(BaseModel):
     def object_decoder(self, dic):
         obj = LabelModel(
             color=dic[APIStaticV4.NODE][LabelStatic.COLOR],
-            name=dic[APIStaticV4.NODE][APIStaticV4.NAME],
+            name=dic[APIStaticV4.NODE][UserStatic.NAME],
             created_at=dic[APIStaticV4.NODE][APIStaticV4.CREATED_AT],
         )
         
@@ -127,7 +127,7 @@ class BranchModel(BaseModel):
     
     def object_decoder(self, dic):
         obj = BranchModel(
-            name=dic[APIStaticV4.NAME],
+            name=dic[UserStatic.NAME],
             commit_id=dic[RepositoryStatic.TARGET][APIStaticV4.OID],
         )
         
@@ -143,7 +143,7 @@ class WatcherModel(BaseModel):
     
     def object_decoder(self, dic):
         obj = WatcherModel(
-            login=dic[APIStaticV4.LOGIN],
+            login=dic[UserStatic.LOGIN],
             created_at=dic[APIStaticV4.CREATED_AT]
         )
         
@@ -159,7 +159,7 @@ class LanguageModel(BaseModel):
     
     def object_decoder(self, dic):
         obj = LanguageModel(
-            language=dic[APIStaticV4.NODE][APIStaticV4.NAME],
+            language=dic[APIStaticV4.NODE][UserStatic.NAME],
             size=dic[RepositoryStatic.SIZE] / 1024,
         )
         
@@ -194,11 +194,11 @@ class IssueModel(BaseModel):
             closed_at=dic[IssueStatic.CLOSED_AT],
             title=dic[IssueStatic.TITLE],
             body=dic[IssueStatic.BODY_TEXT],
-            author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][APIStaticV4.LOGIN],
-            assignees=list(node[APIStaticV4.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]),
+            author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][UserStatic.LOGIN],
+            assignees=list(node[UserStatic.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]),
             number=dic[APIStaticV4.NUMBER],
             milestone_number=dic[IssueStatic.MILESTONE],
-            labels=list(node[APIStaticV4.NAME] for node in dic[IssueStatic.LABELS][APIStaticV4.NODES]),
+            labels=list(node[UserStatic.NAME] for node in dic[IssueStatic.LABELS][APIStaticV4.NODES]),
             positive_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
             negative_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
             ambiguous_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
@@ -228,7 +228,7 @@ class IssueCommentModel(BaseModel):
             created_at=dic[APIStaticV4.CREATED_AT],
             updated_at=dic[APIStaticV4.UPDATED_AT],
             body=dic[IssueStatic.BODY_TEXT],
-            author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][APIStaticV4.LOGIN],
+            author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][UserStatic.LOGIN],
             positive_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
             negative_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
             ambiguous_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
@@ -291,9 +291,9 @@ class PullRequestModel(BaseModel):
         obj = PullRequestModel(
             number=dic[APIStaticV4.NUMBER],
             title=dic[IssueStatic.TITLE],
-            author_login=dic[IssueStatic.AUTHOR][APIStaticV4.LOGIN],
-            assignees=list(node[APIStaticV4.LOGIN] for node in (dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]
-                                                                if dic[IssueStatic.ASSIGNEES] is not None else [])),
+            author_login=dic[IssueStatic.AUTHOR][UserStatic.LOGIN],
+            assignees=list(node[UserStatic.LOGIN] for node in (dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]
+                                                               if dic[IssueStatic.ASSIGNEES] is not None else [])),
             body=dic[IssueStatic.BODY_TEXT],
             num_files_changed=dic[IssueStatic.CHANGED_FILES],
             closed=dic[IssueStatic.CLOSED],
@@ -304,10 +304,10 @@ class PullRequestModel(BaseModel):
             deletions=dic[IssueStatic.DELETIONS],
             head_ref_name=dic[IssueStatic.HEAD_REF_NAME],
             head_ref_oid=dic[IssueStatic.HEAD_REF_OID],
-            labels=list(node[APIStaticV4.NAME] for node in dic[IssueStatic.LABELS][APIStaticV4.NODES]),
+            labels=list(node[UserStatic.NAME] for node in dic[IssueStatic.LABELS][APIStaticV4.NODES]),
             merged=dic[IssueStatic.MERGED],
             merged_at=dic[IssueStatic.MERGED_AT],
-            merged_by=dic[IssueStatic.MERGED_BY][APIStaticV4.LOGIN] if dic[IssueStatic.MERGED_BY] is not None else None,
+            merged_by=dic[IssueStatic.MERGED_BY][UserStatic.LOGIN] if dic[IssueStatic.MERGED_BY] is not None else None,
             milestone_number=dic[IssueStatic.MILESTONE][APIStaticV4.NUMBER] if
             dic[IssueStatic.MILESTONE] is not None else None,
             positive_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
@@ -334,7 +334,7 @@ class AssetModel(BaseModel):
     def object_decoder(dic, **kwargs):
         obj = AssetModel(
             download_count=dic[ReleaseStatic.DOWNLOAD_COUNT],
-            name=dic[APIStaticV4.NAME],
+            name=dic[UserStatic.NAME],
             size=dic[ReleaseStatic.SIZE],
             updated_at=dic[APIStaticV4.UPDATED_AT],
             content_type=dic[ReleaseStatic.CONTENT_TYPE],
@@ -360,11 +360,11 @@ class ReleaseModel(BaseModel):
     def object_decoder(self, dic):
         obj = ReleaseModel(
             author_login=dic[ReleaseStatic.AUTHOR][
-                APIStaticV4.LOGIN] if dic[ReleaseStatic.AUTHOR] is not None else None,
+                UserStatic.LOGIN] if dic[ReleaseStatic.AUTHOR] is not None else None,
             description=dic[APIStaticV4.DESCRIPTION],
             created_at=dic[APIStaticV4.CREATED_AT],
             isPrerelease=dic[ReleaseStatic.IS_PRE_RELEASE],
-            name=dic[APIStaticV4.NAME],
+            name=dic[UserStatic.NAME],
             release_assets=list(AssetModel.object_decoder(node) for node in
                                 dic[ReleaseStatic.RELEASE_ASSETS][APIStaticV4.NODES]),
             tag_name=dic[ReleaseStatic.TAG_NAME],
@@ -444,15 +444,15 @@ class CommitModelV4(BaseModel):
             commit_id=dic[APIStaticV4.OID],
             additions=dic[CommitStatic.ADDITIONS],
             deletions=dic[CommitStatic.DELETIONS],
-            author_name=dic[CommitStatic.AUTHOR][APIStaticV4.NAME],
-            author_email=dic[CommitStatic.AUTHOR][APIStaticV4.EMAIL],
-            author_login=dic[CommitStatic.AUTHOR][CommitStatic.USER][
-                APIStaticV4.LOGIN] if dic[CommitStatic.AUTHOR][CommitStatic.USER] is not None else None,
+            author_name=dic[CommitStatic.AUTHOR][UserStatic.NAME],
+            author_email=dic[CommitStatic.AUTHOR][UserStatic.EMAIL],
+            author_login=dic[CommitStatic.AUTHOR][UserStatic.USER][
+                UserStatic.LOGIN] if dic[CommitStatic.AUTHOR][UserStatic.USER] is not None else None,
             authored_date=dic[CommitStatic.AUTHORED_DATE],
-            committer_name=dic[CommitStatic.COMMITTER][APIStaticV4.NAME],
-            committer_email=dic[CommitStatic.COMMITTER][APIStaticV4.EMAIL],
-            committer_login=dic[CommitStatic.COMMITTER][CommitStatic.USER][
-                APIStaticV4.LOGIN] if dic[CommitStatic.COMMITTER][CommitStatic.USER] is not None else None,
+            committer_name=dic[CommitStatic.COMMITTER][UserStatic.NAME],
+            committer_email=dic[CommitStatic.COMMITTER][UserStatic.EMAIL],
+            committer_login=dic[CommitStatic.COMMITTER][UserStatic.USER][
+                UserStatic.LOGIN] if dic[CommitStatic.COMMITTER][UserStatic.USER] is not None else None,
             committed_date=dic[CommitStatic.COMMITTED_DATE],
             message=dic[CommitStatic.MESSAGE],
             state=dic[CommitStatic.STATUS][CommitStatic.STATE] if dic[CommitStatic.STATUS] is not None else None,
@@ -482,6 +482,50 @@ class CodeChangeModel(BaseModel):
             deletions=dic[CommitStatic.DELETIONS],
             changes=dic[CommitStatic.CHANGES],
             patch=dic[CommitStatic.PATCH]
+        )
+        
+        return obj
+
+
+class UserModel(BaseModel):
+    def __init__(self, login, name, email, created_at, total_followers, location, updated_at):
+        super().__init__()
+        
+        self.login = login
+        self.name = name
+        self.email = email
+        self.created_at = created_at
+        self.total_followers = total_followers
+        self.location = location
+        self.updated_at = updated_at
+    
+    def object_decoder(self, dic):
+        obj = UserModel(
+            login=dic[UserStatic.LOGIN],
+            name=dic[UserStatic.NAME],
+            email=dic[UserStatic.EMAIL],
+            created_at=dic[APIStaticV4.CREATED_AT],
+            total_followers=dic[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT],
+            location=dic[UserStatic.LOCATION],
+            updated_at=dic[APIStaticV4.UPDATED_AT]
+        )
+        
+        return obj
+
+
+class TopicModel(BaseModel):
+    def __init__(self, url, topic_name, stargazer_count):
+        super().__init__()
+        
+        self.url = url
+        self.topic_name = topic_name
+        self.stargazer_count = stargazer_count
+    
+    def object_decoder(self, dic):
+        obj = TopicModel(
+            url=dic[APIStaticV4.URL],
+            topic_name=dic[RepositoryStatic.TOPIC][UserStatic.NAME],
+            stargazer_count=dic[RepositoryStatic.TOPIC][RepositoryStatic.STARGAZERS][APIStaticV4.TOTAL_COUNT]
         )
         
         return obj
