@@ -48,7 +48,10 @@ class IssueCommentStruct(GitHubQuery, IssueCommentModel):
         hasNextPage = True
         
         while hasNextPage:
-            response = next(generator)
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
             
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
