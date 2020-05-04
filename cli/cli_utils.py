@@ -1,18 +1,28 @@
-from pyfiglet import Figlet
+# standard library
+import sys
 import os
-import re
-import click
+sys.path.append('/home/viper/dev/GRAS')
+import requests
+import csv
+#third party
 import colorama
 colorama.init()
-import json
-from conf import *
+import click
 from PyInquirer import (Token, ValidationError, Validator, print_json, prompt,
                         style_from_dict, Separator)
 from termcolor import colored
 from pyfiglet import figlet_format
-import requests
 
-#--------Adds color----------------
+#modules
+from components.query_engine.structs import *
+from config import set_item, get_item, check
+
+
+
+#----------------------------------------------------------------
+# UTILITY FUNCTIONS
+#---------------------------------------------------------------
+
 style = style_from_dict({
     Token.QuestionMark: '#fac731 bold',
     Token.Answer: '#4688f1 bold',
@@ -22,8 +32,6 @@ style = style_from_dict({
     Token.Pointer: '#673ab7 bold',
     Token.Question: '',
 })
-
-#-------OUTPUT COLORED TEXT-------
 
 
 def log(string, color, font="slant", figlet=False):
@@ -36,8 +44,9 @@ def log(string, color, font="slant", figlet=False):
         print(string)
 
 
-#TODO: MAYBE ADD ALL VALIDATOR CLASSES IN A SEPARATE UTILS FILE, INSTEAD OF CALLING THE API FROM conf.py
-#----CHECKS IF INPUT IS EMPTY----------
+#----------------------------------------------------------------
+# VALIDATOR CLASSES
+#----------------------------------------------------------------
 
 
 class EmptyValidator(Validator):
@@ -49,15 +58,26 @@ class EmptyValidator(Validator):
                                   cursor_position=len(value.text))
 
 
+#----TODO MAKE SURE THE USER CHOSES ATLEAST ONE STRUCT--------------------
+class EmptyChoiceValidator(Validator):
+    def validate(self, value):
+        if len(value):
+            return True
+        else:
+            raise ValidationError(message="You must choose at least one item")
+
+
 #-----TODO: AUTHKEY VALIDATION---------args,kwargs
+def auth_key_validator(auth_key):
+    return True
+
+
 class AuthKeyValidator(Validator):
     def validate(self, value):
         if len(value.text):
             if auth_key_validator(value.text) != True:
                 raise ValidationError(message="invalid auth key",
                                       cursor_position=len(value.text))
-            else:
-                set_item("AUTH", "AUTH_KEY", value.text)
         else:
             raise ValidationError(message="You can't leave this blank",
                                   cursor_position=len(value.text))
@@ -67,7 +87,8 @@ class AuthKeyValidator(Validator):
 class UserValidator(Validator):
     def validate(self, value):
         if len(value.text):
-            ok = user_validator(value.text)
+            ok = requests.get("https://api.github.com/users/{}".format(
+                value.text)).ok
             if ok != True:
                 raise ValidationError(
                     message=f"The user {value.text} does not exist",
@@ -79,7 +100,12 @@ class UserValidator(Validator):
                                   cursor_position=len(value.text))
 
 
-#---PASSWORDVALIDATOR-------------
+#---PASSWORDVALIDATOR----------------
+#TODO
+def pass_validator(user, password):
+    return True
+
+
 class PassValidator(Validator):
     set_item("AUTH", "pass_attempts", '1')
 
@@ -94,8 +120,6 @@ class PassValidator(Validator):
                     cursor_position=len(value.text))
             elif pass_attempts > 3:
                 raise click.UsageError("ENTERED INVALID PASSWORD 3 TIMES")
-            else:
-                set_item("AUTH", "password", value.text)
         else:
             raise ValidationError(message="You can't leave this blank",
                                   cursor_position=len(value.text))
@@ -110,11 +134,9 @@ class RepoValidator(Validator):
                     message="input has to be in the format <owner>/<repo>",
                     cursor_position=len(value.text))
             else:
-                ok = repo_validator(value.text)
-                if ok == True:
-                    set_item("repo", "owner", value.text.split('/')[0])
-                    set_item("repo", "name", value.text.split('/')[0])
-                else:
+                ok = requests.get("https://api.github.com/repos/{}".format(
+                    value.text)).ok
+                if ok != True:
                     raise ValidationError(
                         message=f"The repo {value.text} does not exist",
                         cursor_position=len(value.text))
@@ -124,81 +146,20 @@ class RepoValidator(Validator):
                                   cursor_position=len(value.text))
 
 
-auth_choices = ['Use your gh auth key', 'use your username and password']
-
-#----AUTH QUESTION---------------------
-
-
-def ask_AUTH():
-    questions = [
-        {
-            'type': 'list',
-            'name': 'auth_option',
-            'message': 'How would you like to authenticate?',
-            'choices': auth_choices
-        },
-        {
-            'type': 'input',
-            'name': 'auth_key',
-            'message': 'Enter your auth_key:',
-            'when': lambda answers: answers['auth_option'] == auth_choices[0],
-            'validate': AuthKeyValidator
-        },
-        {
-            'type': 'input',
-            'name': 'user_name',
-            'message': 'Enter your github user name: ',
-            'when': lambda answers: answers['auth_option'] == auth_choices[1],
-            'validate': UserValidator
-        },
-        {
-            'type':
-            'password',
-            'name':
-            'password',
-            'message':
-            'Enter your github password: ',
-            'when':
-            lambda answers: answers['auth_option'] == auth_choices[1] and
-            answers['user_name'],
-            'validate':
-            PassValidator
-        },
-    ]
-    answers = prompt(questions, style=style)
-    return answers
+#---------STRUCT GENERATOR-------------------
+def gen_struct():
+    path = './components/query_engine/structs'
+    struct_files = []
+    for (root,dirs,files) in os.walk('./components/query_engine/structs'):
+        struct_files.append(files)
+    struct_files = struct_files[0]
+    
 
 
-#---------REPO OWNER QUESTION-----------------
-def ask_repo():
-    questions = [{
-        'type': 'input',
-        'name': 'repo',
-        'message': 'Enter name of the repo in the format <owner>/<repo>',
-        'validate': RepoValidator
-    }]
-    answers = prompt(questions, style=style)
-    return answers
+# #--------CSV GENERATOR-------------------
+# def gen_csv_from_struct(struct):
+#     repo = get_item("repo","name")
+#     with open('{}_{}.csv'.format(repo,struct), w) as csv_file:
+#         fieldnames = list()
 
-
-@click.command()
-def start():
-    """
-    CLI for mining repository data
-    """
-    #reset()
-
-    log("GRAS", color="blue", figlet=True)
-    log("Welcome to GRAS CLI", "green")
-    log("Enter your authentication details", "blue")
-    ask_AUTH()
-
-    log("Enter your repo details", "blue")
-    ask_repo()
-    repo_name = get_item("repo", "name")
-    repo_owner = get_item("repo", "owner")
-    log(f"name: {repo_name}, owner: {repo_owner}", "green")
-
-
-if __name__ == '__main__':
-    start()
+gen_struct()
