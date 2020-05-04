@@ -1,39 +1,16 @@
 import logging
 import time
-from abc import ABCMeta, abstractmethod
 from datetime import datetime
 
 from requests import exceptions, request
 
+from components.query_engine.base_interface import BaseInterface
 from components.query_engine.entity.api_static import APIStaticV4
 from local_settings import AUTH_KEY
 
 
-class BaseInterface(metaclass=ABCMeta):
-    @property
-    @abstractmethod
-    def tag(self):
-        """
-        Tag of the backend
-
-        .. WARNING:: Must be unique among all the interfaces.
-        """
-        return
-    
-    @abstractmethod
-    def __init__(self):
-        pass
-    
-    @abstractmethod
-    def generator(self):
-        pass
-    
-    @abstractmethod
-    def iterator(self):
-        pass
-
-
 class GithubInterface(BaseInterface):
+    @property
     def tag(self):
         return 'github'
     
@@ -135,20 +112,3 @@ class GithubInterface(BaseInterface):
     def iterator(self):
         generator = self.generator()
         return next(generator)
-
-
-if __name__ == '__main__':
-    from components.utils import to_iso_format
-    
-    owner, name = "sympy", "sympy"
-    start_date = to_iso_format("2012-01-01")
-    end_date = to_iso_format("2012-01-02")
-    
-    github = GithubInterface(
-        github_token=AUTH_KEY,
-        url=f"https://api.github.com/search/commits?q=repo:{owner}/{name}+merge:false+"
-            f"committer-date:{start_date}..{end_date}+sort:committer-date-asc&per_page=1&page=1"
-    )
-    
-    response = github.iterator()
-    print(response.status_code)

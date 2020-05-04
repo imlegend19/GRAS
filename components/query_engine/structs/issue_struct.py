@@ -66,9 +66,6 @@ class IssueStruct(GithubInterface, IssueModel):
         
         self.chunk_size = chunk_size
     
-    def _iterate(self):
-        pass
-    
     def iterator(self):
         assert self.query_params["start_date"] is not None
         assert self.query_params["end_date"] is not None
