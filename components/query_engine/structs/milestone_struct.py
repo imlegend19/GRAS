@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4, MilestoneStatic
 from components.query_engine.entity.models import MilestoneModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class MilestoneStruct(GitHubQuery, MilestoneModel):
+class MilestoneStruct(GithubInterface, MilestoneModel):
     MILESTONE_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{

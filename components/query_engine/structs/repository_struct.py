@@ -2,11 +2,11 @@ from string import Template
 
 from components.query_engine.entity.api_static import APIStaticV4
 from components.query_engine.entity.models import RepositoryModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class RepositoryStruct(GitHubQuery, RepositoryModel):
+class RepositoryStruct(GithubInterface, RepositoryModel):
     REPO_QUERY_TEMPLATE = Template(
         """
              {

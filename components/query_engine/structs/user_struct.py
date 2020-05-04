@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4, UserStatic
 from components.query_engine.entity.models import UserModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class AssignableUserStruct(GitHubQuery, UserModel):
+class AssignableUserStruct(GithubInterface, UserModel):
     QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
@@ -58,7 +58,7 @@ class AssignableUserStruct(GitHubQuery, UserModel):
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
 
-class UserStruct(GitHubQuery, UserModel):
+class UserStruct(GithubInterface, UserModel):
     QUERY = """
         {{
             user(login: "{login}") {{

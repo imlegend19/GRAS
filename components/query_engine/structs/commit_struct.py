@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV3, APIStaticV4, CommitStatic
 from components.query_engine.entity.models import CodeChangeModel, CommitModelV3, CommitModelV4, to_iso_format
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class CodeChangeStruct(GitHubQuery, CodeChangeModel):
+class CodeChangeStruct(GithubInterface, CodeChangeModel):
     def __init__(self, github_token, name, owner, commit_id):
         super().__init__(
             github_token=github_token,
@@ -18,7 +18,7 @@ class CodeChangeStruct(GitHubQuery, CodeChangeModel):
         return next(generator).json()[CommitStatic.FILES]
 
 
-class CommitStructV3(GitHubQuery, CommitModelV3):
+class CommitStructV3(GithubInterface, CommitModelV3):
     def __init__(self, github_token, name, owner, start_date, end_date, merge):
         super().__init__(
             github_token=github_token,
@@ -49,7 +49,7 @@ class CommitStructV3(GitHubQuery, CommitModelV3):
             hasNextPage = True if next_url is not None else False
 
 
-class CommitStructV4(GitHubQuery, CommitModelV4):
+class CommitStructV4(GithubInterface, CommitModelV4):
     COMMIT_QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{

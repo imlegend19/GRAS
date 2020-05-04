@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4, LabelStatic
 from components.query_engine.entity.models import LabelModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class LabelStruct(GitHubQuery, LabelModel):
+class LabelStruct(GithubInterface, LabelModel):
     LABEL_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{

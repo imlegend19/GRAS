@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4
 from components.query_engine.entity.models import PullRequestModel, time_period_chunks
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class PullRequestStruct(GitHubQuery, PullRequestModel):
+class PullRequestStruct(GithubInterface, PullRequestModel):
     PR_QUERY = """
         {{
             search(query: "repo:{owner}/{name} is:pr created:{start_date}..{end_date} sort:created-asc", 

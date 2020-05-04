@@ -6,18 +6,41 @@ from datetime import datetime
 from requests import exceptions, request
 
 from components.query_engine.entity.api_static import APIStaticV4
+from local_settings import AUTH_KEY
 
 
-class GitHubQuery(metaclass=ABCMeta):
+class BaseInterface(metaclass=ABCMeta):
+    @property
     @abstractmethod
-    def __init__(
-            self,
-            github_token=None,
-            query_params=None,
-            url=APIStaticV4.BASE_URL,
-            query=None,
-            additional_headers=None
-    ):
+    def tag(self):
+        """
+        Tag of the backend
+
+        .. WARNING:: Must be unique among all the interfaces.
+        """
+        return
+    
+    @abstractmethod
+    def __init__(self):
+        pass
+    
+    @abstractmethod
+    def generator(self):
+        pass
+    
+    @abstractmethod
+    def iterator(self):
+        pass
+
+
+class GithubInterface(BaseInterface):
+    def tag(self):
+        return 'github'
+    
+    def __init__(self, github_token=None, query_params=None, url=APIStaticV4.BASE_URL, query=None,
+                 additional_headers=None):
+        super().__init__()
+        
         self.github_token = github_token
         self.query = query
         self.url = url
@@ -35,7 +58,7 @@ class GitHubQuery(metaclass=ABCMeta):
             **self.additional_headers
         }
     
-    def __send_request(self, param=None, only_json=True, method="post"):
+    def _send_request(self, param=None, only_json=True, method="post"):
         tries = 1
         while tries <= 3:
             logging.debug(f"Sending request to url {self.url}. (Try: {tries})")
@@ -94,21 +117,38 @@ class GitHubQuery(metaclass=ABCMeta):
             try:
                 if self.query is not None:
                     if self.query_params is None:
-                        yield self.__send_request(
+                        yield self._send_request(
                             param=dict(query=self.query)
                         )
                     else:
-                        yield self.__send_request(
+                        yield self._send_request(
                             param=dict(query=self.query.format_map(self.query_params))
                         )
                 else:
-                    yield self.__send_request(only_json=False, method="get")
+                    yield self._send_request(only_json=False, method="get")
             
             except exceptions.HTTPError as http_err:
                 raise http_err
             except Exception as err:
                 raise err
     
-    @abstractmethod
     def iterator(self):
-        pass
+        generator = self.generator()
+        return next(generator)
+
+
+if __name__ == '__main__':
+    from components.utils import to_iso_format
+    
+    owner, name = "sympy", "sympy"
+    start_date = to_iso_format("2012-01-01")
+    end_date = to_iso_format("2012-01-02")
+    
+    github = GithubInterface(
+        github_token=AUTH_KEY,
+        url=f"https://api.github.com/search/commits?q=repo:{owner}/{name}+merge:false+"
+            f"committer-date:{start_date}..{end_date}+sort:committer-date-asc&per_page=1&page=1"
+    )
+    
+    response = github.iterator()
+    print(response.status_code)

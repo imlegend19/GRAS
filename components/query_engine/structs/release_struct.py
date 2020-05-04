@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4, ReleaseStatic
 from components.query_engine.entity.models import ReleaseModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class ReleaseStruct(GitHubQuery, ReleaseModel):
+class ReleaseStruct(GithubInterface, ReleaseModel):
     RELEASE_QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{

@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4, RepositoryStatic
 from components.query_engine.entity.models import StargazerModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class StargazerStruct(GitHubQuery, StargazerModel):
+class StargazerStruct(GithubInterface, StargazerModel):
     STARGAZER_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{

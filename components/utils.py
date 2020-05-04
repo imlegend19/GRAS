@@ -1,6 +1,6 @@
 import datetime
 
-import dateutil
+from dateutil import parser
 
 from components.query_engine.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 
@@ -62,5 +62,5 @@ def time_period_chunks(start_date, end_date, chunk_size=100):
 
 
 def to_iso_format(date):
-    d = dateutil.parser.parse(date)
+    d = parser.parse(date)
     return d.isoformat()

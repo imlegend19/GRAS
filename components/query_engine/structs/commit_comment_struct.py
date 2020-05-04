@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4, CommitStatic
 from components.query_engine.entity.models import CommitCommentModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class CommitCommentStruct(GitHubQuery, CommitCommentModel):
+class CommitCommentStruct(GithubInterface, CommitCommentModel):
     QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{

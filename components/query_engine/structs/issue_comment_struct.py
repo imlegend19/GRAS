@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4, IssueStatic
 from components.query_engine.entity.models import IssueCommentModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class IssueCommentStruct(GitHubQuery, IssueCommentModel):
+class IssueCommentStruct(GithubInterface, IssueCommentModel):
     ISSUE_COMMENT_QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
