@@ -565,3 +565,19 @@ class CommitCommentModel(BaseModel):
         )
         
         return obj
+
+
+class ForkModel(BaseModel):
+    def __init__(self, login, created_at):
+        super().__init__()
+
+        self.login = login
+        self.created_at = created_at
+
+    def object_decoder(self,dic):
+        obj = ForkModel(
+            login=dic[ForkStatic.OWNER][ForkStatic.LOGIN],
+            created_at=dic[APIStaticV4.CREATED_AT]
+        )
+        return obj
+
