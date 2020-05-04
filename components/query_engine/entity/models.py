@@ -529,3 +529,39 @@ class TopicModel(BaseModel):
         )
         
         return obj
+
+
+class CommitCommentModel(BaseModel):
+    def __init__(self, author_login, body, commit_id, created_at, path, position, positive_reaction_count,
+                 negative_reaction_count, ambiguous_reaction_count, updated_at):
+        super().__init__()
+        
+        self.author_login = author_login
+        self.body = body
+        self.commit_id = commit_id
+        self.created_at = created_at
+        self.path = path
+        self.position = position
+        self.positive_reaction_count = positive_reaction_count
+        self.negative_reaction_count = negative_reaction_count
+        self.ambiguous_reaction_count = ambiguous_reaction_count
+        self.updated_at = updated_at
+        
+    def object_decoder(self, dic):
+        if dic[CommitStatic.COMMIT] is None:
+            return None
+        
+        obj = CommitCommentModel(
+            author_login=dic[CommitStatic.AUTHOR][UserStatic.LOGIN],
+            body=dic[CommitStatic.BODY_TEXT],
+            commit_id=dic[CommitStatic.COMMIT][APIStaticV4.OID],
+            created_at=dic[APIStaticV4.CREATED_AT],
+            updated_at=dic[APIStaticV4.UPDATED_AT],
+            path=dic[CommitStatic.PATH],
+            position=dic[CommitStatic.POSITION],
+            positive_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
+            negative_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
+            ambiguous_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], -1)
+        )
+        
+        return obj

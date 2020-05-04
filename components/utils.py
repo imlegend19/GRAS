@@ -2,7 +2,7 @@ import datetime
 
 import dateutil
 
-from components.query_engine.entity.api_static import APIStaticV4, IssueStatic
+from components.query_engine.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 
 
 def reaction_count(dic, decider) -> int:
@@ -38,7 +38,7 @@ def reaction_count(dic, decider) -> int:
     
     for obj in dic:
         if reaction_decider[obj[IssueStatic.CONTENT]] == decider:
-            count += obj[IssueStatic.USERS][APIStaticV4.TOTAL_COUNT]
+            count += obj[UserStatic.USERS][APIStaticV4.TOTAL_COUNT]
     
     return count
 

@@ -36,6 +36,7 @@ class UserStatic(metaclass=BaseStatic):
     ASSIGNABLE_USERS = "assignableUsers"
     FOLLOWERS = "followers"
     LOCATION = "location"
+    USERS = "users"
 
 
 class APIStaticV3(metaclass=BaseStatic):
@@ -68,6 +69,11 @@ class CommitStatic(metaclass=BaseStatic):
     OBJECT = "object"
     HISTORY = "history"
     STATE = "state"
+    COMMIT_COMMENTS = "commitComments"
+    BODY_TEXT = "bodyText"
+    PATH = "path"
+    POSITION = "position"
+    COMMENTS = "comments"
 
 
 class RepositoryStatic(metaclass=BaseStatic):
@@ -120,7 +126,6 @@ class IssueStatic(metaclass=BaseStatic):
     CLOSED_AT = "closedAt"
     REACTION_GROUPS = "reactionGroups"
     CONTENT = "content"
-    USERS = "users"
     COMMENTS = "comments"
     IS_MINIMIZED = "isMinimized"
     MINIMIZED_REASON = "minimizedReason"
