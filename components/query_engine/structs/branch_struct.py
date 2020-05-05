@@ -31,6 +31,9 @@ class BranchStruct(GithubInterface, BranchModel):
             query=BranchStruct.BRANCH_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
+        
+        self.name = name
+        self.owner = owner
     
     def iterator(self):
         generator = self.generator()
@@ -48,14 +51,14 @@ class BranchStruct(GithubInterface, BranchModel):
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
             
             yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][RepositoryStatic.REFS][APIStaticV4.NODES]
-
+            
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][RepositoryStatic.REFS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-
-
-if __name__ == "__main__":
-    branch = BranchStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
     
-    for lst in branch.iterator():
-        for br in lst:
-            print(branch.object_decoder(br).name)
+    def get_branches_list(self):
+        branches = []
+        for lst in self.iterator():
+            for br in lst:
+                branches.append(self.object_decoder(br))
+        
+        return branches

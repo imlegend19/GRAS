@@ -1,10 +1,10 @@
 from components.query_engine.entity.api_static import APIStaticV4, ForkStatic
 from components.query_engine.entity.models import ForkModel
-from components.query_engine.gh_query import GitHubQuery
+from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
 
-class ForkStruct(GitHubQuery, ForkModel):
+class ForkStruct(GithubInterface, ForkModel):
     FORK_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -42,20 +42,14 @@ class ForkStruct(GitHubQuery, ForkModel):
                 break
 
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
-                ForkStatic.FORKS
-            ][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
+                ForkStatic.FORKS][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
 
-            self.query_params[APIStaticV4.AFTER] = (
-                '"' + endCursor + '"' if endCursor is not None else "null"
-            )
+            self.query_params[APIStaticV4.AFTER] = '\"' + endCursor + '\"' if endCursor is not None else "null"
 
-            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ForkStatic.FORKS][
-                APIStaticV4.NODES
-            ]
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ForkStatic.FORKS][APIStaticV4.NODES]
 
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
-                ForkStatic.FORKS
-            ][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
+                ForkStatic.FORKS][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
 
 if __name__ == "__main__":

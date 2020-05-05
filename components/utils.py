@@ -5,7 +5,7 @@ from dateutil import parser
 from components.query_engine.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 
 
-DEFAULT_START_DATE = datetime.datetime.strptime('2000-01-01', '%Y-%m-%d').isoformat()
+DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isoformat()
 DEFAULT_END_DATE = datetime.datetime.now().isoformat()
 
 

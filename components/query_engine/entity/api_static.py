@@ -77,6 +77,8 @@ class CommitStatic(metaclass=BaseStatic):
 
 
 class RepositoryStatic(metaclass=BaseStatic):
+    ASSIGNEES = "assignees"
+    TAGS = "tags"
     REPOSITORY = "repository"
     DISK_USAGE = "diskUsage"
     FORK_COUNT = "forkCount"
@@ -94,6 +96,7 @@ class RepositoryStatic(metaclass=BaseStatic):
     SIZE = "size"
     TOPICS = "repositoryTopics"
     TOPIC = "topic"
+    FORKS = 'forks'
 
 
 class MilestoneStatic(metaclass=BaseStatic):
@@ -152,9 +155,3 @@ class ReleaseStatic(metaclass=BaseStatic):
     RELEASES = "releases"
     AUTHOR = "author"
     RELEASE_ASSETS = "releaseAssets"
-
-class ForkStatic(metaclass=BaseStatic):
-    LOGIN = 'login'
-    FORKS = 'forks'
-    OWNER = 'owner'
-    

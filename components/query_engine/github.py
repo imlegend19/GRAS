@@ -5,8 +5,9 @@ from datetime import datetime
 from requests import exceptions, request
 
 from components.query_engine.base_interface import BaseInterface
-from components.query_engine.entity.api_static import APIStaticV4
-from local_settings import AUTH_KEY
+from components.query_engine.entity.api_static import (
+    APIStaticV4
+)
 
 
 class GithubInterface(BaseInterface):
