@@ -1,7 +1,3 @@
-import sys
-
-sys.path.append("/home/rev/Desktop/GRAS")
-
 from components.query_engine.entity.api_static import APIStaticV4, ForkStatic
 from components.query_engine.entity.models import ForkModel
 from components.query_engine.gh_query import GitHubQuery
