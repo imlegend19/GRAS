@@ -32,7 +32,6 @@ class StargazerStruct(GithubInterface, StargazerModel):
             query_params=dict(name=name, owner=owner, after="null"),
         )
     
-    @property
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
@@ -71,6 +70,6 @@ class StargazerStruct(GithubInterface, StargazerModel):
 if __name__ == "__main__":
     stargazer = StargazerStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
     
-    for lst in stargazer.iterator:
+    for lst in stargazer.iterator():
         for stag in lst:
             print(stargazer.object_decoder(stag).login)
