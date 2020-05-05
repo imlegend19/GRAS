@@ -31,7 +31,6 @@ class ForkStruct(GitHubQuery, ForkModel):
             query_params=dict(name=name, owner=owner, after="null"),
         )
 
-    @property
     def iterator(self):
         generator = self.generator()
         hasNextPage = True
@@ -62,6 +61,6 @@ class ForkStruct(GitHubQuery, ForkModel):
 if __name__ == "__main__":
     fork = ForkStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
 
-    for lst in fork.iterator:
+    for lst in fork.iterator():
         for f in lst:
             print(fork.object_decoder(f).created_at)
