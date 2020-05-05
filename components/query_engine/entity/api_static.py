@@ -157,3 +157,4 @@ class ForkStatic(metaclass=BaseStatic):
     LOGIN = 'login'
     FORKS = 'forks'
     OWNER = 'owner'
+    
