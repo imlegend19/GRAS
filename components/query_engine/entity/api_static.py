@@ -152,3 +152,9 @@ class ReleaseStatic(metaclass=BaseStatic):
     RELEASES = "releases"
     AUTHOR = "author"
     RELEASE_ASSETS = "releaseAssets"
+
+class ForkStatic(metaclass=BaseStatic):
+    LOGIN = 'login'
+    FORKS = 'forks'
+    OWNER = 'owner'
+    
