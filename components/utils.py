@@ -79,3 +79,29 @@ def waiting_animation(n, msg):
     time.sleep(0.5)
     
     return n
+
+
+ARROW_ANIMATOR = ['⬍', '⬈', '➞', '⬊', '⬍', '⬋', '⬅', '⬉']
+ECLIPSE_ANIMATOR = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘']
+DOTS_1_ANIMATOR = ['.', '..', '...']
+DOTS_2_ANIMATOR = ['.', '..', '...', '..']
+BIRDS_ANIMATOR = ['︷', '︵', '︹', '︺', '︶', '︸', '︶', '︺', '︹', '︵']
+DASH_ANIMATOR = ['-', '—', '--', '——', '---', '———', '---', '——', '--', '—']
+CYCLE_ANIMATOR = ['bo', 'do', 'ob', 'od', 'oq', 'op', 'qo', 'po']
+ROD_ANIMATOR = ["/", "—", "\\", "|"]
+LOADING_BAR_ANIMATOR = ["□□□□□□□□□□", "■□□□□□□□□□", "■■□□□□□□□□", "■■■□□□□□□□", "■■■■□□□□□□", "■■■■■□□□□□",
+                        "■■■■■■□□□□", "■■■■■■■□□□", "■■■■■■■■□□", "■■■■■■■■■□", "■■■■■■■■■■"]
+BALLOON_ANIMATOR = ['.', 'o', 'O', '@', '*']
+
+ANIMATORS = {
+    "arrow"  : ARROW_ANIMATOR,
+    "eclipse": ECLIPSE_ANIMATOR,
+    "dots_1" : DOTS_1_ANIMATOR,
+    "dots_2" : DOTS_2_ANIMATOR,
+    "birds"  : BIRDS_ANIMATOR,
+    "dash"   : DASH_ANIMATOR,
+    "cycle"  : CYCLE_ANIMATOR,
+    "rod"    : ROD_ANIMATOR,
+    "bar"    : LOADING_BAR_ANIMATOR,
+    "balloon": BALLOON_ANIMATOR
+}

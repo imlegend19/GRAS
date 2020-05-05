@@ -8,7 +8,7 @@ from datetime import datetime
 from queue import Queue
 
 from components.query_engine.github_repo_stats import RepoStatistics
-from components.utils import DEFAULT_END_DATE, DEFAULT_START_DATE, to_iso_format
+from components.utils import ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, to_iso_format
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
     os.path.basename(__file__),
@@ -65,22 +65,12 @@ def get_repo_stats(args):
     return repo_stats.repo_stats()
 
 
-def animated_loading_bar(msg):
-    animation = ["■□□□□□□□□□", "■■□□□□□□□□", "■■■□□□□□□□", "■■■■□□□□□□", "■■■■■□□□□□", "■■■■■■□□□□",
-                 "■■■■■■■□□□", "■■■■■■■■□□", "■■■■■■■■■□", "■■■■■■■■■■"]
-    
-    for i in range(len(animation)):
-        sys.stdout.write("\r" + f"{msg}: " + animation[i % len(animation)] + "\t")
-        time.sleep(0.2)
-        sys.stdout.flush()
-
-
-def animated_loading_spinner():
-    chars = ["/", "—", "\\", "|"]
+def animated_loading(msg, animator):
+    chars = animator
     
     for char in chars:
-        sys.stdout.write('\r' + 'loading...' + char)
-        time.sleep(.1)
+        sys.stdout.write('\r' + f"{msg}: " + char + "\t")
+        time.sleep(.2)
         sys.stdout.flush()
 
 
@@ -118,7 +108,8 @@ def start():
     optional.add_argument('-ED', '--end-date',
                           help="End Date for mining the data (in any ISO 8601 format, e.g., 'YYYY-MM-DD HH:mm:SS "
                                "+|-HH:MM')", default=DEFAULT_END_DATE, required=False)
-    
+    optional.add_argument('-a', '--animator', help="Loading animator", default='bar', choices=list(ANIMATORS.keys()),
+                          required=False)
     optional.add_argument('-s', '--stats', help="View the stats of the repo", default=False, type=bool, const=True,
                           nargs='?', required=False)
     
@@ -143,10 +134,10 @@ def start():
         t.start()
         
         now = datetime.now().strftime('%d/%d/%Y %H:%M:%S')
-    
+        
         while t.isAlive():
-            animated_loading_bar(f"{now} - main - INFO - Fetching `{args.repo_name}` statistics")
-
+            animated_loading(f"{now} - main - INFO - Fetching `{args.repo_name}` statistics", ANIMATORS[args.animator])
+        
         t.join()
         result = queue.get()
         logger.debug(result)
