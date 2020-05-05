@@ -2,9 +2,13 @@ import argparse
 import logging.config
 import os
 import sys
+import threading
+import time
 from datetime import datetime
+from queue import Queue
 
-from components.utils import DEFAULT_END_DATE, DEFAULT_START_DATE
+from components.query_engine.github_repo_stats import RepoStatistics
+from components.utils import DEFAULT_END_DATE, DEFAULT_START_DATE, to_iso_format
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
     os.path.basename(__file__),
@@ -47,6 +51,37 @@ DEFAULT_LOGGING = {
 def set_up_logging():
     logging.basicConfig(level=logging.ERROR)
     logging.config.dictConfig(DEFAULT_LOGGING)
+
+
+def get_repo_stats(args):
+    repo_stats = RepoStatistics(
+        token=args.token,
+        name=args.repo_name,
+        owner=args.repo_owner,
+        start_date=to_iso_format(args.start_date),
+        end_date=to_iso_format(args.end_date)
+    )
+    
+    return repo_stats.repo_stats()
+
+
+def animated_loading_bar(msg):
+    animation = ["■□□□□□□□□□", "■■□□□□□□□□", "■■■□□□□□□□", "■■■■□□□□□□", "■■■■■□□□□□", "■■■■■■□□□□",
+                 "■■■■■■■□□□", "■■■■■■■■□□", "■■■■■■■■■□", "■■■■■■■■■■"]
+    
+    for i in range(len(animation)):
+        sys.stdout.write("\r" + f"{msg}: " + animation[i % len(animation)] + "\t")
+        time.sleep(0.2)
+        sys.stdout.flush()
+
+
+def animated_loading_spinner():
+    chars = ["/", "—", "\\", "|"]
+    
+    for char in chars:
+        sys.stdout.write('\r' + 'loading...' + char)
+        time.sleep(.1)
+        sys.stdout.flush()
 
 
 def start():
@@ -102,8 +137,19 @@ def start():
     args = parser.parse_args()
     
     if args.stats:
-        # TODO: Display the stats of the repository
-        pass
+        queue = Queue()
+        t = threading.Thread(name='process', target=lambda q, arg1: q.put(get_repo_stats(arg1)), args=(queue, args))
+        t.daemon = True
+        t.start()
+        
+        now = datetime.now().strftime('%d/%d/%Y %H:%M:%S')
+    
+        while t.isAlive():
+            animated_loading_bar(f"{now} - main - INFO - Fetching `{args.repo_name}` statistics")
+
+        t.join()
+        result = queue.get()
+        logger.debug(result)
     else:
         # TODO: Initialise the parsing and dump the data to the output location
         pass

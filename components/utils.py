@@ -1,9 +1,10 @@
 import datetime
+import sys
+import time
 
 from dateutil import parser
 
 from components.query_engine.entity.api_static import APIStaticV4, IssueStatic, UserStatic
-
 
 DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isoformat()
 DEFAULT_END_DATE = datetime.datetime.now().isoformat()
@@ -68,3 +69,13 @@ def time_period_chunks(start_date, end_date, chunk_size=100):
 def to_iso_format(date):
     d = parser.parse(date)
     return d.isoformat()
+
+
+def waiting_animation(n, msg):
+    n = n % 3 + 1
+    dots = n * '.' + (3 - n) * ' '
+    sys.stdout.write(f'\r {msg} ' + dots)
+    sys.stdout.flush()
+    time.sleep(0.5)
+    
+    return n

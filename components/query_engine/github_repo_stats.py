@@ -3,7 +3,6 @@ from components.query_engine.entity.api_static import (
 )
 from components.query_engine.github import GithubInterface
 from components.query_engine.structs.branch_struct import BranchStruct
-from components.utils import to_iso_format
 from local_settings import AUTH_KEY
 
 
@@ -164,20 +163,6 @@ class RepoStatistics:
             "total_contributors"     : total_contributors,
             "total_anon_contributors": total_anon_contributors,
             **self._total_issues_and_pr(),
-            "branches": branches,
+            "branches"               : branches,
             **self._other_repo_stats()
         }
-
-
-if __name__ == '__main__':
-    repo_stats = RepoStatistics(
-        token=AUTH_KEY,
-        name="sympy",
-        owner="sympy",
-        start_date=to_iso_format("2009-01-01"),
-        end_date=to_iso_format("2018-01-01")
-    )
-    
-    from pprint import pprint
-    
-    pprint(repo_stats.repo_stats())
