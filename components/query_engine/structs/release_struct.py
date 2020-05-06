@@ -1,5 +1,5 @@
 from components.query_engine.entity.api_static import APIStaticV4, ReleaseStatic
-from components.query_engine.entity.models import ReleaseModel
+from components.query_engine.entity.github_models import ReleaseModel
 from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 

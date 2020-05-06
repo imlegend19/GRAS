@@ -1,7 +1,7 @@
 from string import Template
 
 from components.query_engine.entity.api_static import APIStaticV4
-from components.query_engine.entity.models import RepositoryModel
+from components.query_engine.entity.github_models import RepositoryModel
 from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 

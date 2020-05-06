@@ -1,2 +1,11 @@
-dateutil
-requests
+mysql-connector-python
+certifi==2020.4.5.1
+chardet==3.0.4
+idna==2.9
+pprint==0.1
+protobuf==3.11.3
+python-dateutil==2.8.1
+requests==2.23.0
+six==1.14.0
+SQLAlchemy==1.3.16
+urllib3==1.25.9

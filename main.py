@@ -6,9 +6,12 @@ import threading
 import time
 from datetime import datetime
 from queue import Queue
+import getpass
 
+from components.github_miner import GithubMiner
 from components.query_engine.github_repo_stats import RepoStatistics
 from components.utils import ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, to_iso_format
+from local_settings import AUTH_KEY
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
     os.path.basename(__file__),
@@ -92,9 +95,10 @@ def start():
     # ==================
     # required arguments
     # ==================
-    required.add_argument('-RO', '--repo-owner', help="Owner of the repository", required=True)
-    required.add_argument('-RN', '--repo-name', help="Name of the repository", required=True)
-    required.add_argument('-t', '--token', help="Personal API Access Token for parsing", required=True)
+    # TODO: remove default after testing and add required=True
+    required.add_argument('-RO', '--repo-owner', help="Owner of the repository", default="openshift")
+    required.add_argument('-RN', '--repo-name', help="Name of the repository", default="openshift-ansible")
+    required.add_argument('-t', '--token', help="Personal API Access Token for parsing", default=AUTH_KEY)
     
     # ==================
     # optional arguments
@@ -116,16 +120,23 @@ def start():
     # ================
     # database setting
     # ================
-    database.add_argument('-dbms', help="DBMS to dump the data into", default='sqlite3', choices=["sqlite3", "mysql",
-                                                                                                  "postgresql"])
+    database.add_argument('-dbms', help="DBMS to dump the data into", default='mysql', choices=["sqlite", "mysql",
+                                                                                                "postgresql"])
     database.add_argument('-DB', '--db-name', help="Name of the database", default='gras')
     database.add_argument('-U', '--db-username', help="The user name that is used to connect and operate the selected "
                                                       "database")
-    database.add_argument('-P', '--db-password', help="The password for the user name entered")
+    database.add_argument('-P', '--db-password', help="The password for the user name entered", const=True, nargs='?')
     database.add_argument('-H', '--db-host', help="The database server IP address or DNS name", default="localhost")
-    database.add_argument('-p', '--db-port', help="The database server port that allows communication to your database")
+    database.add_argument('-p', '--db-port', help="The database server port that allows communication to your "
+                                                  "database", default=3306, type=int)
+    database.add_argument('-o', '--db-output', help="The path to the .db file in case of sqlite dbms")
+    database.add_argument('-L', '--db-log', help="DB-log flag to log the generated SQL produced", default=False,
+                          type=bool, nargs='?', required=False, const=True)
     
     args = parser.parse_args()
+    
+    if args.db_password:
+        args.db_password = getpass.getpass('Enter Password: ')
     
     if args.stats:
         queue = Queue()
@@ -143,7 +154,11 @@ def start():
         logger.debug(result)
     else:
         # TODO: Initialise the parsing and dump the data to the output location
-        pass
+        if args.interface == "github":
+            gm = GithubMiner(args=args)
+            gm.connect_to_db()
+        else:
+            pass
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 from components.query_engine.entity.api_static import APIStaticV4, RepositoryStatic
-from components.query_engine.entity.models import TopicModel
+from components.query_engine.entity.github_models import TopicModel
 from components.query_engine.github import GithubInterface
 from local_settings import AUTH_KEY
 
