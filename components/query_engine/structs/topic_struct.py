@@ -8,7 +8,7 @@ class TopicStruct(GithubInterface, TopicModel):
     TOPIC_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
-                repositoryTopics(first: 100, after: {after}) {{
+                repositoryTopics(first: 50, after: {after}) {{
                     nodes {{
                         url
                         topic {{

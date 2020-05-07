@@ -14,19 +14,19 @@ class BaseModel(metaclass=ABCMeta):
 
 
 class RepositoryModel(BaseModel):
-    def __init__(self, created_at, updated_at, disk_usage, url, owner_login, name, description, fork_count,
-                 homepage_url, is_archived, is_fork, primary_language, stargazer_count, watcher_count):
+    def __init__(self, created_at, updated_at, disk_usage, url, name, description, fork_count,
+                 homepage_url, is_archived, is_fork, primary_language, stargazer_count, watcher_count, forked_from):
         super().__init__()
         
         self.name = name
         self.description = description
         self.fork_count = fork_count
-        self.owner_login = owner_login
         self.url = url
         self.watcher_count = watcher_count
         self.stargazer_count = stargazer_count
         self.primary_language = primary_language
         self.is_fork = is_fork
+        self.forked_from = forked_from
         self.is_archived = is_archived
         self.homepage_url = homepage_url
         self.disk_usage = disk_usage
@@ -45,7 +45,8 @@ class RepositoryModel(BaseModel):
             homepage_url=dic[RepositoryStatic.HOMEPAGE_URL],
             is_archived=dic[RepositoryStatic.IS_ARCHIVED],
             is_fork=dic[RepositoryStatic.IS_FORK],
-            owner_login=dic[RepositoryStatic.OWNER][UserStatic.LOGIN],
+            forked_from=dic[RepositoryStatic.PARENT][
+                APIStaticV4.URL] if dic[RepositoryStatic.PARENT] is not None else None,
             primary_language=dic[RepositoryStatic.PRIMARY_LANGUAGE][UserStatic.NAME],
             stargazer_count=dic[RepositoryStatic.STARGAZERS][APIStaticV4.TOTAL_COUNT],
             watcher_count=dic[RepositoryStatic.WATCHERS][APIStaticV4.TOTAL_COUNT],
@@ -546,7 +547,7 @@ class CommitCommentModel(BaseModel):
         self.negative_reaction_count = negative_reaction_count
         self.ambiguous_reaction_count = ambiguous_reaction_count
         self.updated_at = updated_at
-        
+    
     def object_decoder(self, dic):
         if dic[CommitStatic.COMMIT] is None:
             return None
@@ -570,14 +571,93 @@ class CommitCommentModel(BaseModel):
 class ForkModel(BaseModel):
     def __init__(self, login, created_at):
         super().__init__()
-
+        
         self.login = login
         self.created_at = created_at
-
-    def object_decoder(self,dic):
+    
+    def object_decoder(self, dic):
         obj = ForkModel(
-            login=dic[ForkStatic.OWNER][ForkStatic.LOGIN],
+            login=dic[RepositoryStatic.OWNER][UserStatic.LOGIN],
             created_at=dic[APIStaticV4.CREATED_AT]
         )
         return obj
 
+
+class IssueEventModel(BaseModel):
+    def __init__(self, number, who, when, event_type, added, added_type, removed, removed_type, is_cross_repository):
+        super().__init__()
+        
+        self.number = number
+        self.who = who
+        self.when = when
+        self.event_type = event_type
+        self.added = added
+        self.added_type = added_type
+        self.removed = removed
+        self.removed_type = removed_type
+        self.is_cross_repository = is_cross_repository
+    
+    def object_decoder(self, dic, number):
+        event_type = dic[IssueEventStatic.EVENT_TYPE]
+        obj = IssueEventModel(
+            number=number,
+            event_type=event_type,
+            who=None if dic[IssueEventStatic.WHO] is None else dic[IssueEventStatic.WHO][UserStatic.LOGIN],
+            when=dic[IssueEventStatic.WHEN],
+            added=None,
+            added_type=None,
+            removed=None,
+            removed_type=None,
+            is_cross_repository=False
+        )
+        
+        if event_type == IssueEventStatic.ASSIGNED_EVENT:
+            obj.added = dic[IssueEventStatic.ADDED][UserStatic.LOGIN]
+            obj.added_type = "USER"
+        elif event_type == IssueEventStatic.CROSS_REFERENCED_EVENT:
+            obj.added = dic[IssueEventStatic.ADDED][APIStaticV4.NUMBER]
+            obj.added_type = dic[IssueEventStatic.ADDED][IssueEventStatic.TYPE].upper()
+            obj.is_cross_repository = True
+        elif event_type == IssueEventStatic.DEMILESTONED_EVENT:
+            obj.removed = dic[IssueEventStatic.ADDED]
+            obj.removed_type = "MILESTONE"
+        elif event_type == IssueEventStatic.LABELED_EVENT:
+            obj.added = dic[IssueEventStatic.ADDED][UserStatic.NAME]
+            obj.added_type = "LABEL"
+        elif event_type == IssueEventStatic.MARKED_AS_DUPLICATE_EVENT:
+            pass
+        elif event_type == IssueEventStatic.MENTIONED_EVENT:
+            pass
+        elif event_type == IssueEventStatic.MILESTONED_EVENT:
+            obj.added = dic[IssueEventStatic.ADDED]
+            obj.added_type = "MILESTONE"
+        elif event_type == IssueEventStatic.PINNED_EVENT:
+            pass
+        elif event_type == IssueEventStatic.REFERENCED_EVENT:
+            obj.added = dic[IssueEventStatic.ADDED][APIStaticV4.OID]
+            obj.added_type = "COMMIT_ID"
+            obj.is_cross_repository = True
+        elif event_type == IssueEventStatic.RENAMED_TITLE_EVENT:
+            obj.removed = dic[IssueEventStatic.REMOVED]
+            obj.removed_type = "TITLE"
+            obj.added = dic[IssueEventStatic.ADDED]
+            obj.added_type = "TITLE"
+        elif event_type == IssueEventStatic.REOPENED_EVENT:
+            pass
+        elif event_type == IssueEventStatic.TRANSFERRED_EVENT:
+            rem = dic[IssueEventStatic.REMOVED]
+            obj.removed = rem[RepositoryStatic.OWNER] + "/" + rem[UserStatic.NAME]
+            obj.removed_type = "REPOSITORY"
+        elif event_type == IssueEventStatic.UNASSIGNED_EVENT:
+            pass
+        elif event_type == IssueEventStatic.UNLABELED_EVENT:
+            obj.removed = dic[IssueEventStatic.REMOVED][UserStatic.NAME]
+            obj.removed_type = "LABEL"
+        elif event_type == IssueEventStatic.UNMARKED_AS_DUPLICATE_EVENT:
+            pass
+        elif event_type == IssueEventStatic.UNPINNED_EVENT:
+            pass
+        else:
+            raise NotImplementedError
+        
+        return obj

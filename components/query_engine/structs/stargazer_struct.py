@@ -13,7 +13,6 @@ class StargazerStruct(GithubInterface, StargazerModel):
                         starredAt
                         node {{
                             login
-                            id
                         }}
                     }}
                     pageInfo {{

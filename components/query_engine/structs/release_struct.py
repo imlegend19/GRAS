@@ -41,7 +41,7 @@ class ReleaseStruct(GithubInterface, ReleaseModel):
     
     def __init__(self, github_token, name, owner):
         super().__init__(
-            github_token,
+            github_token=github_token,
             query=ReleaseStruct.RELEASE_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
@@ -56,9 +56,8 @@ class ReleaseStruct(GithubInterface, ReleaseModel):
             except StopIteration:
                 break
             
-            endCursor = \
-                response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][APIStaticV4.PAGE_INFO][
-                    APIStaticV4.END_CURSOR]
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][
+                APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
             
             self.query_params[APIStaticV4.AFTER] = '\"' + endCursor + '\"' if endCursor is not None else "null"
             

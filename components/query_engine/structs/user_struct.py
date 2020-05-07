@@ -14,7 +14,6 @@ class AssignableUserStruct(GithubInterface, UserModel):
                         name
                         email
                         createdAt
-                        email
                         followers {{
                             totalCount
                         }}

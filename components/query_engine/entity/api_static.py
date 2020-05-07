@@ -25,7 +25,7 @@ class APIStaticV4(metaclass=BaseStatic):
     SEARCH = "search"
     NUMBER = "number"
     OID = "oid"
-    
+
 
 class UserStatic(metaclass=BaseStatic):
     USER = "user"
@@ -77,6 +77,7 @@ class CommitStatic(metaclass=BaseStatic):
 
 
 class RepositoryStatic(metaclass=BaseStatic):
+    PARENT = "parent"
     ASSIGNEES = "assignees"
     TAGS = "tags"
     REPOSITORY = "repository"
@@ -155,3 +156,31 @@ class ReleaseStatic(metaclass=BaseStatic):
     RELEASES = "releases"
     AUTHOR = "author"
     RELEASE_ASSETS = "releaseAssets"
+
+
+class IssueEventStatic(metaclass=BaseStatic):
+    ASSIGNED_EVENT = "AssignedEvent"
+    CROSS_REFERENCED_EVENT = "CrossReferencedEvent"
+    DEMILESTONED_EVENT = "DemilestonedEvent"
+    LABELED_EVENT = "LabeledEvent"
+    MARKED_AS_DUPLICATE_EVENT = "MarkedAsDuplicateEvent"
+    MENTIONED_EVENT = "MentionedEvent"
+    MILESTONED_EVENT = "MilestonedEvent"
+    PINNED_EVENT = "PinnedEvent"
+    REFERENCED_EVENT = "ReferencedEvent"
+    RENAMED_TITLE_EVENT = "RenamedTitleEvent"
+    REOPENED_EVENT = "ReopenedEvent"
+    TRANSFERRED_EVENT = "TransferredEvent"
+    UNASSIGNED_EVENT = "UnassignedEvent"
+    UNLABELED_EVENT = "UnlabeledEvent"
+    UNMARKED_AS_DUPLICATE_EVENT = "UnmarkedAsDuplicateEvent"
+    UNPINNED_EVENT = "UnpinnedEvent"
+    
+    TIMELINE_ITEMS = "timelineItems"
+    EVENT_TYPE = "eventType"
+    WHO = "who"
+    WHEN = "when"
+    ADDED = "added"
+    REMOVED = "removed"
+    IS_CROSS_REPOSITORY = "isCrossRepository"
+    TYPE = "type"

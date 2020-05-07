@@ -2,15 +2,18 @@ import logging
 import time
 from datetime import datetime
 
-from requests import exceptions, request
+from requests import Session, adapters, exceptions
 
 from components.query_engine.base_interface import BaseInterface
-from components.query_engine.entity.api_static import (
-    APIStaticV4
-)
+from components.query_engine.entity.api_static import APIStaticV4
+
+logger = logging.getLogger("main")
 
 
 class GithubInterface(BaseInterface):
+    GET = "get"
+    POST = "post"
+    
     @property
     def tag(self):
         return 'github'
@@ -28,7 +31,8 @@ class GithubInterface(BaseInterface):
     @property
     def headers(self):
         default_headers = dict(
-            Authorization=f"token {self.github_token}"
+            Authorization=f"token {self.github_token}",
+            Connection="close",
         )
         
         return {
@@ -36,27 +40,46 @@ class GithubInterface(BaseInterface):
             **self.additional_headers
         }
     
-    def _send_request(self, param=None, only_json=True, method="post"):
+    def _create_http_session(self):
+        self.session = Session()
+        
+        if self.headers:
+            self.session.headers.update(self.headers)
+        
+        self.session.mount('http://', adapters.HTTPAdapter(max_retries=self.max_retries))
+        self.session.mount('https://', adapters.HTTPAdapter(max_retries=self.max_retries))
+    
+    def _fetch(self, url, headers, method, payload=None):
+        if method == self.GET:
+            response = self.session.get(url, params=payload, headers=headers)
+        else:
+            response = self.session.post(url, json=payload, headers=headers)
+        
+        try:
+            response.raise_for_status()
+        except Exception as e:
+            raise e
+        
+        return response
+    
+    def _close_session(self):
+        """Close the session"""
+        
+        if self.session:
+            self.session.keep_alive = False
+    
+    def _send_request(self, param=None, only_json=True, method=POST):
+        self._create_http_session()
+        
         tries = 1
         while tries <= 3:
-            logging.debug(f"Sending request to url {self.url}. (Try: {tries})")
-            
+            logger.debug(f"Sending request to url {self.url}. (Try: {tries})")
             try:
-                req = request(
-                    method,
-                    self.url,
-                    headers=self.headers,
-                    json=param
-                )
+                req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
             except exceptions.ConnectionError:
                 time.sleep(2)
                 try:
-                    req = request(
-                        method,
-                        self.url,
-                        headers=self.headers,
-                        json=param
-                    )
+                    req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
                 except exceptions.ConnectionError:
                     logging.error(f"Connection Error while fetching data from url {self.url}.")
                     break
@@ -66,15 +89,12 @@ class GithubInterface(BaseInterface):
                     reset_time = datetime.fromtimestamp(float(req.headers['X-RateLimit-Reset']))
                     wait_time = (reset_time - datetime.now()).total_seconds() + 5
                     
-                    logging.info(f"Github API maximum rate limit reached. Waiting for {wait_time} sec...")
+                    logger.info(f"Github API maximum rate limit reached. Waiting for {wait_time} sec...")
                     time.sleep(wait_time)
                     
-                    req = request(
-                        method,
-                        self.url,
-                        headers=self.headers,
-                        json=param
-                    )
+                    req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
+                
+                self._close_session()
                 
                 if only_json:
                     return req.json()
@@ -103,7 +123,7 @@ class GithubInterface(BaseInterface):
                             param=dict(query=self.query.format_map(self.query_params))
                         )
                 else:
-                    yield self._send_request(only_json=False, method="get")
+                    yield self._send_request(only_json=False, method=self.GET)
             
             except exceptions.HTTPError as http_err:
                 raise http_err
@@ -112,4 +132,4 @@ class GithubInterface(BaseInterface):
     
     def iterator(self):
         generator = self.generator()
-        return next(generator)
+        return next(generator).json()

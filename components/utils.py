@@ -2,6 +2,7 @@ import datetime
 import sys
 import time
 
+import dateutil
 from dateutil import parser
 
 from components.query_engine.entity.api_static import APIStaticV4, IssueStatic, UserStatic
@@ -48,9 +49,9 @@ def reaction_count(dic, decider) -> int:
     return count
 
 
-def time_period_chunks(start_date, end_date, chunk_size=100):
-    dt_start = datetime.datetime.strptime(start_date, '%Y-%m-%d')
-    dt_end = datetime.datetime.strptime(end_date, '%Y-%m-%d')
+def time_period_chunks(start_date, end_date, chunk_size=400):
+    dt_start = dateutil.parser.parse(start_date)
+    dt_end = dateutil.parser.parse(end_date)
     
     assert dt_start < dt_end
     

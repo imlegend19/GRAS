@@ -96,8 +96,8 @@ def start():
     # required arguments
     # ==================
     # TODO: remove default after testing and add required=True
-    required.add_argument('-RO', '--repo-owner', help="Owner of the repository", default="openshift")
-    required.add_argument('-RN', '--repo-name', help="Name of the repository", default="openshift-ansible")
+    required.add_argument('-RO', '--repo-owner', help="Owner of the repository", default="apache")
+    required.add_argument('-RN', '--repo-name', help="Name of the repository", default="incubator-mxnet")
     required.add_argument('-t', '--token', help="Personal API Access Token for parsing", default=AUTH_KEY)
     
     # ==================

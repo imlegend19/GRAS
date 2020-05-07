@@ -9,41 +9,37 @@ from local_settings import AUTH_KEY
 class RepositoryStruct(GithubInterface, RepositoryModel):
     REPO_QUERY_TEMPLATE = Template(
         """
-             {
-                resource(url: "$url") {
-                    ... on Repository {
-                       id
-                       name
-                       createdAt
-                       description
-                       diskUsage
-                       forkCount
-                       homepageUrl
-                       isArchived
-                       isFork
-                       url
-                       updatedAt
-                       owner {
-                         login
-                         id
-                       }
-                       primaryLanguage {
-                         name
-                       }
-                       stargazers {
-                         totalCount
-                       }
-                       watchers {
-                         totalCount
-                       }
-                    }
-                }
-             }
+            {{
+                repository(name: "{name}", owner: "{owner}") {{
+                    name
+                    createdAt
+                    updatedAt
+                    description
+                    diskUsage
+                    forkCount
+                    homepageUrl
+                    isArchived
+                    isFork
+                    url
+                    parent {{
+                        url
+                    }}
+                    primaryLanguage {{
+                        name
+                    }}
+                    stargazers {{
+                        totalCount
+                    }}
+                    watchers {{
+                        totalCount
+                    }}
+                }}
+            }}
         """
     )
     
-    def __init__(self, github_token, url):
-        REPO_QUERY = RepositoryStruct.REPO_QUERY_TEMPLATE.substitute(url=url)
+    def __init__(self, github_token, name, owner):
+        REPO_QUERY = RepositoryStruct.REPO_QUERY_TEMPLATE.substitute(name=name, owner=owner)
         super().__init__(github_token, query=REPO_QUERY)
     
     def iterator(self):
@@ -52,8 +48,11 @@ class RepositoryStruct(GithubInterface, RepositoryModel):
 
 
 if __name__ == '__main__':
-    repo = RepositoryStruct(github_token=AUTH_KEY,
-                            url="https://github.com/sympy/sympy")
+    repo = RepositoryStruct(
+        github_token=AUTH_KEY,
+        name="sympy",
+        owner="sympy"
+    )
     
     # repo_obj = object_decoder(dict(next(repo.generator())[APIStatic.DATA][APIStatic.RESOURCE]))
     repo_obj = repo.object_decoder(repo.iterator())

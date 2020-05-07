@@ -2,6 +2,8 @@ from abc import ABCMeta, abstractmethod
 
 
 class BaseInterface(metaclass=ABCMeta):
+    MAX_RETRIES = 5
+    
     @property
     @abstractmethod
     def tag(self):
@@ -13,9 +15,9 @@ class BaseInterface(metaclass=ABCMeta):
         return
     
     @abstractmethod
-    def __init__(self):
-        pass
-    
+    def __init__(self, max_retries=MAX_RETRIES):
+        self.max_retries = max_retries
+
     @abstractmethod
     def generator(self):
         pass
