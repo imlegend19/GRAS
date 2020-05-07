@@ -2,15 +2,17 @@ import enum
 
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.mysql import ENUM
-from sqlalchemy.schema import CheckConstraint, Column, CreateTable, ForeignKey, MetaData, Table, UniqueConstraint
+from sqlalchemy.schema import CheckConstraint, Column, ForeignKey, MetaData, Table, UniqueConstraint
 from sqlalchemy.types import BOOLEAN, INTEGER, TEXT, TIMESTAMP, VARCHAR
+
+
+def get_string(cls):
+    return ", ".join(cls.__members__.keys())
 
 
 class State(enum.Enum):
     OPEN = "OPEN"
     CLOSED = "CLOSED"
-    
-    __str__ = f"({OPEN}, {CLOSED})"
 
 
 class LabelType(enum.Enum):
@@ -18,8 +20,34 @@ class LabelType(enum.Enum):
     PRIORITY = "PRIORITY"
     SEVERITY = "SEVERITY"
     COMPONENT = "COMPONENT"
-    
-    __str__ = f"({GENERAL}, {PRIORITY}, {SEVERITY}, {COMPONENT})"
+
+
+class EventType(enum.Enum):
+    ASSIGNED_EVENT = "ASSIGNED_EVENT"
+    CROSS_REFERENCED_EVENT = "CROSS_REFERENCED_EVENT"
+    DEMILESTONED_EVENT = "DEMILESTONED_EVENT"
+    LABELED_EVENT = "LABELED_EVENT"
+    MARKED_AS_DUPLICATE_EVENT = "MARKED_AS_DUPLICATE_EVENT"
+    MENTIONED_EVENT = "MENTIONED_EVENT"
+    MILESTONED_EVENT = "MILESTONED_EVENT"
+    PINNED_EVENT = "PINNED_EVENT"
+    REFERENCED_EVENT = "REFERENCED_EVENT"
+    RENAMED_TITLE_EVENT = "RENAMED_TITLE_EVENT"
+    REOPENED_EVENT = "REOPENED_EVENT"
+    TRANSFERRED_EVENT = "TRANSFERRED_EVENT"
+    UNASSIGNED_EVENT = "UNASSIGNED_EVENT"
+    UNLABELED_EVENT = "UNLABELED_EVENT"
+    UNMARKED_AS_DUPLICATE_EVENT = "UNMARKED_AS_DUPLICATE_EVENT"
+    UNPINNED_EVENT = "UNPINNED_EVENT"
+
+
+class AddedOrRemovedType(enum.Enum):
+    USER = "USER"
+    MILESTONE = "MILESTONE"
+    LABEL = "LABEL"
+    COMMIT_ID = "COMMIT_ID"
+    TITLE = "TITLE"
+    REPOSITORY = "REPOSITORY"
 
 
 class DBSchema:
@@ -29,6 +57,8 @@ class DBSchema:
         
         self._state_enum = self.__get_enum(State)
         self._label_enum = self.__get_enum(LabelType)
+        self._event_type_enum = self.__get_enum(EventType)
+        self._added_or_removed_type = self.__get_enum(AddedOrRemovedType)
         
         self._create_contributors_table()
         self._create_repository_table()
@@ -56,7 +86,8 @@ class DBSchema:
                 total_followers INTEGER NOT NULL, 
                 location VARCHAR(255), 
                 is_anonymous BOOLEAN NOT NULL, 
-                is_assignee BOOLEAN NOT NULL, 
+                is_assignee BOOLEAN NOT NULL,
+                
                 PRIMARY KEY (contributor_id)
             )
         """
@@ -94,6 +125,7 @@ class DBSchema:
                 total_stargazers INTEGER NOT NULL,
                 total_watchers INTEGER NOT NULL,
                 forked_from VARCHAR(255),
+                
                 PRIMARY KEY (repo_id)
             )
         """
@@ -123,6 +155,7 @@ class DBSchema:
             repo_id INTEGER,
             name VARCHAR(255) NOT NULL,
             size INTEGER NOT NULL,
+            
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
         )
         
@@ -138,7 +171,8 @@ class DBSchema:
             created_at TIMESTAMP NOT NULL,
             updated_at TIMESTAMP,
             state VARCHAR(255) NOT NULL,
-            PRIMARY KEY (number),
+            
+            PRIMARY KEY (id),
             CONSTRAINT num_repo_ind UNIQUE (number, repo_id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
             FOREIGN KEY(creator_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
@@ -150,6 +184,7 @@ class DBSchema:
             repo_id INTEGER,
             login VARCHAR(255) NOT NULL,
             starred_at TIMESTAMP,
+            
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
         )
@@ -159,6 +194,7 @@ class DBSchema:
             repo_id INTEGER,
             login VARCHAR(255) NOT NULL,
             created_at TIMESTAMP,
+            
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
         )
@@ -169,6 +205,7 @@ class DBSchema:
             url VARCHAR(255) NOT NULL,
             name VARCHAR(255) NOT NULL,
             total_stargazers INTEGER NOT NULL,
+            
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
         )
@@ -182,6 +219,7 @@ class DBSchema:
             updated_at TIMESTAMP NOT NULL,
             is_prerelease BOOLEAN,
             tag VARCHAR(255),
+            
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
             FOREIGN KEY(creator_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
@@ -192,6 +230,7 @@ class DBSchema:
             repo_id INTEGER,
             login VARCHAR(255) NOT NULL,
             created_at TIMESTAMP NOT NULL,
+            
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
         )
@@ -201,6 +240,7 @@ class DBSchema:
             repo_id INTEGER,
             name VARCHAR(255) NOT NULL,
             target_commit_id VARCHAR(255) NOT NULL,
+            
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
         )
@@ -211,6 +251,7 @@ class DBSchema:
             color VARCHAR(255) NOT NULL,
             created_at TIMESTAMP NOT NULL,
             type VARCHAR(255),
+            
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
             CONSTRAINT enum_check CHECK ('type IN (GENERAL, PRIORITY, SEVERITY, COMPONENT)')
@@ -225,8 +266,8 @@ class DBSchema:
         
         milestones = Table(
             'milestones', self._metadata,
-            Column('id', INTEGER, autoincrement=True),
-            Column('number', INTEGER, primary_key=True),
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('number', INTEGER),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
             Column('creator_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
             Column('title', TEXT),
@@ -236,11 +277,11 @@ class DBSchema:
             Column('created_at', TIMESTAMP, nullable=False),
             Column('updated_at', TIMESTAMP),
             Column('state', self._state_enum[0], nullable=False),
-            UniqueConstraint('number', 'repo_id', name='num_repo_ind'),
+            UniqueConstraint('number', 'repo_id', name='num_repo_ind')
         )
         
         if self._state_enum[1]:
-            milestones.append_constraint(CheckConstraint(f"\'state IN {State.__str__}\'", 'enum_check'))
+            milestones.append_constraint(CheckConstraint(f"\'state IN ({get_string(State)})\'", 'enum_check'))
         
         stargazers = Table(
             'stargazers', self._metadata,
@@ -275,7 +316,7 @@ class DBSchema:
             Column('description', TEXT),
             Column('created_at', TIMESTAMP, nullable=False),
             Column('updated_at', TIMESTAMP, nullable=False),
-            Column('is_prerelease', BOOLEAN, default=0),
+            Column('is_prerelease', BOOLEAN, default=0, nullable=False),
             Column('tag', VARCHAR(255))
         )
         
@@ -305,7 +346,7 @@ class DBSchema:
         )
         
         if self._label_enum[1]:
-            labels.append_constraint(CheckConstraint(f"\'type IN {LabelType.__str__}\'", 'enum_check'))
+            labels.append_constraint(CheckConstraint(f"\'type IN ({get_string(LabelType)})\'", 'enum_check'))
         
         languages.create(bind=self.engine, checkfirst=True)
         milestones.create(bind=self.engine, checkfirst=True)
@@ -319,32 +360,33 @@ class DBSchema:
     
     def _create_issue_table(self):
         """
-        CREATE TABLE issues (
-            id INTEGER NOT NULL,
-            number INTEGER NOT NULL,
-            repo_id INTEGER,
-            created_at TIMESTAMP NOT NULL,
-            updated_at TIMESTAMP NOT NULL,
-            closed_at TIMESTAMP,
-            title TEXT,
-            body TEXT,
-            reporter_id INTEGER,
-            milestone_id INTEGER,
-            positive_reaction_count INTEGER,
-            negative_reaction_count INTEGER,
-            ambiguous_reaction_count INTEGER,
-            state VARCHAR(255) NOT NULL,
-            PRIMARY KEY (id, number),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(reporter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
-            FOREIGN KEY(milestone_id) REFERENCES milestones (number) ON DELETE CASCADE,
-            CONSTRAINT enum_check CHECK ('state in (OPEN, CLOSED)')
-        )
+            CREATE TABLE issues (
+                id INTEGER NOT NULL,
+                number INTEGER,
+                repo_id INTEGER,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                closed_at TIMESTAMP,
+                title TEXT,
+                body TEXT,
+                reporter_id INTEGER,
+                milestone_id INTEGER,
+                positive_reaction_count INTEGER NOT NULL,
+                negative_reaction_count INTEGER NOT NULL,
+                ambiguous_reaction_count INTEGER NOT NULL,
+                state VARCHAR(255) NOT NULL,
+                
+                PRIMARY KEY (id),
+                CONSTRAINT num_repo_ind UNIQUE (number, repo_id),
+                FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+                FOREIGN KEY(reporter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+                FOREIGN KEY(milestone_id) REFERENCES milestones (id) ON DELETE CASCADE
+            )
         """
         issues = Table(
             'issues', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('number', INTEGER, primary_key=True),
+            Column('number', INTEGER),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
             Column('created_at', TIMESTAMP, nullable=False),
             Column('updated_at', TIMESTAMP, nullable=False),
@@ -352,22 +394,141 @@ class DBSchema:
             Column('title', TEXT),
             Column('body', TEXT),
             Column('reporter_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
-            Column('milestone_id', None, ForeignKey('milestones.number', ondelete="CASCADE")),
-            Column('positive_reaction_count', INTEGER, default=0),
-            Column('negative_reaction_count', INTEGER, default=0),
-            Column('ambiguous_reaction_count', INTEGER, default=0),
-            Column('state', self._state_enum[0], nullable=False)
+            Column('milestone_id', None, ForeignKey('milestones.id', ondelete="CASCADE")),
+            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
+            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False),
+            Column('state', self._state_enum[0], nullable=False),
+            UniqueConstraint('number', 'repo_id', name='num_repo_ind')
         )
         
         if self._state_enum[1]:
-            issues.append_constraint(CheckConstraint(f"\'state in {State.__str__}\'", name='enum_check'))
+            issues.append_constraint(CheckConstraint(f"\'state in ({get_string(State)})\'", name='enum_check'))
         
         issues.create(bind=self.engine, checkfirst=True)
     
     def _create_issue_tracker_tables(self):
         """
+        CREATE TABLE issue_assignees (
+            id INTEGER NOT NULL,
+            issue_id INTEGER,
+            assignee_id INTEGER,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
+            FOREIGN KEY(assignee_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
+        )
+        
+        CREATE TABLE issue_labels (
+            id INTEGER NOT NULL,
+            issue_id INTEGER,
+            label_id INTEGER,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
+            FOREIGN KEY(label_id) REFERENCES labels (id) ON DELETE CASCADE
+        )
+        
+        CREATE TABLE issue_comments (
+            id INTEGER NOT NULL,
+            issue_id INTEGER,
+            commenter_id INTEGER,
+            body TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            is_minimized BOOLEAN,
+            minimized_reason VARCHAR(255),
+            positive_reaction_count INTEGER NOT NULL,
+            negative_reaction_count INTEGER NOT NULL,
+            ambiguous_reaction_count INTEGER NOT NULL,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
+            FOREIGN KEY(commenter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
+        )
+        
+        CREATE TABLE issue_events (
+            id INTEGER NOT NULL,
+            issue_id INTEGER,
+            event_type VARCHAR(255) NOT NULL,
+            who INTEGER,
+            "when" TIMESTAMP NOT NULL,
+            added VARCHAR(255),
+            added_type VARCHAR(255),
+            removed VARCHAR(255),
+            removed_type VARCHAR(255),
+            is_cross_repository BOOLEAN NOT NULL,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
+            FOREIGN KEY(who) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            CONSTRAINT event_enum_check CHECK ('event_type in (ASSIGNED_EVENT, CROSS_REFERENCED_EVENT,
+                DEMILESTONED_EVENT, LABELED_EVENT, MARKED_AS_DUPLICATE_EVENT, MENTIONED_EVENT, MILESTONED_EVENT,
+                PINNED_EVENT, REFERENCED_EVENT, RENAMED_TITLE_EVENT, REOPENED_EVENT, TRANSFERRED_EVENT,
+                UNASSIGNED_EVENT, UNLABELED_EVENT, UNMARKED_AS_DUPLICATE_EVENT, UNPINNED_EVENT)'),
+            CONSTRAINT added_enum_check CHECK ('added_type in (USER, MILESTONE, LABEL, COMMIT_ID, TITLE, REPOSITORY)'),
+            CONSTRAINT removed_enum_check CHECK ('removed_type in (USER, MILESTONE, LABEL, COMMIT_ID, TITLE,
+                REPOSITORY)')
+        )
         """
-        pass
+        issue_assignees = Table(
+            'issue_assignees', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
+            Column('assignee_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
+        )
+        
+        issue_labels = Table(
+            'issue_labels', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
+            Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE")),
+        )
+        
+        issue_comments = Table(
+            'issue_comments', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
+            Column('commenter_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('body', TEXT, nullable=False),
+            Column('created_at', TIMESTAMP, nullable=False),
+            Column('updated_at', TIMESTAMP, nullable=False),
+            Column('is_minimized', BOOLEAN, default=False),
+            Column('minimized_reason', VARCHAR(255)),
+            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
+            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
+        )
+        
+        issue_events = Table(
+            'issue_events', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
+            Column('event_type', self._event_type_enum[0], nullable=False),
+            Column('who', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('when', TIMESTAMP, nullable=False),
+            Column('added', VARCHAR(255)),
+            Column('added_type', self._added_or_removed_type[0]),
+            Column('removed', VARCHAR(255)),
+            Column('removed_type', self._added_or_removed_type[0]),
+            Column('is_cross_repository', BOOLEAN, default=0, nullable=False)
+        )
+        
+        if self._event_type_enum[1]:
+            issue_events.append_constraint(CheckConstraint(f"\'event_type in ({get_string(EventType)})\'",
+                                                           name='event_enum_check'))
+        
+        if self._added_or_removed_type[1]:
+            issue_events.append_constraint(CheckConstraint(f"\'added_type in ({get_string(AddedOrRemovedType)})\'",
+                                                           name='added_enum_check'))
+            
+            issue_events.append_constraint(CheckConstraint(f"\'removed_type in ({get_string(AddedOrRemovedType)})\'",
+                                                           name='removed_enum_check'))
+
+        issue_assignees.create(bind=self.engine, checkfirst=True)
+        issue_labels.create(bind=self.engine, checkfirst=True)
+        issue_comments.create(bind=self.engine, checkfirst=True)
+        issue_events.create(bind=self.engine, checkfirst=True)
 
 
 if __name__ == '__main__':
