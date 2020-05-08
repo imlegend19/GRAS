@@ -1,4 +1,5 @@
 import argparse
+import getpass
 import logging.config
 import os
 import sys
@@ -6,7 +7,6 @@ import threading
 import time
 from datetime import datetime
 from queue import Queue
-import getpass
 
 from components.github_miner import GithubMiner
 from components.query_engine.github_repo_stats import RepoStatistics
@@ -36,7 +36,7 @@ DEFAULT_LOGGING = {
         'file'   : {
             'class'    : 'logging.FileHandler',
             'formatter': 'simple',
-            'level'    : 'INFO',
+            'level'    : 'DEBUG',
             'filename' : LOGFILE,
             'mode'     : 'w',
         },
@@ -132,12 +132,13 @@ def start():
     database.add_argument('-o', '--db-output', help="The path to the .db file in case of sqlite dbms")
     database.add_argument('-L', '--db-log', help="DB-log flag to log the generated SQL produced", default=False,
                           type=bool, nargs='?', required=False, const=True)
-    
-    args = parser.parse_args()
-    
+
+    args = parser.parse_args(['-t', 'b62c6b609bb8065399d4f09a85d6bad15894f345', '-RN', 'sympy', '-RO', 'sympy',
+                              '-dbms', 'sqlite', '-o', '/home/mahen/PycharmProjects/GRAS/file.db', '-L', '1'])
+
     if args.db_password:
         args.db_password = getpass.getpass('Enter Password: ')
-    
+
     if args.stats:
         queue = Queue()
         t = threading.Thread(name='process', target=lambda q, arg1: q.put(get_repo_stats(arg1)), args=(queue, args))
@@ -156,7 +157,7 @@ def start():
         # TODO: Initialise the parsing and dump the data to the output location
         if args.interface == "github":
             gm = GithubMiner(args=args)
-            gm.connect_to_db()
+            gm.process()
         else:
             pass
 

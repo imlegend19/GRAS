@@ -510,6 +510,22 @@ class UserModel(BaseModel):
             location=dic[UserStatic.LOCATION],
             updated_at=dic[APIStaticV4.UPDATED_AT]
         )
+
+        return obj
+
+
+class AnonContributorModel(BaseModel):
+    def __init__(self, email, name):
+        super().__init__()
+        
+        self.email = email
+        self.name = name
+    
+    def object_decoder(self, dic):
+        obj = AnonContributorModel(
+            name=dic[APIStaticV3.NAME],
+            email=dic[APIStaticV3.EMAIL]
+        )
         
         return obj
 

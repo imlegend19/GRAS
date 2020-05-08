@@ -68,8 +68,11 @@ def time_period_chunks(start_date, end_date, chunk_size=400):
 
 
 def to_iso_format(date):
-    d = parser.parse(date)
-    return d.isoformat()
+    if not date:
+        return None
+    else:
+        d = parser.parse(date)
+        return d.isoformat()
 
 
 def waiting_animation(n, msg):
@@ -80,6 +83,20 @@ def waiting_animation(n, msg):
     time.sleep(0.5)
     
     return n
+
+
+def to_datetime(date):
+    if not date:
+        return None
+    else:
+        return dateutil.parser.parse(date)
+
+
+def get_value(str_):
+    if not str_:
+        return None
+    else:
+        return str_
 
 
 ARROW_ANIMATOR = ['⬍', '⬈', '➞', '⬊', '⬍', '⬋', '⬅', '⬉']

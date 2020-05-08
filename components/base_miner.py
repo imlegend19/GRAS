@@ -65,5 +65,5 @@ class BaseMiner(metaclass=ABCMeta):
         pass
     
     @abstractmethod
-    def connect_to_db(self):
+    def _connect_to_db(self):
         pass

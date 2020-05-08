@@ -47,6 +47,8 @@ class APIStaticV3(metaclass=BaseStatic):
     NAME = "name"
     DATE = "date"
     EMAIL = "email"
+    CONTRIBUTIONS = "contributions"
+    NODE_ID = "node_id"
 
 
 class CommitStatic(metaclass=BaseStatic):
