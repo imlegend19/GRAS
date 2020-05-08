@@ -176,10 +176,10 @@ def start():
     cliConfig.set('DATABASE_SETTING', 'db_output', args_dict['db_output'])
     cliConfig.set('DATABASE_SETTING', 'db_log', args_dict['db_log'])
 
-    cliConfig.set('REPO_STATS', 'repo_list', args_dict['repo_list'])
-    cliConfig.set('REPO_STATS', 'operation', args_dict['operation'])
-    cliConfig.set('REPO_STATS', 'export', args_dict['export'])
-    cliConfig.set('REPO_STATS', 'output', args_dict['output'])
+    cliConfig.set('OTHER_SETTINGS', 'repo_list', args_dict['repo_list'])
+    cliConfig.set('OTHER_SETTINGS', 'operation', args_dict['operation'])
+    cliConfig.set('OTHER_SETTINGS', 'export', args_dict['export'])
+    cliConfig.set('OTHER_SETTINGS', 'output', args_dict['output'])
 
     if args.db_password:
         args.db_password = getpass.getpass('Enter Password: ')
