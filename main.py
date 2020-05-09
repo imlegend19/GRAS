@@ -91,8 +91,8 @@ def start():
     # groups
     # ======
     gras_commands = parser.add_argument_group('GRAS-COMMANDS')
-    database_setting = parser.add_argument_group('DATABASE-SETTINGS')
-    miner_setting = parser.add_argument_group('MINER-SETTINGS')
+    database_settings = parser.add_argument_group('DATABASE-SETTINGS')
+    miner_settings = parser.add_argument_group('MINER-SETTINGS')
     other = parser.add_argument_group('OTHER')
 
     # ==================
@@ -129,80 +129,80 @@ def start():
     # ==================
     # miner setting
     # ==================
-    miner_setting.add_argument('-RO',
-                               '--repo-owner',
-                               help="Owner of the repository",
-                               default="apache")
-    miner_setting.add_argument('-RN',
-                               '--repo-name',
-                               help="Name of the repository",
-                               default="incubator-mxnet")
-    miner_setting.add_argument('-t',
-                               '--token',
-                               help="Personal API Access Token for parsing",
-                               default=AUTH_KEY)
-    miner_setting.add_argument('-SD',
-                               '--start-date',
-                               help=
-                               "Start Date for mining the data (in any ISO 8601 format, e.g., 'YYYY-MM-DD HH:mm:SS "
-                               "+|-HH:MM')",
-                               default=DEFAULT_START_DATE,
-                               required=False)
-    miner_setting.add_argument('-ED',
-                               '--end-date',
-                               help=
-                               "End Date for mining the data (in any ISO 8601 format, e.g., 'YYYY-MM-DD HH:mm:SS "
-                               "+|-HH:MM')",
-                               default=DEFAULT_END_DATE,
-                               required=False)
-    miner_setting.add_argument('-i',
-                               '--interface',
-                               help="Interface of choice",
-                               default='github',
-                               choices=['github'],
-                               required=False)
+    miner_settings.add_argument('-RO',
+                                '--repo-owner',
+                                help="Owner of the repository",
+                                default="apache")
+    miner_settings.add_argument('-RN',
+                                '--repo-name',
+                                help="Name of the repository",
+                                default="incubator-mxnet")
+    miner_settings.add_argument('-t',
+                                '--token',
+                                help="Personal API Access Token for parsing",
+                                default=AUTH_KEY)
+    miner_settings.add_argument('-SD',
+                                '--start-date',
+                                help=
+                                "Start Date for mining the data (in any ISO 8601 format, e.g., 'YYYY-MM-DD HH:mm:SS "
+                                "+|-HH:MM')",
+                                default=DEFAULT_START_DATE,
+                                required=False)
+    miner_settings.add_argument('-ED',
+                                '--end-date',
+                                help=
+                                "End Date for mining the data (in any ISO 8601 format, e.g., 'YYYY-MM-DD HH:mm:SS "
+                                "+|-HH:MM')",
+                                default=DEFAULT_END_DATE,
+                                required=False)
+    miner_settings.add_argument('-i',
+                                '--interface',
+                                help="Interface of choice",
+                                default='github',
+                                choices=['github'],
+                                required=False)
 
     # ================
     # database setting
     # ================
-    database_setting.add_argument('-dbms',
-                                  help="DBMS to dump the data into",
-                                  default='mysql',
-                                  choices=["sqlite", "mysql", "postgresql"])
-    database_setting.add_argument('-DB',
-                                  '--db-name',
-                                  help="Name of the database",
-                                  default='gras')
-    database_setting.add_argument('-U',
-                                  '--db-username',
-                                  help="The user name that is used to connect and operate the selected "
-                                       "database")
-    database_setting.add_argument('-P',
-                                  '--db-password',
-                                  help="The password for the user name entered",
-                                  const=True,
-                                  nargs='?')
-    database_setting.add_argument('-H',
-                                  '--db-host',
-                                  help="The database server IP address or DNS name",
-                                  default="localhost")
-    database_setting.add_argument('-p',
-                                  '--db-port',
-                                  help="The database server port that allows communication to your "
-                                       "database",
-                                  default=3306,
-                                  type=int)
-    database_setting.add_argument('-dbo',
-                                  '--db-output',
-                                  help="The path to the .db file in case of sqlite dbms")
-    database_setting.add_argument('-L',
-                                  '--db-log',
-                                  help="DB-log flag to log the generated SQL produced",
-                                  default=False,
-                                  type=bool,
-                                  nargs='?',
-                                  required=False,
-                                  const=True)
+    database_settings.add_argument('-dbms',
+                                   help="DBMS to dump the data into",
+                                   default='mysql',
+                                   choices=["sqlite", "mysql", "postgresql"])
+    database_settings.add_argument('-DB',
+                                   '--db-name',
+                                   help="Name of the database",
+                                   default='gras')
+    database_settings.add_argument('-U',
+                                   '--db-username',
+                                   help="The user name that is used to connect and operate the selected "
+                                        "database")
+    database_settings.add_argument('-P',
+                                   '--db-password',
+                                   help="The password for the user name entered",
+                                   const=True,
+                                   nargs='?')
+    database_settings.add_argument('-H',
+                                   '--db-host',
+                                   help="The database server IP address or DNS name",
+                                   default="localhost")
+    database_settings.add_argument('-p',
+                                   '--db-port',
+                                   help="The database server port that allows communication to your "
+                                        "database",
+                                   default=3306,
+                                   type=int)
+    database_settings.add_argument('-dbo',
+                                   '--db-output',
+                                   help="The path to the .db file in case of sqlite dbms")
+    database_settings.add_argument('-L',
+                                   '--db-log',
+                                   help="DB-log flag to log the generated SQL produced",
+                                   default=False,
+                                   type=bool,
+                                   nargs='?',
+                                   required=False,
+                                   const=True)
 
     # ================
     # other
@@ -237,7 +237,7 @@ def start():
         arg_groups[group.title] = argparse.Namespace(**group_dict)
 
     if args_dict['generate']:
-        cliConfig.create_config('config', arg_groups)
+        cliConfig._create_config('config', arg_groups)
 
     if args.db_password:
         args.db_password = getpass.getpass('Enter Password: ')
