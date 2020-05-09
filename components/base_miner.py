@@ -1,14 +1,17 @@
 from abc import ABCMeta, abstractmethod
 
+from components.utils import to_iso_format
+
 
 class BaseMiner(metaclass=ABCMeta):
     """
     BaseMiner class to store parameters parsed by `ArgumentParse` and start the mining process
     """
+    
     def __init__(self, args):
         self.interface = args.interface
-        self.start_date = args.start_date
-        self.end_date = args.end_date
+        self.start_date = to_iso_format(args.start_date)
+        self.end_date = to_iso_format(args.end_date)
         self.animator = args.animator
         self.dbms = args.dbms
         self.db_name = args.db_name

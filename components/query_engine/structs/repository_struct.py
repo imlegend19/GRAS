@@ -35,7 +35,7 @@ class RepositoryStruct(GithubInterface, RepositoryModel):
     
     def __init__(self, github_token, name, owner):
         super().__init__(
-            github_token,
+            github_token=github_token,
             query=self.QUERY,
             query_params=dict(name=name, owner=owner)
         )

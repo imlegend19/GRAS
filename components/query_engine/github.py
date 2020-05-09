@@ -88,14 +88,18 @@ class GithubInterface(BaseInterface):
                 if 'X-RateLimit-Remaining' in req.headers and int(req.headers['X-RateLimit-Remaining']) <= 2:
                     reset_time = datetime.fromtimestamp(float(req.headers['X-RateLimit-Reset']))
                     wait_time = (reset_time - datetime.now()).total_seconds() + 5
-                    
+    
                     logger.info(f"Github API maximum rate limit reached. Waiting for {wait_time} sec...")
                     time.sleep(wait_time)
-                    
+    
                     req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
-                
+
                 self._close_session()
-                
+
+                content = req.json()
+                if "errors" in content:
+                    raise exceptions.RequestException(f"Problem with getting data via url {self.url} + {self.query}.")
+
                 if only_json:
                     return req.json()
                 else:
@@ -104,8 +108,8 @@ class GithubInterface(BaseInterface):
                 logging.error(f"Problem with getting data via url {self.url}. Error: {req.text}")
                 tries += 1
                 time.sleep(2)
-        
-        raise exceptions.RequestException(f"Problem with getting data via url {self.url}.")
+
+        raise exceptions.RequestException(f"Problem with getting data via url {self.url} + {self.query}.")
     
     def generator(self):
         if self.url is None:

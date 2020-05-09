@@ -1,3 +1,4 @@
+import re
 from abc import ABCMeta, abstractmethod
 
 from components.query_engine.entity.api_static import *
@@ -86,16 +87,24 @@ class MilestoneModel(BaseModel):
 
 
 class StargazerModel(BaseModel):
-    def __init__(self, login, starred_at):
+    def __init__(self, user, starred_at):
         super().__init__()
         
-        self.login = login
+        self.user = user
         self.starred_at = starred_at
     
     def object_decoder(self, dic):
         obj = StargazerModel(
             starred_at=dic[RepositoryStatic.STARRED_AT],
-            login=dic[APIStaticV4.NODE][UserStatic.LOGIN],
+            user=UserModel(
+                login=dic[APIStaticV4.NODE][UserStatic.LOGIN],
+                name=dic[APIStaticV4.NODE][UserStatic.NAME],
+                email=dic[APIStaticV4.NODE][UserStatic.EMAIL],
+                created_at=dic[APIStaticV4.NODE][APIStaticV4.CREATED_AT],
+                total_followers=dic[APIStaticV4.NODE][UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT],
+                location=dic[APIStaticV4.NODE][UserStatic.LOCATION],
+                updated_at=dic[APIStaticV4.NODE][APIStaticV4.UPDATED_AT]
+            )
         )
         
         return obj
@@ -136,16 +145,22 @@ class BranchModel(BaseModel):
 
 
 class WatcherModel(BaseModel):
-    def __init__(self, login, created_at):
+    def __init__(self, user):
         super().__init__()
         
-        self.login = login
-        self.created_at = created_at
+        self.user = user
     
     def object_decoder(self, dic):
         obj = WatcherModel(
-            login=dic[UserStatic.LOGIN],
-            created_at=dic[APIStaticV4.CREATED_AT]
+            user=UserModel(
+                login=dic[UserStatic.LOGIN],
+                name=dic[UserStatic.NAME],
+                email=dic[UserStatic.EMAIL],
+                created_at=dic[APIStaticV4.CREATED_AT],
+                total_followers=dic[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT],
+                location=dic[UserStatic.LOCATION],
+                updated_at=dic[APIStaticV4.UPDATED_AT]
+            )
         )
         
         return obj
@@ -198,7 +213,8 @@ class IssueModel(BaseModel):
             author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][UserStatic.LOGIN],
             assignees=list(node[UserStatic.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]),
             number=dic[APIStaticV4.NUMBER],
-            milestone_number=dic[IssueStatic.MILESTONE],
+            milestone_number=None if dic[IssueStatic.MILESTONE] is None else dic[IssueStatic.MILESTONE][
+                APIStaticV4.NUMBER],
             labels=list(node[UserStatic.NAME] for node in dic[IssueStatic.LABELS][APIStaticV4.NODES]),
             positive_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
             negative_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
@@ -352,7 +368,7 @@ class ReleaseModel(BaseModel):
         self.author_login = author_login
         self.description = description
         self.created_at = created_at
-        self.isPrerelease = isPrerelease
+        self.is_prerelease = isPrerelease
         self.name = name
         self.release_assets = release_assets
         self.tag_name = tag_name
@@ -499,18 +515,30 @@ class UserModel(BaseModel):
         self.total_followers = total_followers
         self.location = location
         self.updated_at = updated_at
-    
+
     def object_decoder(self, dic):
+        try:
+            followers = dic[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
+        except TypeError:
+            followers = dic[UserStatic.FOLLOWERS]
+    
+        try:
+            created_at = dic[APIStaticV4.CREATED_AT]
+            updated_at = dic[APIStaticV4.UPDATED_AT]
+        except KeyError:
+            created_at = dic[APIStaticV3.CREATED_AT]
+            updated_at = dic[APIStaticV3.UPDATED_AT]
+    
         obj = UserModel(
             login=dic[UserStatic.LOGIN],
             name=dic[UserStatic.NAME],
             email=dic[UserStatic.EMAIL],
-            created_at=dic[APIStaticV4.CREATED_AT],
-            total_followers=dic[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT],
+            created_at=created_at,
+            total_followers=followers,
             location=dic[UserStatic.LOCATION],
-            updated_at=dic[APIStaticV4.UPDATED_AT]
+            updated_at=updated_at
         )
-
+    
         return obj
 
 
@@ -585,21 +613,30 @@ class CommitCommentModel(BaseModel):
 
 
 class ForkModel(BaseModel):
-    def __init__(self, login, created_at):
+    def __init__(self, user, forked_at):
         super().__init__()
         
-        self.login = login
-        self.created_at = created_at
+        self.user = user
+        self.forked_at = forked_at
     
     def object_decoder(self, dic):
         obj = ForkModel(
-            login=dic[RepositoryStatic.OWNER][UserStatic.LOGIN],
-            created_at=dic[APIStaticV4.CREATED_AT]
+            user=UserModel(
+                login=dic[UserStatic.LOGIN],
+                name=dic[RepositoryStatic.OWNER][UserStatic.NAME],
+                email=dic[RepositoryStatic.OWNER][UserStatic.EMAIL],
+                created_at=dic[RepositoryStatic.OWNER][APIStaticV4.CREATED_AT],
+                total_followers=dic[RepositoryStatic.OWNER][UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT],
+                location=dic[RepositoryStatic.OWNER][UserStatic.LOCATION],
+                updated_at=dic[RepositoryStatic.OWNER][APIStaticV4.UPDATED_AT]
+            ),
+            forked_at=dic[APIStaticV4.CREATED_AT]
         )
+
         return obj
 
 
-class IssueEventModel(BaseModel):
+class EventModel(BaseModel):
     def __init__(self, number, who, when, event_type, added, added_type, removed, removed_type, is_cross_repository):
         super().__init__()
         
@@ -614,12 +651,13 @@ class IssueEventModel(BaseModel):
         self.is_cross_repository = is_cross_repository
     
     def object_decoder(self, dic, number):
-        event_type = dic[IssueEventStatic.EVENT_TYPE]
-        obj = IssueEventModel(
+        event_type = dic[EventStatic.EVENT_TYPE]
+        
+        obj = EventModel(
             number=number,
-            event_type=event_type,
-            who=None if dic[IssueEventStatic.WHO] is None else dic[IssueEventStatic.WHO][UserStatic.LOGIN],
-            when=dic[IssueEventStatic.WHEN],
+            event_type=re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.EVENT_TYPE]).upper(),
+            who=None if dic[EventStatic.WHO] is None else dic[EventStatic.WHO][UserStatic.LOGIN],
+            when=dic[EventStatic.WHEN],
             added=None,
             added_type=None,
             removed=None,
@@ -627,51 +665,51 @@ class IssueEventModel(BaseModel):
             is_cross_repository=False
         )
         
-        if event_type == IssueEventStatic.ASSIGNED_EVENT:
-            obj.added = dic[IssueEventStatic.ADDED][UserStatic.LOGIN]
+        if event_type == EventStatic.ASSIGNED_EVENT:
+            obj.added = dic[EventStatic.ADDED][UserStatic.LOGIN]
             obj.added_type = "USER"
-        elif event_type == IssueEventStatic.CROSS_REFERENCED_EVENT:
-            obj.added = dic[IssueEventStatic.ADDED][APIStaticV4.NUMBER]
-            obj.added_type = dic[IssueEventStatic.ADDED][IssueEventStatic.TYPE].upper()
+        elif event_type == EventStatic.CROSS_REFERENCED_EVENT:
+            obj.added = dic[EventStatic.ADDED][APIStaticV4.NUMBER]
+            obj.added_type = re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.ADDED][EventStatic.TYPE]).upper()
             obj.is_cross_repository = True
-        elif event_type == IssueEventStatic.DEMILESTONED_EVENT:
-            obj.removed = dic[IssueEventStatic.ADDED]
+        elif event_type == EventStatic.DEMILESTONED_EVENT:
+            obj.removed = dic[EventStatic.REMOVED]
             obj.removed_type = "MILESTONE"
-        elif event_type == IssueEventStatic.LABELED_EVENT:
-            obj.added = dic[IssueEventStatic.ADDED][UserStatic.NAME]
+        elif event_type == EventStatic.LABELED_EVENT:
+            obj.added = dic[EventStatic.ADDED][UserStatic.NAME]
             obj.added_type = "LABEL"
-        elif event_type == IssueEventStatic.MARKED_AS_DUPLICATE_EVENT:
+        elif event_type == EventStatic.MARKED_AS_DUPLICATE_EVENT:
             pass
-        elif event_type == IssueEventStatic.MENTIONED_EVENT:
+        elif event_type == EventStatic.MENTIONED_EVENT:
             pass
-        elif event_type == IssueEventStatic.MILESTONED_EVENT:
-            obj.added = dic[IssueEventStatic.ADDED]
+        elif event_type == EventStatic.MILESTONED_EVENT:
+            obj.added = dic[EventStatic.ADDED]
             obj.added_type = "MILESTONE"
-        elif event_type == IssueEventStatic.PINNED_EVENT:
+        elif event_type == EventStatic.PINNED_EVENT:
             pass
-        elif event_type == IssueEventStatic.REFERENCED_EVENT:
-            obj.added = dic[IssueEventStatic.ADDED][APIStaticV4.OID]
+        elif event_type == EventStatic.REFERENCED_EVENT:
+            obj.added = dic[EventStatic.ADDED][APIStaticV4.OID]
             obj.added_type = "COMMIT_ID"
             obj.is_cross_repository = True
-        elif event_type == IssueEventStatic.RENAMED_TITLE_EVENT:
-            obj.removed = dic[IssueEventStatic.REMOVED]
+        elif event_type == EventStatic.RENAMED_TITLE_EVENT:
+            obj.removed = dic[EventStatic.REMOVED]
             obj.removed_type = "TITLE"
-            obj.added = dic[IssueEventStatic.ADDED]
+            obj.added = dic[EventStatic.ADDED]
             obj.added_type = "TITLE"
-        elif event_type == IssueEventStatic.REOPENED_EVENT:
+        elif event_type == EventStatic.REOPENED_EVENT:
             pass
-        elif event_type == IssueEventStatic.TRANSFERRED_EVENT:
-            rem = dic[IssueEventStatic.REMOVED]
+        elif event_type == EventStatic.TRANSFERRED_EVENT:
+            rem = dic[EventStatic.REMOVED]
             obj.removed = rem[RepositoryStatic.OWNER] + "/" + rem[UserStatic.NAME]
             obj.removed_type = "REPOSITORY"
-        elif event_type == IssueEventStatic.UNASSIGNED_EVENT:
+        elif event_type == EventStatic.UNASSIGNED_EVENT:
             pass
-        elif event_type == IssueEventStatic.UNLABELED_EVENT:
-            obj.removed = dic[IssueEventStatic.REMOVED][UserStatic.NAME]
+        elif event_type == EventStatic.UNLABELED_EVENT:
+            obj.removed = dic[EventStatic.REMOVED][UserStatic.NAME]
             obj.removed_type = "LABEL"
-        elif event_type == IssueEventStatic.UNMARKED_AS_DUPLICATE_EVENT:
+        elif event_type == EventStatic.UNMARKED_AS_DUPLICATE_EVENT:
             pass
-        elif event_type == IssueEventStatic.UNPINNED_EVENT:
+        elif event_type == EventStatic.UNPINNED_EVENT:
             pass
         else:
             raise NotImplementedError

@@ -133,8 +133,8 @@ def start():
     database.add_argument('-L', '--db-log', help="DB-log flag to log the generated SQL produced", default=False,
                           type=bool, nargs='?', required=False, const=True)
 
-    args = parser.parse_args(['-t', 'b62c6b609bb8065399d4f09a85d6bad15894f345', '-RN', 'sympy', '-RO', 'sympy',
-                              '-dbms', 'sqlite', '-o', '/home/mahen/PycharmProjects/GRAS/file.db', '-L', '1'])
+    args = parser.parse_args(['-t', AUTH_KEY, '-RN', 'sympy', '-RO', 'sympy', '-SD', '2013-01-01', '-ED', '2013-03-01',
+                              '-dbms', 'sqlite', '-o', '/home/mahen/PycharmProjects/GRAS/file.db'])
 
     if args.db_password:
         args.db_password = getpass.getpass('Enter Password: ')

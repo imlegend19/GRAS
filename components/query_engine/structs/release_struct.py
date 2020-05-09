@@ -1,7 +1,6 @@
 from components.query_engine.entity.api_static import APIStaticV4, ReleaseStatic
 from components.query_engine.entity.github_models import ReleaseModel
 from components.query_engine.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class ReleaseStruct(GithubInterface, ReleaseModel):
@@ -42,7 +41,7 @@ class ReleaseStruct(GithubInterface, ReleaseModel):
     def __init__(self, github_token, name, owner):
         super().__init__(
             github_token=github_token,
-            query=ReleaseStruct.RELEASE_QUERY,
+            query=self.RELEASE_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
     
@@ -55,34 +54,18 @@ class ReleaseStruct(GithubInterface, ReleaseModel):
                 response = next(generator)
             except StopIteration:
                 break
-            
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            
+
             self.query_params[APIStaticV4.AFTER] = '\"' + endCursor + '\"' if endCursor is not None else "null"
-            
-            resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][APIStaticV4.NODES]
-            
-            if resp is not None:
-                if None not in resp:
-                    yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][APIStaticV4.NODES]
-                
-                else:
-                    yield list(
-                        filter(
-                            None.__ne__,
-                            response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][
-                                APIStaticV4.NODES],
-                        )
-                    )
-            
+
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][APIStaticV4.NODES]
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][ReleaseStatic.RELEASES][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
-
-if __name__ == "__main__":
-    release = ReleaseStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
-    
-    for lst in release.iterator():
-        for rel in lst:
-            print(release.object_decoder(rel).name)
+    def process(self):
+        for lst in self.iterator():
+            for release in lst:
+                yield self.object_decoder(release)

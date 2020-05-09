@@ -40,6 +40,8 @@ class UserStatic(metaclass=BaseStatic):
 
 
 class APIStaticV3(metaclass=BaseStatic):
+    UPDATED_AT = "updated_at"
+    CREATED_AT = "created_at"
     INCOMPLETE_RESULTS = "incomplete_results"
     ITEMS = "items"
     TOTAL_COUNT = "total_count"
@@ -160,7 +162,7 @@ class ReleaseStatic(metaclass=BaseStatic):
     RELEASE_ASSETS = "releaseAssets"
 
 
-class IssueEventStatic(metaclass=BaseStatic):
+class EventStatic(metaclass=BaseStatic):
     ASSIGNED_EVENT = "AssignedEvent"
     CROSS_REFERENCED_EVENT = "CrossReferencedEvent"
     DEMILESTONED_EVENT = "DemilestonedEvent"

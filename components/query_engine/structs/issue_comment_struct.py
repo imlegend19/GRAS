@@ -1,7 +1,6 @@
 from components.query_engine.entity.api_static import APIStaticV4, IssueStatic
 from components.query_engine.entity.github_models import IssueCommentModel
 from components.query_engine.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class IssueCommentStruct(GithubInterface, IssueCommentModel):
@@ -39,7 +38,7 @@ class IssueCommentStruct(GithubInterface, IssueCommentModel):
     def __init__(self, github_token, name, owner, number):
         super().__init__(
             github_token=github_token,
-            query=IssueCommentStruct.ISSUE_COMMENT_QUERY,
+            query=self.ISSUE_COMMENT_QUERY,
             query_params=dict(owner=owner, name=name, number=number, after="null")
         )
     
@@ -52,28 +51,19 @@ class IssueCommentStruct(GithubInterface, IssueCommentModel):
                 response = next(generator)
             except StopIteration:
                 break
-            
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            
+
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-            
+
             yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
                 APIStaticV4.NODES]
-            
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
-
-if __name__ == '__main__':
-    issue_comment = IssueCommentStruct(
-        github_token=AUTH_KEY,
-        name="sympy",
-        owner="sympy",
-        number=2681
-    )
-    
-    for lst in issue_comment.iterator():
-        for iss in lst:
-            print(issue_comment.object_decoder(iss).positive_reaction_count,
-                  issue_comment.object_decoder(iss).negative_reaction_count)
+    def process(self):
+        for lst in self.iterator():
+            for issue_comment in lst:
+                yield self.object_decoder(issue_comment)

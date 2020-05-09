@@ -27,7 +27,7 @@ class BranchStruct(GithubInterface, BranchModel):
     def __init__(self, github_token, name, owner):
         super().__init__(
             github_token=github_token,
-            query=BranchStruct.BRANCH_QUERY,
+            query=self.BRANCH_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
         
@@ -53,11 +53,8 @@ class BranchStruct(GithubInterface, BranchModel):
             
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][RepositoryStatic.REFS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-    
-    def get_branches_list(self):
-        branches = []
+
+    def process(self):
         for lst in self.iterator():
             for br in lst:
-                branches.append(self.object_decoder(br))
-        
-        return branches
+                yield self.object_decoder(br)

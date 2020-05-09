@@ -1,7 +1,6 @@
 from components.query_engine.entity.api_static import APIStaticV4, LabelStatic
 from components.query_engine.entity.github_models import LabelModel
 from components.query_engine.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class LabelStruct(GithubInterface, LabelModel):
@@ -28,7 +27,7 @@ class LabelStruct(GithubInterface, LabelModel):
     def __init__(self, github_token, name, owner):
         super().__init__(
             github_token,
-            query=LabelStruct.LABEL_QUERY,
+            query=self.LABEL_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
     
@@ -41,32 +40,18 @@ class LabelStruct(GithubInterface, LabelModel):
                 response = next(generator)
             except StopIteration:
                 break
-            
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][LabelStatic.LABELS][APIStaticV4.PAGE_INFO][
                 APIStaticV4.END_CURSOR]
-            
+
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-            
-            resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][LabelStatic.LABELS][APIStaticV4.EDGES]
-            
-            if resp is not None:
-                if None not in resp:
-                    yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][LabelStatic.LABELS][APIStaticV4.EDGES]
-            else:
-                yield list(
-                    filter(
-                        None.__ne__,
-                        response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][LabelStatic.LABELS][APIStaticV4.EDGES],
-                    )
-                )
-            
+
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][LabelStatic.LABELS][APIStaticV4.EDGES]
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][LabelStatic.LABELS][APIStaticV4.PAGE_INFO][
                 APIStaticV4.HAS_NEXT_PAGE]
 
-
-if __name__ == "__main__":
-    label = LabelStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
-    
-    for lst in label.iterator():
-        for lab in lst:
-            print(label.object_decoder(lab).name)
+    def process(self):
+        for lst in self.iterator():
+            for label in lst:
+                yield self.object_decoder(label)

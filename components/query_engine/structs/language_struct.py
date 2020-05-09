@@ -1,7 +1,6 @@
 from components.query_engine.entity.api_static import APIStaticV4, RepositoryStatic
 from components.query_engine.entity.github_models import LanguageModel
 from components.query_engine.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class LanguageStruct(GithubInterface, LanguageModel):
@@ -27,7 +26,7 @@ class LanguageStruct(GithubInterface, LanguageModel):
     def __init__(self, github_token, name, owner):
         super().__init__(
             github_token=github_token,
-            query=LanguageStruct.LANGUAGE_QUERY,
+            query=self.LANGUAGE_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
     
@@ -61,14 +60,11 @@ class LanguageStruct(GithubInterface, LanguageModel):
                                 RepositoryStatic.LANGUAGES][APIStaticV4.EDGES],
                         )
                     )
-            
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 RepositoryStatic.LANGUAGES][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
-
-if __name__ == "__main__":
-    lang = LanguageStruct(github_token=AUTH_KEY, owner="sympy", name="sympy")
-    
-    for lst in lang.iterator():
-        for lan in lst:
-            print(lang.object_decoder(lan).language)
+    def process(self):
+        for lst in self.iterator():
+            for lang in lst:
+                yield self.object_decoder(lang)

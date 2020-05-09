@@ -2,7 +2,6 @@ from components.query_engine.entity.api_static import APIStaticV4
 from components.query_engine.entity.github_models import IssueModel
 from components.query_engine.github import GithubInterface
 from components.utils import time_period_chunks
-from local_settings import AUTH_KEY
 
 
 class IssueStruct(GithubInterface, IssueModel):
@@ -45,10 +44,6 @@ class IssueStruct(GithubInterface, IssueModel):
                                 totalCount
                             }}
                         }}
-                        number
-                        repository {{
-                            name
-                        }}
                     }}
                 }}
             }}
@@ -58,7 +53,7 @@ class IssueStruct(GithubInterface, IssueModel):
     def __init__(self, github_token, name, owner, start_date, end_date, chunk_size=200):
         super().__init__(
             github_token=github_token,
-            query=IssueStruct.ISSUE_QUERY,
+            query=self.ISSUE_QUERY,
             query_params=dict(owner=owner, name=name, after="null",
                               start_date="*" if start_date is None else start_date,
                               end_date="*" if end_date is None else end_date)
@@ -83,30 +78,18 @@ class IssueStruct(GithubInterface, IssueModel):
                     response = next(generator)
                 except StopIteration:
                     break
-                
+
                 endCursor = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
                     APIStaticV4.END_CURSOR]
-                
+
                 self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-                
+
                 yield response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.NODES]
-                
+
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
                     APIStaticV4.HAS_NEXT_PAGE]
 
-
-if __name__ == '__main__':
-    issue = IssueStruct(
-        github_token=AUTH_KEY,
-        name="sympy",
-        owner="sympy",
-        start_date="2009-01-01",
-        end_date="2017-01-31"
-    )
-    
-    it = 0
-    for lst in issue.iterator():
-        for iss in lst:
-            dec = issue.object_decoder(iss)
-            print(it, ":", dec.number, dec.created_at)
-            it += 1
+    def process(self):
+        for lst in self.iterator():
+            for issue in lst:
+                yield self.object_decoder(issue)

@@ -1,7 +1,6 @@
 from components.query_engine.entity.api_static import APIStaticV4, MilestoneStatic
 from components.query_engine.entity.github_models import MilestoneModel
 from components.query_engine.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class MilestoneStruct(GithubInterface, MilestoneModel):
@@ -34,7 +33,7 @@ class MilestoneStruct(GithubInterface, MilestoneModel):
     def __init__(self, github_token, name, owner):
         super().__init__(
             github_token=github_token,
-            query=MilestoneStruct.MILESTONE_QUERY,
+            query=self.MILESTONE_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
     
@@ -68,14 +67,11 @@ class MilestoneStruct(GithubInterface, MilestoneModel):
                                 MilestoneStatic.MILESTONES][APIStaticV4.NODES],
                         )
                     )
-            
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 MilestoneStatic.MILESTONES][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
-
-if __name__ == "__main__":
-    milestone = MilestoneStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
-    
-    for lst in milestone.iterator():
-        for ms in lst:
-            print(milestone.object_decoder(ms).title)
+    def process(self):
+        for lst in self.iterator():
+            for ms in lst:
+                yield self.object_decoder(ms)

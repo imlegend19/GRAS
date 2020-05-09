@@ -1,3 +1,5 @@
+from requests import exceptions
+
 from components.query_engine.entity.api_static import APIStaticV3, APIStaticV4, UserStatic
 from components.query_engine.entity.github_models import AnonContributorModel, UserModel
 from components.query_engine.github import GithubInterface
@@ -22,9 +24,9 @@ class AssignableUserStruct(GithubInterface, UserModel):
     
     def __init__(self, github_token, owner, name, after="null"):
         super().__init__()
-        
+
         self.github_token = github_token
-        self.query = AssignableUserStruct.QUERY
+        self.query = self.QUERY
         self.query_params = dict(name=name, owner=owner, after=after)
     
     def iterator(self):
@@ -75,7 +77,7 @@ class UserNodesStruct(GithubInterface, UserModel):
     def __init__(self, github_token, node_ids):
         super().__init__(
             github_token=github_token,
-            query=UserNodesStruct.QUERY,
+            query=self.QUERY,
             query_params=dict(node_ids=node_ids)
         )
     
@@ -114,7 +116,7 @@ class ContributorList(GithubInterface, AnonContributorModel):
             yield response.json()
             
             hasNextPage = True if next_url is not None else False
-    
+
     def process(self):
         for lst in self.iterator():
             for obj in lst:
@@ -122,6 +124,23 @@ class ContributorList(GithubInterface, AnonContributorModel):
                     yield obj[APIStaticV3.NODE_ID]
                 except KeyError:
                     yield self.object_decoder(obj)
+
+
+class UserStructV3(GithubInterface, UserModel):
+    def __init__(self, github_token, login):
+        super().__init__(
+            github_token=github_token,
+            query=None,
+            url=f"https://api.github.com/users/{login}",
+            query_params=None
+        )
+    
+    def iterator(self):
+        generator = self.generator()
+        return next(generator).json()
+    
+    def process(self):
+        return self.object_decoder(self.iterator())
 
 
 class UserStruct(GithubInterface, UserModel):
@@ -145,9 +164,15 @@ class UserStruct(GithubInterface, UserModel):
         super().__init__()
         
         self.github_token = github_token
-        self.query = UserStruct.QUERY
+        self.query = self.QUERY
         self.query_params = dict(login=login)
     
     def iterator(self):
         generator = self.generator()
         return next(generator)[APIStaticV4.DATA][UserStatic.USER]
+    
+    def process(self):
+        try:
+            return self.object_decoder(self.iterator())
+        except exceptions.RequestException:
+            return None

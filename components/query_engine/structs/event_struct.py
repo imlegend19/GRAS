@@ -1,10 +1,9 @@
-from components.query_engine.entity.api_static import APIStaticV4, IssueEventStatic
-from components.query_engine.entity.github_models import IssueEventModel
+from components.query_engine.entity.api_static import APIStaticV4, EventStatic
+from components.query_engine.entity.github_models import EventModel
 from components.query_engine.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
-class IssueEventStruct(GithubInterface, IssueEventModel):
+class EventStruct(GithubInterface, EventModel):
     QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
@@ -155,29 +154,20 @@ class IssueEventStruct(GithubInterface, IssueEventModel):
     """
     
     def __init__(self, github_token, owner, name, type_filter, since, number):
-        super().__init__()
-        
-        self.github_token = github_token
-        self.query = IssueEventStruct.QUERY
-        self.query_params = dict(name=name, owner=owner, type_filter=type_filter, since=since, number=number)
+        super().__init__(
+            github_token=github_token,
+            query=self.QUERY,
+            query_params=dict(name=name, owner=owner, type_filter=type_filter, since=since, number=number)
+        )
         
         self.type_filter = type_filter
-        
+        self.issue_number = number
+    
     def iterator(self):
         generator = self.generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][
-            IssueEventStatic.TIMELINE_ITEMS][APIStaticV4.NODES]
-
-
-if __name__ == '__main__':
-    issue = IssueEventStruct(
-        github_token=AUTH_KEY,
-        name="sheetsee.js",
-        owner="jlord",
-        since="2014-03-12T00:00:00",
-        type_filter="issue",  # or "pullRequest"
-        number=26
-    )
+            EventStatic.TIMELINE_ITEMS][APIStaticV4.NODES]
     
-    for obj in issue.iterator():
-        print(issue.object_decoder(obj, number=26).event_type)
+    def process(self):
+        for node in self.iterator():
+            yield self.object_decoder(node, number=self.issue_number)

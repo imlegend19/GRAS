@@ -1,6 +1,8 @@
 import datetime
+import logging
 import sys
 import time
+from timeit import default_timer as timer
 
 import dateutil
 from dateutil import parser
@@ -9,6 +11,9 @@ from components.query_engine.entity.api_static import APIStaticV4, IssueStatic, 
 
 DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isoformat()
 DEFAULT_END_DATE = datetime.datetime.now().isoformat()
+ELAPSED_TIME_ON_FUNCTIONS = {}
+
+logger = logging.getLogger("main")
 
 
 def reaction_count(dic, decider) -> int:
@@ -96,7 +101,26 @@ def get_value(str_):
     if not str_:
         return None
     else:
-        return str_
+        return str_.strip()
+
+
+def timing(name):
+    def wrap(func):
+        def process(*args):
+            start = timer()
+            result = func(*args)
+            end = timer()
+            
+            total_time = end - start
+            
+            logger.info(f"Time taken to execute `{name}`: {total_time} sec")
+            ELAPSED_TIME_ON_FUNCTIONS[name] = total_time
+            
+            return result
+        
+        return process
+    
+    return wrap
 
 
 ARROW_ANIMATOR = ['⬍', '⬈', '➞', '⬊', '⬍', '⬋', '⬅', '⬉']
