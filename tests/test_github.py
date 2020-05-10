@@ -5,8 +5,8 @@ import unittest.mock as mock
 
 from requests import exceptions
 
-from components.query_engine.github import GithubInterface
-from components.utils import to_iso_format
+from gras.github.github import GithubInterface
+from gras.utils import to_iso_format
 from local_settings import AUTH_KEY
 
 
@@ -25,7 +25,7 @@ class TestGithubInterface(unittest.TestCase):
                    f"{self.name}+merge:false+committer-date:{self.start_date}.." \
                    f"{self.end_date}+sort:committer-date-asc&per_page=1&page=1"
     
-    @mock.patch('components.query_engine.github.GithubInterface')
+    @mock.patch('gras.query_engine.github.GithubInterface')
     def test_send_request_via_url_if_accept_header(self, mock_request):
         mock_request.return_value.status_code = 200
         
@@ -39,7 +39,7 @@ class TestGithubInterface(unittest.TestCase):
         response = github.iterator()
         self.assertTrue(response.status_code)
     
-    @mock.patch('components.query_engine.github.GithubInterface')
+    @mock.patch('gras.query_engine.github.GithubInterface')
     def test_send_request_via_url_if_no_accept_header(self, mock_request):
         mock_request.return_value.side_effect = f"Problem with getting data via url {self.url}."
         
