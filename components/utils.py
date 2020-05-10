@@ -1,7 +1,9 @@
 import datetime
 import logging
+import multiprocessing as mp
 import sys
 import time
+from functools import partial, wraps
 from timeit import default_timer as timer
 
 import dateutil
@@ -14,6 +16,8 @@ DEFAULT_END_DATE = datetime.datetime.now().isoformat()
 ELAPSED_TIME_ON_FUNCTIONS = {}
 
 logger = logging.getLogger("main")
+
+lock = mp.Lock()
 
 
 def reaction_count(dic, decider) -> int:
@@ -104,23 +108,65 @@ def get_value(str_):
         return str_.strip()
 
 
-def timing(name):
-    def wrap(func):
-        def process(*args):
-            start = timer()
-            result = func(*args)
-            end = timer()
-            
-            total_time = end - start
-            
-            logger.info(f"Time taken to execute `{name}`: {total_time} sec")
-            ELAPSED_TIME_ON_FUNCTIONS[name] = total_time
-            
-            return result
-        
-        return process
+def locked(func):
+    """
+    A decorator to wrap the function with :class:`~multiprocessing.Lock`. This ensure that
+    only 1 Process can execute the function at a time.
     
-    return wrap
+    Examples:
+    
+        >>>
+        >>> @locked
+        >>> def function_to_be_locked(*args, **kwargs):
+        >>>     pass
+        >>>
+    """
+    
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        lock.acquire()
+        result = func(*args, **kwargs)
+        lock.release()
+        
+        return result
+    
+    return wrapper
+
+
+def timing(func=None, *, name=None):
+    """
+    Decorator to measure the time taken by the function to execute
+    
+    Examples:
+        
+        >>>
+        >>> @timing(name="foo")
+        >>> def func():
+        >>>     pass
+        >>>
+        >>> @timing
+        >>> def func():
+        >>>     pass
+        >>>
+    """
+    
+    if func is None:
+        return partial(timing, name=name)
+    
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = timer()
+        result = func(*args, **kwargs)
+        end = timer()
+        
+        total_time = end - start
+        
+        logger.info(f"Time taken to execute `{name}`: {total_time} sec")
+        ELAPSED_TIME_ON_FUNCTIONS[name] = total_time
+        
+        return result
+    
+    return wrapper
 
 
 ARROW_ANIMATOR = ['⬍', '⬈', '➞', '⬊', '⬍', '⬋', '⬅', '⬉']

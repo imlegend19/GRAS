@@ -1,4 +1,6 @@
 import logging
+import multiprocessing as mp
+import signal
 
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, ProgrammingError
@@ -23,6 +25,7 @@ from components.query_engine.structs.repository_struct import RepositoryStruct
 from components.query_engine.structs.stargazer_struct import StargazerStruct
 from components.query_engine.structs.topic_struct import TopicStruct
 from components.query_engine.structs.watcher_struct import WatcherStruct
+from components.utils import locked, timing
 
 logger = logging.getLogger("main")
 logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
@@ -31,47 +34,60 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
 class GithubMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args=args)
-        
+
         self._connect_to_db()
         self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
-    
+
     def _load_from_file(self, file):
         pass
-    
+
     def dump_to_file(self, path):
         pass
-    
+
+    @staticmethod
+    def init_worker():
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    @timing(name='process')
     def process(self):
         self.db_schema.create_tables()
     
         # node_ids = self._dump_anon_users()
         # self._dump_users(node_ids=node_ids, login=None)
-        self._dump_repository()
-        # self._dump_languages()
-        # self._dump_milestones()
-        # self._dump_stargazers()
-        # self._dump_watchers()
-        # self._dump_forks()
-        # self._dump_topics()
-        # self._dump_releases()
-        # self._dump_labels()
-        self._dump_issues()
+        # self._refactor_table(id_='contributor_id', table="contributors", group_by="login, name, email")
     
-        self._refactor_table(id_='contributor_id', table="contributors", group_by="login, name, email")
-        self._refactor_table(id_='id', table='languages', group_by="repo_id, name")
-        self._refactor_table(id_='id', table='milestones', group_by="repo_id, number")
-        self._refactor_table(id_='id', table='stargazers', group_by="repo_id, user_id")
-        self._refactor_table(id_='id', table='watchers', group_by="repo_id, user_id")
-        self._refactor_table(id_='id', table='forks', group_by="repo_id, user_id")
-        self._refactor_table(id_='id', table='topics', group_by="repo_id, url")
-        self._refactor_table(id_='id', table='releases', group_by="repo_id, creator_id")
-        self._refactor_table(id_='id', table='labels', group_by="repo_id, name")
+        self._dump_repository()
+    
+        # self._dump_languages()
+        # self._refactor_table(id_='id', table='languages', group_by="repo_id, name")
+        #
+        # self._dump_milestones()
+        # self._refactor_table(id_='id', table='milestones', group_by="repo_id, number")
+        #
+        # self._dump_stargazers()
+        # self._refactor_table(id_='id', table='stargazers', group_by="repo_id, user_id")
+        #
+        # self._dump_watchers()
+        # self._refactor_table(id_='id', table='watchers', group_by="repo_id, user_id")
+        #
+        # self._dump_forks()
+        # self._refactor_table(id_='id', table='forks', group_by="repo_id, user_id")
+        #
+        # self._dump_topics()
+        # self._refactor_table(id_='id', table='topics', group_by="repo_id, url")
+        #
+        # self._dump_releases()
+        # self._refactor_table(id_='id', table='releases', group_by="repo_id, creator_id")
+        #
+        # self._dump_labels()
+        # self._refactor_table(id_='id', table='labels', group_by="repo_id, name")
+    
+        self._dump_issues()
         self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
         self._refactor_table(id_='id', table='issue_assignees', group_by="repo_id, issue_id, assignee_id")
         self._refactor_table(id_='id', table='issue_labels', group_by='repo_id, issue_id, label_id')
-        self._refactor_table(id_='id', table='issue_events', group_by='repo_id, issue_id, event_type, who, when')
-    
-        self._close_the_db()
+        self._refactor_table(id_='id', table='issue_events', group_by='repo_id, issue_id, event_type, who, "when"')
+        self._refactor_table(id_='id', table='issue_comments', group_by='repo_id, issue_id, commenter_id, created_at')
     
     def _dump_anon_users(self):
         cont_list = ContributorList(
@@ -438,85 +454,81 @@ class GithubMiner(BaseMiner):
                     issue_id=issue_id,
                     label_id=self._get_table_id('labels', 'name', label_name)
                 )
-                
+
                 obj_list.append(obj)
-        
+
         logger.info("Dumping Issue Labels...")
         self._insert(self.db_schema.issue_labels.insert(), obj_list)
+
+    def _dump_issue_events(self, number):
+        issue_event = EventStruct(
+            github_token=self.token,
+            name=self.repo_name,
+            owner=self.repo_owner,
+            since=self.start_date,
+            type_filter="issue",
+            number=number
+        )
     
-    def _dump_issue_events(self, issue_list):
-        logger.info("Dumping Issue Events...")
-        for number in issue_list:
-            issue_event = EventStruct(
-                github_token=self.token,
-                name=self.repo_name,
-                owner=self.repo_owner,
-                since=self.start_date,
-                type_filter="issue",
-                number=number
+        issue_id = self._get_table_id(table="issues", field="number", value=number)
+    
+        obj_list = []
+    
+        for node in issue_event.process():
+            obj = self.db_schema.issue_events_object(
+                repo_id=self.repo_id,
+                issue_id=issue_id,
+                event_type=node.event_type,
+                who=self._get_user_id(login=node.who),
+                when=node.when,
+                added=node.added,
+                added_type=node.added_type,
+                removed=node.removed,
+                removed_type=node.removed_type,
+                is_cross_repository=node.is_cross_repository
             )
-            
-            issue_id = self._get_table_id(table="issues", field="number", value=number)
-            
-            obj_list = []
-            
-            for node in issue_event.process():
-                obj = self.db_schema.issue_events_object(
-                    repo_id=self.repo_id,
-                    issue_id=issue_id,
-                    event_type=node.event_type,
-                    who=self._get_user_id(login=node.who),
-                    when=node.when,
-                    added=node.added,
-                    added_type=node.added_type,
-                    removed=node.removed,
-                    removed_type=node.removed_type,
-                    is_cross_repository=node.is_cross_repository
-                )
-                
-                obj_list.append(obj)
-            
-            logger.debug(f"Dumping Issue Events for Issue Number: {number}...")
-            self._insert(object_=self.db_schema.issue_events.insert(), param=obj_list)
-    
-    def _dump_issue_comments(self, issue_list):
-        logger.info("Dumping Issue Comments...")
-        for number in issue_list:
-            issue_comments = IssueCommentStruct(
-                github_token=self.token,
-                name=self.repo_name,
-                owner=self.repo_owner,
-                number=number
-            )
-            
-            issue_id = self._get_table_id(table="issues", field="number", value=number)
-            
-            obj_list = []
-            
-            for node in issue_comments.process():
-                obj = self.db_schema.issue_comments_object(
-                    repo_id=self.repo_id,
-                    issue_id=issue_id,
-                    commenter_id=self._get_user_id(login=node.author_login),
-                    body=node.body,
-                    created_at=node.created_at,
-                    updated_at=node.updated_at,
-                    is_minimized=node.is_minimized,
-                    minimized_reason=node.minimized_reason,
-                    positive_reaction_count=node.positive_reaction_count,
-                    negative_reaction_count=node.negative_reaction_count,
-                    ambiguous_reaction_count=node.ambiguous_reaction_count
-                )
-                
-                obj_list.append(obj)
-            
-            logger.debug(f"Dumping Issue Comments for Issue Number: {number}...")
-            self._insert(object_=self.db_schema.issue_comments.insert(), param=obj_list)
-    
-    def _dump_issues(self):
-        # TODO: Add _dump_issue_assignees and _dump_issue_labels
-        logger.info("Dumping Issues...")
         
+            obj_list.append(obj)
+    
+        logger.debug(f"Dumping Issue Events for Issue Number: {number}...")
+        self._insert(object_=self.db_schema.issue_events.insert(), param=obj_list)
+
+    def _dump_issue_comments(self, number):
+        issue_comments = IssueCommentStruct(
+            github_token=self.token,
+            name=self.repo_name,
+            owner=self.repo_owner,
+            number=number
+        )
+    
+        issue_id = self._get_table_id(table="issues", field="number", value=number)
+    
+        obj_list = []
+    
+        for node in issue_comments.process():
+            obj = self.db_schema.issue_comments_object(
+                repo_id=self.repo_id,
+                issue_id=issue_id,
+                commenter_id=self._get_user_id(login=node.author_login),
+                body=node.body,
+                created_at=node.created_at,
+                updated_at=node.updated_at,
+                is_minimized=node.is_minimized,
+                minimized_reason=node.minimized_reason,
+                positive_reaction_count=node.positive_reaction_count,
+                negative_reaction_count=node.negative_reaction_count,
+                ambiguous_reaction_count=node.ambiguous_reaction_count
+            )
+        
+            obj_list.append(obj)
+    
+        logger.debug(f"Dumping Issue Comments for Issue Number: {number}...")
+        self._insert(object_=self.db_schema.issue_comments.insert(), param=obj_list)
+
+    @timing(name='_dump_issues')
+    def _dump_issues(self):
+        logger.info("Dumping Issues...")
+    
         issues = IssueStruct(
             github_token=self.token,
             name=self.repo_name,
@@ -550,16 +562,46 @@ class GithubMiner(BaseMiner):
             issue_assignees_lst.append((node.number, node.assignees))
             issue_labels_lst.append((node.number, node.labels))
             issue_list.append(node.number)
-            
+
             obj_list.append(obj)
-        
+    
         logger.info(f"Total Issues: {len(issue_list)}...")
         self._insert(self.db_schema.issues.insert(), obj_list)
-        
+    
         self._dump_issue_assignees(issue_assignees_lst)
         self._dump_issue_labels(issue_labels_lst)
-        self._dump_issue_events(issue_list)
-        self._dump_issue_comments(issue_list)
+    
+        logger.info("Dumping Issue Events...")
+        for i in range(0, len(issue_list), mp.cpu_count()):
+            pool = mp.Pool(processes=mp.cpu_count())
+            pool.map_async(self._dump_issue_events, tuple(issue_list[i: i + mp.cpu_count()]))
+            pool.close()
+            pool.join()
+        
+            # processes = []
+            # for num in issue_list[i: i + mp.cpu_count()]:
+            #     p = mp.Process(target=self._dump_issue_events, args=(num,))
+            #     p.start()
+            #     processes.append(p)
+            #
+            # while all([x.is_alive() for x in processes]):
+            #     continue
+    
+        logger.info("Dumping Issue Comments...")
+        for i in range(0, len(issue_list), mp.cpu_count()):
+            pool = mp.Pool(processes=mp.cpu_count())
+            pool.map_async(self._dump_issue_comments, tuple(issue_list[i: i + mp.cpu_count()]))
+            pool.close()
+            pool.join()
+        
+            # processes = []
+            # for num in issue_list[i: i + mp.cpu_count()]:
+            #     p = mp.Process(target=self._dump_issue_comments, args=(num,))
+            #     p.start()
+            #     processes.append(p)
+            #
+            # while all([x.is_alive() for x in processes]):
+            #     continue
     
     def _refactor_table(self, id_, table, group_by):
         logger.info(f"Refactoring Table: {table}")
@@ -622,8 +664,10 @@ class GithubMiner(BaseMiner):
     
     def _close_the_db(self):
         self._conn.close()
-    
+
+    @locked
     def _insert(self, object_, param):
+        logger.info("Inserting...")
         try:
             self._conn.execute(object_, param)
         except IntegrityError as e:
@@ -680,8 +724,11 @@ class GithubMiner(BaseMiner):
             WHERE {field}='{value}' AND repo_id={self.repo_id}
             """
         ).fetchone()
-        
+
         if not res:
             return None
         else:
             return res[0]
+
+    def __del__(self):
+        self._close_the_db()
