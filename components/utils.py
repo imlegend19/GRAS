@@ -7,7 +7,7 @@ from functools import partial, wraps
 from timeit import default_timer as timer
 
 import dateutil
-from dateutil import parser
+from dateutil import parser as date_parser
 
 from components.query_engine.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 
@@ -80,8 +80,7 @@ def to_iso_format(date):
     if not date:
         return None
     else:
-        d = parser.parse(date)
-        return d.isoformat()
+        return date_parser.parse(date).isoformat()
 
 
 def waiting_animation(n, msg):

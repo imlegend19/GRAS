@@ -136,4 +136,4 @@ class GithubInterface(BaseInterface):
     
     def iterator(self):
         generator = self.generator()
-        return next(generator).json()
+        return next(generator)

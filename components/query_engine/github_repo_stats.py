@@ -119,12 +119,13 @@ class RepoStatistics:
     def repo_stats(self):
         total_contributors = self._total_contributors(anon=0)
         total_anon_contributors = self._total_contributors(anon=1) - total_contributors
-        
-        branch_list = [x.name for x in
-                       BranchStruct(github_token=self.token, name=self.name, owner=self.owner).get_branches_list()]
-        
+
+        branch_list = []
+        for br in BranchStruct(github_token=self.token, name=self.name, owner=self.owner).process():
+            branch_list.append(br.name)
+
         branches = {}
-        
+
         QUERY = """
             {{
                 repository(name: "{name}", owner: "{owner}") {{
