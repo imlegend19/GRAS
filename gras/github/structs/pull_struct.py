@@ -1,7 +1,6 @@
 from gras.github.entity.api_static import APIStaticV4
 from gras.github.entity.github_models import PullRequestModel, time_period_chunks
 from gras.github.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class PullRequestStruct(GithubInterface, PullRequestModel):
@@ -32,8 +31,17 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
                         updatedAt
                         additions
                         deletions
+                        baseRefName
+                        baseRefOid
                         headRefName
                         headRefOid
+                        commits(first: 100) {{
+                            nodes {{
+                                commit {{
+                                    oid
+                                }}
+                            }}
+                        }}
                         labels(first: 50, orderBy: {{ field: CREATED_AT, direction: ASC }}) {{
                             nodes {{
                                 name
@@ -55,6 +63,7 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
                             }}
                         }}
                         state
+                        reviewDecision
                     }}
                 }}
             }}
@@ -64,7 +73,7 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
     def __init__(self, github_token, name, owner, start_date, end_date, chunk_size=200):
         super().__init__(
             github_token=github_token,
-            query=PullRequestStruct.PR_QUERY,
+            query=self.PR_QUERY,
             query_params=dict(owner=owner, name=name, after="null",
                               start_date="*" if start_date is None else start_date,
                               end_date="*" if end_date is None else end_date)
@@ -89,28 +98,18 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
                     response = next(generator)
                 except StopIteration:
                     break
-                
+
                 endCursor = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
                     APIStaticV4.END_CURSOR]
-                
+
                 self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-                
+
                 yield response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.NODES]
-                
+
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
                     APIStaticV4.HAS_NEXT_PAGE]
 
-
-if __name__ == '__main__':
-    pr = PullRequestStruct(
-        github_token=AUTH_KEY,
-        name="sympy",
-        owner="sympy",
-        start_date="2009-01-01",
-        end_date="2015-01-31"
-    )
-    
-    for lst in pr.iterator():
-        for p in lst:
-            o = pr.object_decoder(p)
-            print(o.number, o.number)
+    def process(self):
+        for lst in self.iterator():
+            for pr in lst:
+                yield self.object_decoder(pr)

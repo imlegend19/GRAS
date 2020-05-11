@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy.dialects.mysql import ENUM
+from sqlalchemy.dialects.mysql import ENUM, LONGTEXT
 from sqlalchemy.schema import CheckConstraint, Column, ForeignKey, MetaData, Table, UniqueConstraint
 from sqlalchemy.types import BOOLEAN, DATETIME, INTEGER, TEXT, VARCHAR
 
@@ -49,6 +49,17 @@ class AddedOrRemovedType(enum.Enum):
     PULL_REQUEST = "PULL_REQUEST"
 
 
+class ReviewDecision(enum.Enum):
+    CHANGES_REQUESTED = "CHANGES_REQUESTED"
+    APPROVED = "APPROVED"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+
+
+class IssueType(enum.Enum):
+    ISSUE = "ISSUE"
+    PULL_REQUEST = "PULL_REQUEST"
+
+
 class DBSchema:
     def __init__(self, conn, engine):
         self.engine = engine
@@ -59,6 +70,8 @@ class DBSchema:
         self._label_enum = self.__get_enum(LabelType)
         self._event_type_enum = self.__get_enum(EventType)
         self._added_or_removed_type = self.__get_enum(AddedOrRemovedType)
+        self._review_decision_enum = self.__get_enum(ReviewDecision)
+        self._issue_type_enum = self.__get_enum(IssueType)
     
     def __get_enum(self, cls):
         if self.engine.name == "mysql":
@@ -67,6 +80,14 @@ class DBSchema:
             return VARCHAR(255), True
         else:
             return ENUM(cls), False
+    
+    def __get_large_text_type(self):
+        if self.engine.name == "mysql":
+            return LONGTEXT
+        elif self.engine.name == "sqlite":
+            return TEXT
+        else:
+            return TEXT
     
     @staticmethod
     def _get_string(cls):
@@ -152,7 +173,7 @@ class DBSchema:
             Column('total_watchers', INTEGER, default=0, nullable=False),
             Column('forked_from', VARCHAR(255))
         )
-    
+
         self.repository.create(bind=self.conn, checkfirst=True)
     
     def _create_repository_stats_tables(self):
@@ -275,7 +296,7 @@ class DBSchema:
             Column('name', VARCHAR(255), nullable=False),
             Column('size', INTEGER, default=0, nullable=False)
         )
-    
+
         self.milestones = Table(
             'milestones', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -291,11 +312,11 @@ class DBSchema:
             Column('state', self._state_enum[0], nullable=False),
             UniqueConstraint('number', 'repo_id', name='num_repo_ind')
         )
-    
+
         if self._state_enum[1]:
             self.milestones.append_constraint(CheckConstraint(f"state IN ({self._get_string(State)})",
                                                               name='enum_check'))
-    
+
         self.stargazers = Table(
             'stargazers', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -303,14 +324,14 @@ class DBSchema:
             Column('user_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
             Column('starred_at', DATETIME)
         )
-    
+
         self.watchers = Table(
             'watchers', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
             Column('user_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
         )
-    
+
         self.topics = Table(
             'topics', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -319,7 +340,7 @@ class DBSchema:
             Column('name', VARCHAR(255), nullable=False),
             Column('total_stargazers', INTEGER, default=0, nullable=False)
         )
-    
+
         self.releases = Table(
             'releases', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -332,7 +353,7 @@ class DBSchema:
             Column('is_prerelease', BOOLEAN, default=0, nullable=False),
             Column('tag', VARCHAR(255))
         )
-    
+
         self.forks = Table(
             'forks', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -340,7 +361,7 @@ class DBSchema:
             Column('user_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
             Column('forked_at', DATETIME, nullable=False),
         )
-    
+
         self.branches = Table(
             'branches', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -348,7 +369,7 @@ class DBSchema:
             Column('name', VARCHAR(255), nullable=False),
             Column('target_commit_id', VARCHAR(255), nullable=False)
         )
-    
+
         self.labels = Table(
             'labels', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -358,11 +379,11 @@ class DBSchema:
             Column('created_at', DATETIME, nullable=False),
             Column('type', self._label_enum[0], default="COMPONENT")
         )
-    
+
         if self._label_enum[1]:
             self.labels.append_constraint(CheckConstraint(f"type IN ({self._get_string(LabelType)})",
                                                           name='enum_check'))
-    
+
         self.languages.create(bind=self.conn, checkfirst=True)
         self.milestones.create(bind=self.conn, checkfirst=True)
         self.stargazers.create(bind=self.conn, checkfirst=True)
@@ -372,7 +393,7 @@ class DBSchema:
         self.forks.create(bind=self.conn, checkfirst=True)
         self.branches.create(bind=self.conn, checkfirst=True)
         self.labels.create(bind=self.conn, checkfirst=True)
-
+    
     def _create_issues_table(self):
         """
         CREATE TABLE issues (
@@ -417,15 +438,35 @@ class DBSchema:
             Column('state', self._state_enum[0], nullable=False),
             UniqueConstraint('number', 'repo_id', name='num_repo_ind')
         )
-    
+
         if self._state_enum[1]:
             self.issues.append_constraint(CheckConstraint(f"state IN ({self._get_string(State)})",
                                                           name='enum_check'))
-    
+
         self.issues.create(bind=self.conn, checkfirst=True)
     
     def _create_issue_tracker_tables(self):
         """
+        CREATE TABLE issue_comments (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            issue_id INTEGER,
+            commenter_id INTEGER,
+            body TEXT NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            is_minimized BOOLEAN,
+            minimized_reason VARCHAR(255),
+            positive_reaction_count INTEGER NOT NULL,
+            negative_reaction_count INTEGER NOT NULL,
+            ambiguous_reaction_count INTEGER NOT NULL,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
+            FOREIGN KEY(commenter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+        )
+        
         CREATE TABLE issue_assignees (
             id INTEGER NOT NULL,
             repo_id INTEGER,
@@ -448,26 +489,6 @@ class DBSchema:
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
             FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
             FOREIGN KEY(label_id) REFERENCES labels (id) ON DELETE CASCADE
-        )
-        
-        CREATE TABLE issue_comments (
-            id INTEGER NOT NULL,
-            repo_id INTEGER,
-            issue_id INTEGER,
-            commenter_id INTEGER,
-            body TEXT NOT NULL,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            is_minimized BOOLEAN,
-            minimized_reason VARCHAR(255),
-            positive_reaction_count INTEGER NOT NULL,
-            negative_reaction_count INTEGER NOT NULL,
-            ambiguous_reaction_count INTEGER NOT NULL,
-            
-            PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
-            FOREIGN KEY(commenter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
         )
         
         CREATE TABLE issue_events (
@@ -499,22 +520,6 @@ class DBSchema:
                 'REPOSITORY'))
         )
         """
-        self.issue_assignees = Table(
-            'issue_assignees', self._metadata,
-            Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
-            Column('assignee_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
-        )
-    
-        self.issue_labels = Table(
-            'issue_labels', self._metadata,
-            Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
-            Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE")),
-        )
-    
         self.issue_comments = Table(
             'issue_comments', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -529,6 +534,22 @@ class DBSchema:
             Column('positive_reaction_count', INTEGER, default=0, nullable=False),
             Column('negative_reaction_count', INTEGER, default=0, nullable=False),
             Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
+        )
+    
+        self.issue_assignees = Table(
+            'issue_assignees', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
+            Column('assignee_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
+        )
+    
+        self.issue_labels = Table(
+            'issue_labels', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
+            Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE")),
         )
     
         self.issue_events = Table(
@@ -554,15 +575,171 @@ class DBSchema:
             self.issue_events.append_constraint(
                 CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
             )
-
+        
             self.issue_events.append_constraint(
                 CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
             )
     
+        self.issue_comments.create(bind=self.conn, checkfirst=True)
         self.issue_assignees.create(bind=self.conn, checkfirst=True)
         self.issue_labels.create(bind=self.conn, checkfirst=True)
-        self.issue_comments.create(bind=self.conn, checkfirst=True)
         self.issue_events.create(bind=self.conn, checkfirst=True)
+    
+    def _create_commit_tables(self):
+        self.commits = Table(
+            'commits', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('oid', VARCHAR(255), nullable=False),
+            Column('additions', INTEGER, default=0, nullable=False),
+            Column('deletions', INTEGER, default=0, nullable=False),
+            Column('author_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('authored_date', DATETIME, nullable=False),
+            Column('committer_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('committer_date', DATETIME, nullable=False),
+            Column('message', TEXT),
+            Column('num_files_changed', INTEGER, default=0),
+            Column('is_merge', BOOLEAN, nullable=False, default=False)
+        )
+        
+        self.code_change = Table(
+            'code_change', self._metadata,
+            Column('id', INTEGER, primary_key=True, autoincrement=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('oid', VARCHAR(255), nullable=False),
+            Column('filename', VARCHAR(255), nullable=False),
+            Column('additions', INTEGER, default=0),
+            Column('deletions', INTEGER, default=0),
+            Column('changes', INTEGER, default=0),
+            Column('status', VARCHAR(255)),
+            Column('patch', self.__get_large_text_type())
+        )
+        
+        self.commit_comments = Table(
+            'commit_comments', self._metadata,
+            Column('id', INTEGER, primary_key=True, autoincrement=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('commenter_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('body', TEXT),
+            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
+            Column('created_at', DATETIME, nullable=False),
+            Column('updated_at', DATETIME, nullable=False),
+            Column('path', VARCHAR(255)),
+            Column('position', INTEGER),
+            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
+            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
+        )
+    
+    def _create_pr_table(self):
+        self.pull_requests = Table(
+            'pull_requests', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('number', INTEGER, nullable=False),
+            Column('title', VARCHAR(255)),
+            Column('body', TEXT),
+            Column('author_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('num_files_changed', INTEGER, default=0),
+            Column('created_at', DATETIME, nullable=False),
+            Column('updated_at', DATETIME, nullable=False),
+            Column('additions', INTEGER, default=0, nullable=False),
+            Column('deletions', INTEGER, default=0, nullable=False),
+            Column('base_ref_name', VARCHAR(255)),
+            Column('base_ref_commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
+            Column('head_ref_name', VARCHAR(255)),
+            Column('head_ref_commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
+            Column('closed', BOOLEAN, nullable=False),
+            Column('closed_at', DATETIME),
+            Column('merged', BOOLEAN, nullable=False),
+            Column('merged_at', DATETIME),
+            Column('merged_by', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('milestone_id', None, ForeignKey('milestones.id', ondelete="CASCADE")),
+            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
+            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False),
+            Column('state', self._state_enum[0], nullable=False),
+            Column('review_decision', self._review_decision_enum[0]),
+            UniqueConstraint('number', 'repo_id', name='num_repo_ind')
+        )
+        
+        if self._state_enum[1]:
+            self.pull_requests.append_constraint(CheckConstraint(f"state IN ({self._get_string(State)})",
+                                                                 name='enum_check'))
+        
+        if self._review_decision_enum[1]:
+            self.pull_requests.append_constraint(CheckConstraint(f"review_decision IN ("
+                                                                 f"{self._get_string(ReviewDecision)})",
+                                                                 name="rd_enum_check"))
+    
+    def _create_pr_tracker_tables(self):
+        self.pull_request_comments = Table(
+            'pull_request_comments', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
+            Column('commenter_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('body', TEXT, nullable=False),
+            Column('created_at', DATETIME, nullable=False),
+            Column('updated_at', DATETIME, nullable=False),
+            Column('is_minimized', BOOLEAN, default=False),
+            Column('minimized_reason', VARCHAR(255)),
+            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
+            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
+        )
+        
+        self.pull_request_assignees = Table(
+            'pull_request_assignees', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
+            Column('assignee_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
+        )
+        
+        self.pull_request_labels = Table(
+            'pull_request_labels', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
+            Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE")),
+        )
+        
+        self.pull_request_commits = Table(
+            'pull_request_commits', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
+            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
+        )
+        
+        self.pull_request_events = Table(
+            'pull_request_events', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
+            Column('event_type', self._event_type_enum[0], nullable=False),
+            Column('who', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('when', DATETIME, nullable=False),
+            Column('added', VARCHAR(255)),
+            Column('added_type', self._added_or_removed_type[0]),
+            Column('removed', VARCHAR(255)),
+            Column('removed_type', self._added_or_removed_type[0]),
+            Column('is_cross_repository', BOOLEAN, default=0, nullable=False)
+        )
+        
+        if self._event_type_enum[1]:
+            self.pull_request_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
+                                                                       name='event_enum_check'))
+        
+        if self._added_or_removed_type[1]:
+            self.pull_request_events.append_constraint(
+                CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
+            )
+            
+            self.pull_request_events.append_constraint(
+                CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
+            )
     
     @staticmethod
     def contributors_object(login, name, email, created_at, updated_at, location, total_followers=0,
@@ -600,7 +777,7 @@ class DBSchema:
         }
 
         return obj
-
+    
     @staticmethod
     def languages_object(repo_id, name, size):
         obj = {
@@ -608,9 +785,9 @@ class DBSchema:
             "name"   : get_value(name),
             "size"   : size
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def milestones_object(number, repo_id, creator_id, title, description, due_on, closed_at, created_at, updated_at,
                           state):
@@ -626,9 +803,9 @@ class DBSchema:
             "updated_at" : to_datetime(updated_at),
             "state"      : get_value(state)
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def stargazers_object(repo_id, user_id, starred_at):
         obj = {
@@ -636,18 +813,18 @@ class DBSchema:
             "user_id"   : user_id,
             "starred_at": to_datetime(starred_at)
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def watchers_object(repo_id, user_id):
         obj = {
             "repo_id": repo_id,
             "user_id": user_id
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def topics_object(repo_id, url, name, total_stargazers):
         obj = {
@@ -656,9 +833,9 @@ class DBSchema:
             "name"            : get_value(name),
             "total_stargazers": total_stargazers
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def releases_object(repo_id, creator_id, name, description, created_at, updated_at, is_prerelease, tag):
         obj = {
@@ -671,9 +848,9 @@ class DBSchema:
             "is_prerelease": is_prerelease,
             "tag"          : get_value(tag)
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def forks_object(repo_id, user_id, forked_at):
         obj = {
@@ -681,9 +858,9 @@ class DBSchema:
             "user_id"  : user_id,
             "forked_at": to_datetime(forked_at)
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def branches_object(repo_id, name, target_commit_id):
         obj = {
@@ -691,9 +868,9 @@ class DBSchema:
             "name"            : name,
             "target_commit_id": target_commit_id
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def labels_object(repo_id, name, color, created_at, type_):
         obj = {
@@ -703,9 +880,9 @@ class DBSchema:
             "created_at": to_datetime(created_at),
             "type_"     : get_value(type_)
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def issues_object(number, repo_id, created_at, updated_at, closed_at, title, body, reporter_id, milestone_id,
                       positive_reaction_count, negative_reaction_count, ambiguous_reaction_count, state):
@@ -724,9 +901,9 @@ class DBSchema:
             "ambiguous_reaction_count": ambiguous_reaction_count,
             "state"                   : get_value(state)
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def issue_assignees_object(repo_id, issue_id, assignee_id):
         obj = {
@@ -734,9 +911,9 @@ class DBSchema:
             "issue_id"   : issue_id,
             "assignee_id": assignee_id
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def issue_labels_object(repo_id, issue_id, label_id):
         obj = {
@@ -744,9 +921,27 @@ class DBSchema:
             "issue_id": issue_id,
             "label_id": label_id
         }
-    
-        return obj
 
+        return obj
+    
+    @staticmethod
+    def issue_events_object(repo_id, issue_id, event_type, who, when, added, added_type, removed, removed_type,
+                            is_cross_repository):
+        obj = {
+            "repo_id"            : repo_id,
+            "issue_id"           : issue_id,
+            "event_type"         : get_value(event_type),
+            "who"                : who,
+            "when"               : to_datetime(when),
+            "added"              : added if isinstance(added, int) else get_value(added),
+            "added_type"         : get_value(added_type),
+            "removed"            : removed if isinstance(removed, int) else get_value(removed),
+            "removed_type"       : get_value(removed_type),
+            "is_cross_repository": is_cross_repository
+        }
+
+        return obj
+    
     @staticmethod
     def issue_comments_object(repo_id, issue_id, commenter_id, body, created_at, updated_at, is_minimized,
                               minimized_reason, positive_reaction_count, negative_reaction_count,
@@ -764,15 +959,101 @@ class DBSchema:
             "negative_reaction_count" : negative_reaction_count,
             "ambiguous_reaction_count": ambiguous_reaction_count
         }
-    
+        
         return obj
-
+    
     @staticmethod
-    def issue_events_object(repo_id, issue_id, event_type, who, when, added, added_type, removed, removed_type,
-                            is_cross_repository):
+    def pull_requests_object(repo_id, number, title, body, author_id, num_files_changed, created_at, updated_at,
+                             additions, deletions, base_ref_name, base_ref_commit_id, head_ref_name,
+                             head_ref_commit_id, closed, closed_at, merged, merged_at, merged_by, milestone_id,
+                             positive_reaction_count, negative_reaction_count, ambiguous_reaction_count, state,
+                             review_decision):
+        obj = {
+            "repo_id"                 : repo_id,
+            "number"                  : number,
+            "title"                   : title,
+            "body"                    : body,
+            "author_id"               : author_id,
+            "num_files_changed"       : num_files_changed,
+            "created_at"              : created_at,
+            "updated_at"              : updated_at,
+            "additions"               : additions,
+            "deletions"               : deletions,
+            "base_ref_name"           : base_ref_name,
+            "base_ref_commit_id"      : base_ref_commit_id,
+            "head_ref_name"           : head_ref_name,
+            "head_ref_commit_id"      : head_ref_commit_id,
+            "closed"                  : closed,
+            "closed_at"               : closed_at,
+            "merged"                  : merged,
+            "merged_at"               : merged_at,
+            "merged_by"               : merged_by,
+            "milestone_id"            : milestone_id,
+            "positive_reaction_count" : positive_reaction_count,
+            "negative_reaction_count" : negative_reaction_count,
+            "ambiguous_reaction_count": ambiguous_reaction_count,
+            "state"                   : state,
+            "review_decision"         : review_decision
+        }
+        
+        return obj
+    
+    @staticmethod
+    def pull_request_comments_object(repo_id, pr_id, commenter_id, body, created_at, updated_at, is_minimized,
+                                     minimized_reason, positive_reaction_count, negative_reaction_count,
+                                     ambiguous_reaction_count):
+        obj = {
+            "repo_id"                 : repo_id,
+            "pr_id"                   : pr_id,
+            "commenter_id"            : commenter_id,
+            "body"                    : get_value(body),
+            "created_at"              : to_datetime(created_at),
+            "updated_at"              : to_datetime(updated_at),
+            "is_minimized"            : is_minimized,
+            "minimized_reason"        : get_value(minimized_reason),
+            "positive_reaction_count" : positive_reaction_count,
+            "negative_reaction_count" : negative_reaction_count,
+            "ambiguous_reaction_count": ambiguous_reaction_count
+        }
+        
+        return obj
+    
+    @staticmethod
+    def pull_request_assignee_object(repo_id, pr_id, assignee_id):
+        obj = {
+            "repo_id"    : repo_id,
+            "pr_id"      : pr_id,
+            "assignee_id": assignee_id
+        }
+        
+        return obj
+    
+    @staticmethod
+    def pull_request_labels_object(repo_id, pr_id, label_id):
+        obj = {
+            "repo_id" : repo_id,
+            "pr_id"   : pr_id,
+            "label_id": label_id
+        }
+        
+        return obj
+    
+    @staticmethod
+    def pull_request_commits_object(repo_id, pr_id, commit_id):
+        obj = {
+            "repo_id"  : repo_id,
+            "pr_id"    : pr_id,
+            "commit_id": commit_id
+        }
+        
+        return obj
+    
+    @staticmethod
+    def pull_request_events_object(repo_id, pr_id, event_type, who, when, added, added_type, removed, removed_type,
+                                   is_cross_repository):
         obj = {
             "repo_id"            : repo_id,
-            "issue_id"           : issue_id,
+            "pr_id"              : pr_id,
             "event_type"         : get_value(event_type),
             "who"                : who,
             "when"               : to_datetime(when),
@@ -782,5 +1063,5 @@ class DBSchema:
             "removed_type"       : get_value(removed_type),
             "is_cross_repository": is_cross_repository
         }
-    
+        
         return obj

@@ -143,12 +143,15 @@ class IssueStatic(metaclass=BaseStatic):
     UPDATED_AT = "updatedAt"
     ADDITIONS = "additions"
     DELETIONS = "deletions"
+    BASE_REF_NAME = "baseRefName"
+    BASE_REF_OID = "baseRefOid"
     HEAD_REF_NAME = "headRefName"
     HEAD_REF_OID = "headRefOid"
     MERGED = "merged"
     MERGED_AT = "merged"
     MERGED_BY = "mergedBy"
     FILE_PATH = "path"
+    REVIEW_DECISION = "reviewDecision"
 
 
 class ReleaseStatic(metaclass=BaseStatic):

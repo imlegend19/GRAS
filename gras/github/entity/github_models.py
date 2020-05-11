@@ -225,7 +225,7 @@ class IssueModel(BaseModel):
         return obj
 
 
-class IssueCommentModel(BaseModel):
+class CommentModel(BaseModel):
     def __init__(self, author_login, body, created_at, updated_at, is_minimized, minimized_reason,
                  positive_reaction_count, negative_reaction_count, ambiguous_reaction_count):
         super().__init__()
@@ -241,7 +241,7 @@ class IssueCommentModel(BaseModel):
         self.ambiguous_reaction_count = ambiguous_reaction_count
     
     def object_decoder(self, dic):
-        obj = IssueCommentModel(
+        obj = CommentModel(
             created_at=dic[APIStaticV4.CREATED_AT],
             updated_at=dic[APIStaticV4.UPDATED_AT],
             body=dic[IssueStatic.BODY_TEXT],
@@ -276,8 +276,9 @@ class FileModel(BaseModel):
 
 class PullRequestModel(BaseModel):
     def __init__(self, number, title, body, author_login, assignees, num_files_changed, closed, closed_at, created_at,
-                 updated_at, additions, deletions, head_ref_name, head_ref_oid, labels, merged, merged_at, merged_by,
-                 milestone_number, positive_reaction_count, negative_reaction_count, ambiguous_reaction_count, state):
+                 updated_at, additions, deletions, base_ref_name, base_ref_oid, head_ref_name, head_ref_oid, labels,
+                 merged, merged_at, merged_by, commits, milestone_number, positive_reaction_count,
+                 negative_reaction_count, ambiguous_reaction_count, state, review_decision):
         super().__init__()
         
         self.number = number
@@ -292,8 +293,11 @@ class PullRequestModel(BaseModel):
         self.updated_at = updated_at
         self.additions = additions
         self.deletions = deletions
+        self.base_ref_name = base_ref_name
+        self.base_ref_oid = base_ref_oid
         self.head_ref_name = head_ref_name
         self.head_ref_oid = head_ref_oid
+        self.commits = commits
         self.labels = labels
         self.merged = merged
         self.merged_at = merged_at
@@ -303,6 +307,7 @@ class PullRequestModel(BaseModel):
         self.negative_reaction_count = negative_reaction_count
         self.ambiguous_reaction_count = ambiguous_reaction_count
         self.state = state
+        self.review_decision = review_decision
     
     def object_decoder(self, dic):
         obj = PullRequestModel(
@@ -319,18 +324,23 @@ class PullRequestModel(BaseModel):
             updated_at=dic[IssueStatic.UPDATED_AT],
             additions=dic[IssueStatic.ADDITIONS],
             deletions=dic[IssueStatic.DELETIONS],
+            base_ref_name=dic[IssueStatic.BASE_REF_NAME],
+            base_ref_oid=dic[IssueStatic.BASE_REF_OID],
             head_ref_name=dic[IssueStatic.HEAD_REF_NAME],
             head_ref_oid=dic[IssueStatic.HEAD_REF_OID],
+            commits=list(node[CommitStatic.COMMIT][APIStaticV4.OID] for node in dic[IssueStatic.COMMITS][
+                APIStaticV4.NODES]),
             labels=list(node[UserStatic.NAME] for node in dic[IssueStatic.LABELS][APIStaticV4.NODES]),
             merged=dic[IssueStatic.MERGED],
             merged_at=dic[IssueStatic.MERGED_AT],
             merged_by=dic[IssueStatic.MERGED_BY][UserStatic.LOGIN] if dic[IssueStatic.MERGED_BY] is not None else None,
-            milestone_number=dic[IssueStatic.MILESTONE][APIStaticV4.NUMBER] if
-            dic[IssueStatic.MILESTONE] is not None else None,
+            milestone_number=dic[IssueStatic.MILESTONE][
+                APIStaticV4.NUMBER] if dic[IssueStatic.MILESTONE] is not None else None,
             positive_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
             negative_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
             ambiguous_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
-            state=dic[IssueStatic.STATE]
+            state=dic[IssueStatic.STATE],
+            review_decision=dic[IssueStatic.REVIEW_DECISION]
         )
         
         return obj
@@ -436,7 +446,7 @@ class CommitModelV3(BaseModel):
 
 class CommitModelV4(BaseModel):
     def __init__(self, commit_id, additions, deletions, author_name, author_email, author_login, authored_date,
-                 committer_name, committer_email, committer_login, committed_date, message, state, num_changed_files,
+                 committer_name, committer_email, committer_login, committed_date, message, num_changed_files,
                  is_merge):
         super().__init__()
         
@@ -452,7 +462,6 @@ class CommitModelV4(BaseModel):
         self.committer_login = committer_login
         self.committed_date = committed_date
         self.message = message
-        self.state = state
         self.num_changed_files = num_changed_files
         self.is_merge = is_merge
     
@@ -472,7 +481,6 @@ class CommitModelV4(BaseModel):
                 UserStatic.LOGIN] if dic[CommitStatic.COMMITTER][UserStatic.USER] is not None else None,
             committed_date=dic[CommitStatic.COMMITTED_DATE],
             message=dic[CommitStatic.MESSAGE],
-            state=dic[CommitStatic.STATUS][CommitStatic.STATE] if dic[CommitStatic.STATUS] is not None else None,
             num_changed_files=dic[CommitStatic.CHANGED_FILES],
             is_merge=True if dic[CommitStatic.PARENTS][APIStaticV4.TOTAL_COUNT] > 1 else False
         )
@@ -494,7 +502,7 @@ class CodeChangeModel(BaseModel):
     def object_decoder(self, dic):
         obj = CodeChangeModel(
             filename=dic[CommitStatic.FILENAME],
-            status=dic[CommitStatic.STATUS],
+            status=dic[CommitStatic.STATUS].upper(),
             additions=dic[CommitStatic.ADDITIONS],
             deletions=dic[CommitStatic.DELETIONS],
             changes=dic[CommitStatic.CHANGES],

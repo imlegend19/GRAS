@@ -167,10 +167,10 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                                                         "operate the selected database")
         self.database_settings.add_argument('-P', '--db-password', help="The password for the user name entered",
                                             const=True, nargs='?')
-        self.database_settings.add_argument('-H', '--db-host', help="The database server IP address or DNS name",
+        self.database_settings.add_argument('-H', '--db-db_host', help="The database server IP address or DNS name",
                                             default="localhost")
-        self.database_settings.add_argument('-p', '--db-port',
-                                            help="The database server port that allows communication to your "
+        self.database_settings.add_argument('-p', '--db-db_port',
+                                            help="The database server db_port that allows communication to your "
                                                  "database", default=3306, type=int)
         self.database_settings.add_argument('-dbo', '--db-output',
                                             help="The path to the .db file in case of sqlite dbms")

@@ -1,5 +1,5 @@
 from gras.github.entity.api_static import APIStaticV3, APIStaticV4, CommitStatic
-from gras.github.entity.github_models import CodeChangeModel, CommitModelV3, CommitModelV4, to_iso_format
+from gras.github.entity.github_models import CodeChangeModel, CommitModelV3, CommitModelV4
 from gras.github.github import GithubInterface
 from local_settings import AUTH_KEY
 
@@ -144,32 +144,33 @@ class CommitStructV4(GithubInterface, CommitModelV4):
 #             print(it, ":", com.committed_date)
 #             it += 1
 
-if __name__ == '__main__':
-    commit = CommitStructV4(
-        github_token=AUTH_KEY,
-        name="sympy",
-        owner="sympy",
-        start_date=to_iso_format("2009-01-01"),
-        end_date=to_iso_format("2015-01-01"),
-        branch="master"
-    )
-    
-    it = 1
-    for lst in commit.iterator():
-        for c in lst:
-            com = commit.object_decoder(c)
-            print(it, ":", com.committed_date)
-            it += 1
-
 # if __name__ == '__main__':
-#     cc = CodeChangeStruct(
+#     commit = CommitStructV4(
 #         github_token=AUTH_KEY,
 #         name="sympy",
 #         owner="sympy",
-#         commit_id="386f8ece1725063e8af7642d12cd882966b5f851"
+#         start_date=to_iso_format("2009-01-01"),
+#         end_date=to_iso_format("2015-01-01"),
+#         branch="master"
 #     )
 #
-#     lst = cc.iterator()
-#
-#     for c in lst:
-#         print(cc.object_decoder(c).filename)
+#     it = 1
+#     for lst in commit.iterator():
+#         for c in lst:
+#             com = commit.object_decoder(c)
+#             print(it, ":", com.committed_date)
+#             it += 1
+
+if __name__ == '__main__':
+    cc = CodeChangeStruct(
+        github_token=AUTH_KEY,
+        name="sympy",
+        owner="sympy",
+        commit_id="386f8ece1725063e8af7642d12cd882966b5f851"
+    )
+    
+    lst = cc.iterator()
+    
+    for c in lst:
+        obj = cc.object_decoder(c)
+        print(obj.filename, obj.changes, obj.status)

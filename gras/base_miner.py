@@ -9,22 +9,23 @@ class BaseMiner(metaclass=ABCMeta):
     """
     
     def __init__(self, args):
+        self.token = args.token
         self.interface = args.interface
+        self.repo_owner = args.repo_owner
+        self.repo_name = args.repo_name
         self.start_date = to_iso_format(args.start_date)
         self.end_date = to_iso_format(args.end_date)
-        self.animator = args.animator
+
         self.dbms = args.dbms
         self.db_name = args.db_name
         self.db_username = args.db_username
         self.db_password = args.db_password
         self.db_output = args.db_output
-        self.host = args.db_host
-        self.port = args.db_port
-        self.username = args.db_username
-        self.repo_owner = args.repo_owner
-        self.repo_name = args.repo_name
-        self.token = args.token
+        self.db_host = args.db_host
+        self.db_port = args.db_port
         self.db_log = args.db_log
+
+        self.animator = args.animator
     
     def __getattr__(self, attr):
         return self.__dict__[attr]

@@ -1,13 +1,13 @@
 from gras.github.entity.api_static import APIStaticV4, IssueStatic
-from gras.github.entity.github_models import IssueCommentModel
+from gras.github.entity.github_models import CommentModel
 from gras.github.github import GithubInterface
 
 
-class IssueCommentStruct(GithubInterface, IssueCommentModel):
-    ISSUE_COMMENT_QUERY = """
+class CommentStruct(GithubInterface, CommentModel):
+    COMMENT_QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
-                issue(number: {number}) {{
+                {type_filter}(number: {number}) {{
                     comments(first: 100, after: {after}) {{
                         pageInfo {{
                             hasNextPage
@@ -35,12 +35,14 @@ class IssueCommentStruct(GithubInterface, IssueCommentModel):
         }}
     """
     
-    def __init__(self, github_token, name, owner, number):
+    def __init__(self, github_token, name, owner, number, type_filter):
         super().__init__(
             github_token=github_token,
-            query=self.ISSUE_COMMENT_QUERY,
-            query_params=dict(owner=owner, name=name, number=number, after="null")
+            query=self.COMMENT_QUERY,
+            query_params=dict(owner=owner, name=name, number=number, type_filter=type_filter, after="null")
         )
+        
+        self.type_filter = type_filter
     
     def iterator(self):
         generator = self.generator()
@@ -52,18 +54,18 @@ class IssueCommentStruct(GithubInterface, IssueCommentModel):
             except StopIteration:
                 break
 
-            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][IssueStatic.COMMENTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
 
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
 
-            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][IssueStatic.COMMENTS][
                 APIStaticV4.NODES]
 
-            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE][IssueStatic.COMMENTS][
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][IssueStatic.COMMENTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
     def process(self):
         for lst in self.iterator():
-            for issue_comment in lst:
-                yield self.object_decoder(issue_comment)
+            for comment in lst:
+                yield self.object_decoder(comment)
