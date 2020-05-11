@@ -99,6 +99,9 @@ class DBSchema:
         self._create_repository_stats_tables()
         self._create_issues_table()
         self._create_issue_tracker_tables()
+        self._create_commit_tables()
+        self._create_pr_table()
+        self._create_pr_tracker_tables()
     
     def _create_contributors_table(self):
         """
@@ -535,7 +538,7 @@ class DBSchema:
             Column('negative_reaction_count', INTEGER, default=0, nullable=False),
             Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
         )
-    
+
         self.issue_assignees = Table(
             'issue_assignees', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -543,7 +546,7 @@ class DBSchema:
             Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
             Column('assignee_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
         )
-    
+
         self.issue_labels = Table(
             'issue_labels', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -551,7 +554,7 @@ class DBSchema:
             Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
             Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE")),
         )
-    
+
         self.issue_events = Table(
             'issue_events', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -566,20 +569,20 @@ class DBSchema:
             Column('removed_type', self._added_or_removed_type[0]),
             Column('is_cross_repository', BOOLEAN, default=0, nullable=False)
         )
-    
+
         if self._event_type_enum[1]:
             self.issue_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
                                                                 name='event_enum_check'))
-    
+
         if self._added_or_removed_type[1]:
             self.issue_events.append_constraint(
                 CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
             )
-        
+
             self.issue_events.append_constraint(
                 CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
             )
-    
+
         self.issue_comments.create(bind=self.conn, checkfirst=True)
         self.issue_assignees.create(bind=self.conn, checkfirst=True)
         self.issue_labels.create(bind=self.conn, checkfirst=True)
@@ -611,7 +614,7 @@ class DBSchema:
             Column('additions', INTEGER, default=0),
             Column('deletions', INTEGER, default=0),
             Column('changes', INTEGER, default=0),
-            Column('status', VARCHAR(255)),
+            Column('change_type', VARCHAR(255)),
             Column('patch', self.__get_large_text_type())
         )
         
@@ -630,6 +633,10 @@ class DBSchema:
             Column('negative_reaction_count', INTEGER, default=0, nullable=False),
             Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
         )
+
+        self.commits.create(bind=self.conn, checkfirst=True)
+        self.commit_comments.create(bind=self.conn, checkfirst=True)
+        self.code_change.create(bind=self.conn, checkfirst=True)
     
     def _create_pr_table(self):
         self.pull_requests = Table(
@@ -662,15 +669,17 @@ class DBSchema:
             Column('review_decision', self._review_decision_enum[0]),
             UniqueConstraint('number', 'repo_id', name='num_repo_ind')
         )
-        
+
         if self._state_enum[1]:
             self.pull_requests.append_constraint(CheckConstraint(f"state IN ({self._get_string(State)})",
                                                                  name='enum_check'))
-        
+
         if self._review_decision_enum[1]:
             self.pull_requests.append_constraint(CheckConstraint(f"review_decision IN ("
                                                                  f"{self._get_string(ReviewDecision)})",
                                                                  name="rd_enum_check"))
+
+        self.pull_requests.create(bind=self.conn, checkfirst=True)
     
     def _create_pr_tracker_tables(self):
         self.pull_request_comments = Table(
@@ -731,15 +740,21 @@ class DBSchema:
         if self._event_type_enum[1]:
             self.pull_request_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
                                                                        name='event_enum_check'))
-        
+
         if self._added_or_removed_type[1]:
             self.pull_request_events.append_constraint(
                 CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
             )
-            
+    
             self.pull_request_events.append_constraint(
                 CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
             )
+
+        self.pull_request_comments.create(bind=self.conn, checkfirst=True)
+        self.pull_request_commits.create(bind=self.conn, checkfirst=True)
+        self.pull_request_assignees.create(bind=self.conn, checkfirst=True)
+        self.pull_request_labels.create(bind=self.conn, checkfirst=True)
+        self.pull_request_events.create(bind=self.conn, checkfirst=True)
     
     @staticmethod
     def contributors_object(login, name, email, created_at, updated_at, location, total_followers=0,
@@ -865,7 +880,7 @@ class DBSchema:
     def branches_object(repo_id, name, target_commit_id):
         obj = {
             "repo_id"         : repo_id,
-            "name"            : name,
+            "name"            : get_value(name),
             "target_commit_id": target_commit_id
         }
 
@@ -875,7 +890,7 @@ class DBSchema:
     def labels_object(repo_id, name, color, created_at, type_):
         obj = {
             "repo_id"   : repo_id,
-            "name"      : name,
+            "name"      : get_value(name),
             "color"     : get_value(color),
             "created_at": to_datetime(created_at),
             "type_"     : get_value(type_)
@@ -971,29 +986,29 @@ class DBSchema:
         obj = {
             "repo_id"                 : repo_id,
             "number"                  : number,
-            "title"                   : title,
-            "body"                    : body,
+            "title"                   : get_value(title),
+            "body"                    : get_value(body),
             "author_id"               : author_id,
             "num_files_changed"       : num_files_changed,
-            "created_at"              : created_at,
-            "updated_at"              : updated_at,
+            "created_at"              : to_datetime(created_at),
+            "updated_at"              : to_datetime(updated_at),
             "additions"               : additions,
             "deletions"               : deletions,
-            "base_ref_name"           : base_ref_name,
+            "base_ref_name"           : get_value(base_ref_name),
             "base_ref_commit_id"      : base_ref_commit_id,
-            "head_ref_name"           : head_ref_name,
+            "head_ref_name"           : get_value(head_ref_name),
             "head_ref_commit_id"      : head_ref_commit_id,
             "closed"                  : closed,
-            "closed_at"               : closed_at,
+            "closed_at"               : to_datetime(closed_at),
             "merged"                  : merged,
-            "merged_at"               : merged_at,
+            "merged_at"               : to_datetime(merged_at),
             "merged_by"               : merged_by,
             "milestone_id"            : milestone_id,
             "positive_reaction_count" : positive_reaction_count,
             "negative_reaction_count" : negative_reaction_count,
             "ambiguous_reaction_count": ambiguous_reaction_count,
-            "state"                   : state,
-            "review_decision"         : review_decision
+            "state"                   : get_value(state),
+            "review_decision"         : get_value(review_decision)
         }
         
         return obj
@@ -1063,5 +1078,58 @@ class DBSchema:
             "removed_type"       : get_value(removed_type),
             "is_cross_repository": is_cross_repository
         }
-        
+
+        return obj
+
+    @staticmethod
+    def commits_object(repo_id, oid, additions, deletions, author_id, authored_date, committer_id, committer_date,
+                       message, num_files_changed, is_merge):
+        obj = {
+            "repo_id"          : repo_id,
+            "oid"              : oid,
+            "additions"        : additions,
+            "deletions"        : deletions,
+            "author_id"        : author_id,
+            "authored_date"    : to_datetime(authored_date),
+            "committer_id"     : committer_id,
+            "committer_date"   : to_datetime(committer_date),
+            "message"          : get_value(message),
+            "num_files_changed": num_files_changed,
+            "is_merge"         : is_merge
+        }
+    
+        return obj
+
+    @staticmethod
+    def code_change_object(repo_id, oid, filename, additions, deletions, changes, change_type, patch):
+        obj = {
+            "repo_id"    : repo_id,
+            "oid"        : oid,
+            "filename"   : get_value(filename),
+            "additions"  : additions,
+            "deletions"  : deletions,
+            "changes"    : changes,
+            "change_type": get_value(change_type),
+            "patch"      : patch
+        }
+    
+        return obj
+
+    @staticmethod
+    def commit_comments_object(repo_id, commenter_id, body, commit_id, created_at, updated_at, path, position,
+                               positive_reaction_count, negative_reaction_count, ambiguous_reaction_count):
+        obj = {
+            "repo_id"                 : repo_id,
+            "commenter_id"            : commenter_id,
+            "body"                    : get_value(body),
+            "commit_id"               : commit_id,
+            "created_at"              : to_datetime(created_at),
+            "updated_at"              : to_datetime(updated_at),
+            "path"                    : get_value(path),
+            "position"                : position,
+            "positive_reaction_count" : positive_reaction_count,
+            "negative_reaction_count" : negative_reaction_count,
+            "ambiguous_reaction_count": ambiguous_reaction_count
+        }
+    
         return obj

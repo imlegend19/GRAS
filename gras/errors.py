@@ -1,7 +1,7 @@
-class GrasException(Exception):
-    """Base GRAS Exception."""
+class GrasError(Exception):
+    """Base GRAS Error."""
     
-    message = "GRAS Exception"
+    message = "GRAS Error"
     
     def __init__(self, **kwargs):
         super().__init__()
@@ -11,13 +11,19 @@ class GrasException(Exception):
         return self.msg
 
 
-class GrasArgumentParserError(GrasException):
+class GithubMinerError(GrasError):
+    """Exception to be raised by :class:`~gras.github.github_miner.GithubMiner`"""
+    
+    message = "%(cause)s"
+
+
+class GrasArgumentParserError(GrasError):
     """Exception to be raised by :class:`~main.GrasArgumentParser` in case the user has entered invalid arguments."""
     
-    message = "Invalid Arguments: %(msg)"
+    message = "Invalid Arguments: %(msg)s"
 
 
-class GrasConfigError(GrasException):
+class GrasConfigError(GrasError):
     """Exception to be raise if the config file does not contain all the required details"""
     
-    message = "Config File error: %(msg)"
+    message = "Config File error: %(msg)s"

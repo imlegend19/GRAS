@@ -55,8 +55,20 @@ DEFAULT_LOGGING = {
 }
 
 
+def create_log_folder(path):
+    """
+    Creates the log folder
+    
+    Args:
+        path: The log folder path
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+
 def set_up_logging():
     logging.basicConfig(level=logging.ERROR)
+    create_log_folder(os.getcwd() + '/logs')
     logging.config.dictConfig(DEFAULT_LOGGING)
 
 
@@ -109,9 +121,11 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_grass_settings()
         self._add_database_settings()
         self._add_other_arguments()
-        
+
         try:
-            self.args = self.parse_args(['--stats', '-RO', 'sympy', '-RN', 'sympy', '-t', AUTH_KEY])
+            self.args = self.parse_args(['--mine', '-RO', 'sympy', '-RN', 'sympy', '-t', AUTH_KEY, '-SD',
+                                         '2012-01-01', '-ED', '2012-01-15', '-dbms', 'sqlite', '-dbo',
+                                         '/home/mahen/PycharmProjects/GRAS/file.db'])
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -167,9 +181,9 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                                                         "operate the selected database")
         self.database_settings.add_argument('-P', '--db-password', help="The password for the user name entered",
                                             const=True, nargs='?')
-        self.database_settings.add_argument('-H', '--db-db_host', help="The database server IP address or DNS name",
+        self.database_settings.add_argument('-H', '--db-host', help="The database server IP address or DNS name",
                                             default="localhost")
-        self.database_settings.add_argument('-p', '--db-db_port',
+        self.database_settings.add_argument('-p', '--db-port',
                                             help="The database server db_port that allows communication to your "
                                                  "database", default=3306, type=int)
         self.database_settings.add_argument('-dbo', '--db-output',
@@ -217,15 +231,16 @@ class GrasArgumentParser(argparse.ArgumentParser):
         if args.mine:
             if args.dbms == "sqlite" and not args.db_output:
                 logger.info(f"SQLite database output file path not provided, using path: {os.getcwd()}/gras.db")
-            
-            if not args.username or not args.password:
-                raise GrasArgumentParserError(msg="Please enter valid database credentials.")
-            
-            if args.username and args.password and not args.db_name:
+    
+            if args.dbms != "sqlite":
+                if not args.db_username or not args.db_password:
+                    raise GrasArgumentParserError(msg="Please enter valid database credentials.")
+    
+            if args.db_username and args.db_password and not args.db_name:
                 logger.info("Database name not provided! GRAS will create the database with name `gras` if not exists.")
-            
-            if not args.basic and not args.issue_tracker and not args.commit and not args.all:
-                logger.info("Stage name not specified, using `basic` by default.")
+    
+            # if not args.basic and not args.issue_tracker and not args.commit and not args.all:
+            #     logger.info("Stage name not specified, using `basic` by default.")
     
     def _set_arg_groups(self):
         self.arg_groups = {}

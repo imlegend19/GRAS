@@ -489,11 +489,11 @@ class CommitModelV4(BaseModel):
 
 
 class CodeChangeModel(BaseModel):
-    def __init__(self, filename, status, additions, deletions, changes, patch):
+    def __init__(self, filename, change_type, additions, deletions, changes, patch):
         super().__init__()
-        
+    
         self.filename = filename
-        self.status = status
+        self.change_type = change_type
         self.additions = additions
         self.deletions = deletions
         self.changes = changes
@@ -502,7 +502,7 @@ class CodeChangeModel(BaseModel):
     def object_decoder(self, dic):
         obj = CodeChangeModel(
             filename=dic[CommitStatic.FILENAME],
-            status=dic[CommitStatic.STATUS].upper(),
+            change_type=dic[CommitStatic.STATUS].upper(),
             additions=dic[CommitStatic.ADDITIONS],
             deletions=dic[CommitStatic.DELETIONS],
             changes=dic[CommitStatic.CHANGES],

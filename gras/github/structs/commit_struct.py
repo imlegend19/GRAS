@@ -1,7 +1,6 @@
 from gras.github.entity.api_static import APIStaticV3, APIStaticV4, CommitStatic
 from gras.github.entity.github_models import CodeChangeModel, CommitModelV3, CommitModelV4
 from gras.github.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class CodeChangeStruct(GithubInterface, CodeChangeModel):
@@ -12,10 +11,14 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
             url=f"https://api.github.com/repos/{owner}/{name}/commits/{commit_id}",
             query_params=None
         )
-    
+
     def iterator(self):
         generator = self.generator()
         return next(generator).json()[CommitStatic.FILES]
+
+    def process(self):
+        for cc in self.iterator():
+            return self.object_decoder(cc)
 
 
 class CommitStructV3(GithubInterface, CommitModelV3):
@@ -100,10 +103,14 @@ class CommitStructV4(GithubInterface, CommitModelV4):
     def __init__(self, github_token, name, owner, start_date, end_date, branch, after="null"):
         super().__init__(
             github_token=github_token,
-            query=CommitStructV4.COMMIT_QUERY,
+            query=self.COMMIT_QUERY,
             query_params=dict(name=name, owner=owner, start_date=start_date, end_date=end_date, after=after,
                               branch=branch)
         )
+    
+        print(self.COMMIT_QUERY.format_map(
+            dict(name=name, owner=owner, start_date=start_date, end_date=end_date, after=after,
+                 branch=branch)))
     
     def iterator(self):
         generator = self.generator()
@@ -114,63 +121,28 @@ class CommitStructV4(GithubInterface, CommitModelV4):
                 response = next(generator)
             except StopIteration:
                 break
-            
-            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.HISTORY][
-                APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            
+    
+            try:
+                endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][
+                    CommitStatic.HISTORY][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
+            except KeyError:
+                endCursor = None
+    
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-            
-            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.HISTORY][
-                APIStaticV4.NODES]
-            
-            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.HISTORY][
-                APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-
-
-# if __name__ == '__main__':
-#     commit = CommitStructV3(
-#         github_token=AUTH_KEY,
-#         name="sympy",
-#         owner="sympy",
-#         merge="false",
-#         start_date="2009-01-01",
-#         end_date="2015-01-01"
-#     )
-#
-#     it = 1
-#     for lst in commit.iterator():
-#         for c in lst:
-#             com = commit.object_decoder(c, False)
-#             print(it, ":", com.committed_date)
-#             it += 1
-
-# if __name__ == '__main__':
-#     commit = CommitStructV4(
-#         github_token=AUTH_KEY,
-#         name="sympy",
-#         owner="sympy",
-#         start_date=to_iso_format("2009-01-01"),
-#         end_date=to_iso_format("2015-01-01"),
-#         branch="master"
-#     )
-#
-#     it = 1
-#     for lst in commit.iterator():
-#         for c in lst:
-#             com = commit.object_decoder(c)
-#             print(it, ":", com.committed_date)
-#             it += 1
-
-if __name__ == '__main__':
-    cc = CodeChangeStruct(
-        github_token=AUTH_KEY,
-        name="sympy",
-        owner="sympy",
-        commit_id="386f8ece1725063e8af7642d12cd882966b5f851"
-    )
     
-    lst = cc.iterator()
+            try:
+                yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.HISTORY][
+                    APIStaticV4.NODES]
+            except KeyError:
+                yield None
     
-    for c in lst:
-        obj = cc.object_decoder(c)
-        print(obj.filename, obj.changes, obj.status)
+            try:
+                hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][
+                    CommitStatic.HISTORY][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
+            except KeyError:
+                hasNextPage = False
+
+    def process(self):
+        for lst in self.iterator():
+            for commit in lst:
+                yield self.object_decoder(commit)
