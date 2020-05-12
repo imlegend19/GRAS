@@ -70,7 +70,7 @@ class IssueStruct(GithubInterface, IssueModel):
             self.query_params["start_date"] = start
             self.query_params["end_date"] = end
             
-            generator = self.generator()
+            generator = self._generator()
             hasNextPage = True
             
             while hasNextPage:

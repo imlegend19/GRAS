@@ -41,7 +41,7 @@ class RepositoryStruct(GithubInterface, RepositoryModel):
         )
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY]
     
     def process(self):

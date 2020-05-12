@@ -45,7 +45,7 @@ class CommentStruct(GithubInterface, CommentModel):
         self.type_filter = type_filter
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         hasNextPage = True
         
         while hasNextPage:

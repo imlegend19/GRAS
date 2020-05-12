@@ -19,9 +19,13 @@ class BaseInterface(metaclass=ABCMeta):
         self.max_retries = max_retries
 
     @abstractmethod
-    def generator(self):
+    def _generator(self):
         pass
-    
+
     @abstractmethod
     def iterator(self):
+        pass
+
+    @abstractmethod
+    def process(self):
         pass

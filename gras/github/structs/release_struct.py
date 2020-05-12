@@ -46,7 +46,7 @@ class ReleaseStruct(GithubInterface, ReleaseModel):
         )
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         hasNextPage = True
         
         while hasNextPage:

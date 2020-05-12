@@ -21,7 +21,7 @@ class RepoStatistics:
         )
         
         total = 0
-        generator = u.generator()
+        generator = u._generator()
         hasNextPage = True
         
         while hasNextPage:

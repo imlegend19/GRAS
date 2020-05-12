@@ -500,15 +500,18 @@ class CodeChangeModel(BaseModel):
         self.patch = patch
     
     def object_decoder(self, dic):
-        obj = CodeChangeModel(
-            filename=dic[CommitStatic.FILENAME],
-            change_type=dic[CommitStatic.STATUS].upper(),
-            additions=dic[CommitStatic.ADDITIONS],
-            deletions=dic[CommitStatic.DELETIONS],
-            changes=dic[CommitStatic.CHANGES],
-            patch=dic[CommitStatic.PATCH]
-        )
-        
+        try:
+            obj = CodeChangeModel(
+                filename=dic[CommitStatic.FILENAME],
+                change_type=dic[CommitStatic.STATUS].upper(),
+                additions=dic[CommitStatic.ADDITIONS],
+                deletions=dic[CommitStatic.DELETIONS],
+                changes=dic[CommitStatic.CHANGES],
+                patch=dic[CommitStatic.PATCH]
+            )
+        except KeyError:
+            return None
+    
         return obj
 
 

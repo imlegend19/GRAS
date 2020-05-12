@@ -164,7 +164,7 @@ class EventStruct(GithubInterface, EventModel):
         self.issue_number = number
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][
             EventStatic.TIMELINE_ITEMS][APIStaticV4.NODES]
     

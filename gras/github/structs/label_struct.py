@@ -32,7 +32,7 @@ class LabelStruct(GithubInterface, LabelModel):
         )
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         hasNextPage = True
         
         while hasNextPage:

@@ -30,7 +30,7 @@ class AssignableUserStruct(GithubInterface, UserModel):
         self.query_params = dict(name=name, owner=owner, after=after)
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         hasNextPage = True
         
         while hasNextPage:
@@ -82,7 +82,7 @@ class UserNodesStruct(GithubInterface, UserModel):
         )
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.NODES]
     
     def process(self):
@@ -100,7 +100,7 @@ class ContributorList(GithubInterface, AnonContributorModel):
         )
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         hasNextPage = True
         
         while hasNextPage:
@@ -136,7 +136,7 @@ class UserStructV3(GithubInterface, UserModel):
         )
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         return next(generator).json()
     
     def process(self):
@@ -168,7 +168,7 @@ class UserStruct(GithubInterface, UserModel):
         self.query_params = dict(login=login)
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         return next(generator)[APIStaticV4.DATA][UserStatic.USER]
     
     def process(self):

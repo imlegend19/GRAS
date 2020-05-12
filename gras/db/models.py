@@ -589,6 +589,64 @@ class DBSchema:
         self.issue_events.create(bind=self.conn, checkfirst=True)
     
     def _create_commit_tables(self):
+        """
+        CREATE TABLE commits (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            oid VARCHAR(255) NOT NULL,
+            additions INTEGER NOT NULL,
+            deletions INTEGER NOT NULL,
+            author_id INTEGER,
+            authored_date DATETIME NOT NULL,
+            committer_id INTEGER,
+            committer_date DATETIME NOT NULL,
+            message TEXT,
+            num_files_changed INTEGER,
+            is_merge BOOLEAN NOT NULL,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(author_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(committer_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            CHECK (is_merge IN (0, 1))
+        )
+        
+        CREATE TABLE commit_comments (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            commenter_id INTEGER,
+            body TEXT,
+            commit_id INTEGER,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            path VARCHAR(255),
+            position INTEGER,
+            positive_reaction_count INTEGER NOT NULL,
+            negative_reaction_count INTEGER NOT NULL,
+            ambiguous_reaction_count INTEGER NOT NULL,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(commenter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE
+        )
+        
+        CREATE TABLE code_change (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            commit_id INTEGER NOT NULL,
+            filename VARCHAR(255) NOT NULL,
+            additions INTEGER,
+            deletions INTEGER,
+            changes INTEGER,
+            change_type VARCHAR(255),
+            patch TEXT,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE
+        )
+        """
         self.commits = Table(
             'commits', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -609,7 +667,7 @@ class DBSchema:
             'code_change', self._metadata,
             Column('id', INTEGER, primary_key=True, autoincrement=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('oid', VARCHAR(255), nullable=False),
+            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE"), nullable=False),
             Column('filename', VARCHAR(255), nullable=False),
             Column('additions', INTEGER, default=0),
             Column('deletions', INTEGER, default=0),
@@ -637,8 +695,51 @@ class DBSchema:
         self.commits.create(bind=self.conn, checkfirst=True)
         self.commit_comments.create(bind=self.conn, checkfirst=True)
         self.code_change.create(bind=self.conn, checkfirst=True)
-    
+
     def _create_pr_table(self):
+        """
+        CREATE TABLE pull_requests (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            number INTEGER NOT NULL,
+            title VARCHAR(255),
+            body TEXT,
+            author_id INTEGER,
+            num_files_changed INTEGER,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            additions INTEGER NOT NULL,
+            deletions INTEGER NOT NULL,
+            base_ref_name VARCHAR(255),
+            base_ref_commit_id INTEGER,
+            head_ref_name VARCHAR(255),
+            head_ref_commit_id INTEGER,
+            closed BOOLEAN NOT NULL,
+            closed_at DATETIME,
+            merged BOOLEAN NOT NULL,
+            merged_at DATETIME,
+            merged_by INTEGER,
+            milestone_id INTEGER,
+            positive_reaction_count INTEGER NOT NULL,
+            negative_reaction_count INTEGER NOT NULL,
+            ambiguous_reaction_count INTEGER NOT NULL,
+            state VARCHAR(255) NOT NULL,
+            review_decision VARCHAR(255),
+            
+            PRIMARY KEY (id),
+            CONSTRAINT num_repo_ind UNIQUE (number, repo_id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(author_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(base_ref_commit_id) REFERENCES commits (id) ON DELETE CASCADE,
+            FOREIGN KEY(head_ref_commit_id) REFERENCES commits (id) ON DELETE CASCADE,
+            CHECK (closed IN (0, 1)),
+            CHECK (merged IN (0, 1)),
+            FOREIGN KEY(merged_by) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(milestone_id) REFERENCES milestones (id) ON DELETE CASCADE,
+            CONSTRAINT enum_check CHECK (state IN ('OPEN', 'CLOSED')),
+            CONSTRAINT rd_enum_check CHECK (review_decision IN ('CHANGES_REQUESTED', 'APPROVED', 'REVIEW_REQUIRED'))
+        )
+        """
         self.pull_requests = Table(
             'pull_requests', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -680,8 +781,95 @@ class DBSchema:
                                                                  name="rd_enum_check"))
 
         self.pull_requests.create(bind=self.conn, checkfirst=True)
-    
+
     def _create_pr_tracker_tables(self):
+        """
+        CREATE TABLE pull_request_comments (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            pr_id INTEGER,
+            commenter_id INTEGER,
+            body TEXT NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            is_minimized BOOLEAN,
+            minimized_reason VARCHAR(255),
+            positive_reaction_count INTEGER NOT NULL,
+            negative_reaction_count INTEGER NOT NULL,
+            ambiguous_reaction_count INTEGER NOT NULL,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
+            FOREIGN KEY(commenter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            CHECK (is_minimized IN (0, 1))
+        )
+        
+        CREATE TABLE pull_request_commits (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            pr_id INTEGER,
+            commit_id INTEGER,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
+            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE
+        )
+        
+        CREATE TABLE pull_request_assignees (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            pr_id INTEGER,
+            assignee_id INTEGER,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
+            FOREIGN KEY(assignee_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
+        )
+        
+        CREATE TABLE pull_request_labels (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            pr_id INTEGER,
+            label_id INTEGER,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
+            FOREIGN KEY(label_id) REFERENCES labels (id) ON DELETE CASCADE
+        )
+        
+        CREATE TABLE pull_request_events (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            pr_id INTEGER,
+            event_type VARCHAR(255) NOT NULL,
+            who INTEGER,
+            "when" DATETIME NOT NULL,
+            added VARCHAR(255),
+            added_type VARCHAR(255),
+            removed VARCHAR(255),
+            removed_type VARCHAR(255),
+            is_cross_repository BOOLEAN NOT NULL,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
+            FOREIGN KEY(who) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            CHECK (is_cross_repository IN (0, 1)),
+            CONSTRAINT event_enum_check CHECK (event_type IN ('ASSIGNED_EVENT', 'CROSS_REFERENCED_EVENT',
+                'DEMILESTONED_EVENT', 'LABELED_EVENT', 'MARKED_AS_DUPLICATE_EVENT', 'MENTIONED_EVENT',
+                'MILESTONED_EVENT', 'PINNED_EVENT', 'REFERENCED_EVENT', 'RENAMED_TITLE_EVENT', 'REOPENED_EVENT',
+                'TRANSFERRED_EVENT', 'UNASSIGNED_EVENT', 'UNLABELED_EVENT', 'UNMARKED_AS_DUPLICATE_EVENT',
+                'UNPINNED_EVENT')),
+            CONSTRAINT added_enum_check CHECK (added_type IN ('USER', 'MILESTONE', 'LABEL', 'COMMIT_ID', 'TITLE',
+                'REPOSITORY', 'ISSUE', 'PULL_REQUEST')),
+            CONSTRAINT removed_enum_check CHECK (removed_type IN ('USER', 'MILESTONE', 'LABEL', 'COMMIT_ID', 'TITLE',
+                'REPOSITORY', 'ISSUE', 'PULL_REQUEST'))
+        )
+        """
         self.pull_request_comments = Table(
             'pull_request_comments', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),

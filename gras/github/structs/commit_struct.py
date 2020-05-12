@@ -13,12 +13,14 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
         )
 
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         return next(generator).json()[CommitStatic.FILES]
 
     def process(self):
         for cc in self.iterator():
-            return self.object_decoder(cc)
+            obj = self.object_decoder(cc)
+            if obj:
+                yield obj
 
 
 class CommitStructV3(GithubInterface, CommitModelV3):
@@ -33,7 +35,7 @@ class CommitStructV3(GithubInterface, CommitModelV3):
         )
     
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         hasNextPage = True
         
         while hasNextPage:
@@ -99,50 +101,94 @@ class CommitStructV4(GithubInterface, CommitModelV4):
             }}
         }}
     """
-    
-    def __init__(self, github_token, name, owner, start_date, end_date, branch, after="null"):
+
+    SINGLE_COMMIT_QUERY = """
+        {{
+            repository(owner: "{owner}", name: "{name}") {{
+                object(oid: "{oid}") {{
+                    ... on Commit {{
+                        oid
+                        additions
+                        deletions
+                        author {{
+                            email
+                            name
+                            user {{
+                                login
+                            }}
+                        }}
+                        authoredDate
+                        committer {{
+                            email
+                            name
+                            user {{
+                                login
+                            }}
+                        }}
+                        committedDate
+                        message
+                        status {{
+                            state
+                        }}
+                        changedFiles
+                        parents {{
+                            totalCount
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    """
+
+    def __init__(self, github_token, name, owner, start_date=None, end_date=None, branch=None, after="null", oid=None):
         super().__init__(
             github_token=github_token,
-            query=self.COMMIT_QUERY,
-            query_params=dict(name=name, owner=owner, start_date=start_date, end_date=end_date, after=after,
-                              branch=branch)
+            query=self.SINGLE_COMMIT_QUERY if oid else self.COMMIT_QUERY,
+            query_params=dict(name=name, owner=owner, oid=oid) if oid else dict(name=name, owner=owner, after=after,
+                                                                                start_date=start_date,
+                                                                                end_date=end_date, branch=branch)
         )
     
-        print(self.COMMIT_QUERY.format_map(
-            dict(name=name, owner=owner, start_date=start_date, end_date=end_date, after=after,
-                 branch=branch)))
-    
+        self.oid = oid
+
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         hasNextPage = True
-        
-        while hasNextPage:
-            try:
-                response = next(generator)
-            except StopIteration:
-                break
     
-            try:
-                endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][
-                    CommitStatic.HISTORY][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            except KeyError:
-                endCursor = None
-    
-            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-    
-            try:
-                yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.HISTORY][
-                    APIStaticV4.NODES]
-            except KeyError:
-                yield None
-    
-            try:
-                hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][
-                    CommitStatic.HISTORY][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-            except KeyError:
-                hasNextPage = False
+        if not self.oid:
+            while hasNextPage:
+                try:
+                    response = next(generator)
+                except StopIteration:
+                    break
+            
+                try:
+                    endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][
+                        CommitStatic.HISTORY][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
+                except KeyError:
+                    endCursor = None
+            
+                self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
+            
+                try:
+                    yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.HISTORY][
+                        APIStaticV4.NODES]
+                except KeyError:
+                    yield None
+            
+                try:
+                    hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][
+                        CommitStatic.HISTORY][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
+                except KeyError:
+                    hasNextPage = False
+        else:
+            response = next(generator)
+            return response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT]
 
     def process(self):
-        for lst in self.iterator():
-            for commit in lst:
-                yield self.object_decoder(commit)
+        if not self.oid:
+            for lst in self.iterator():
+                for commit in lst:
+                    yield self.object_decoder(commit)
+        else:
+            return self.object_decoder(self.iterator())

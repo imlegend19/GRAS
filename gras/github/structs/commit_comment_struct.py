@@ -1,7 +1,6 @@
 from gras.github.entity.api_static import APIStaticV4, CommitStatic
 from gras.github.entity.github_models import CommitCommentModel
 from gras.github.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class CommitCommentStruct(GithubInterface, CommitCommentModel):
@@ -36,45 +35,37 @@ class CommitCommentStruct(GithubInterface, CommitCommentModel):
             }}
         }}
     """
-    
-    def __init__(self, github_token, name, owner, after="null"):
+
+    def __init__(self, github_token, name, owner):
         super().__init__()
-        
+    
         self.github_token = github_token
         self.query = CommitCommentStruct.QUERY
-        self.query_params = dict(name=name, owner=owner, after=after)
-        
+        self.query_params = dict(name=name, owner=owner, after="null")
+
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         hasNextPage = True
-        
+    
         while hasNextPage:
             try:
                 response = next(generator)
             except StopIteration:
                 break
-                
+        
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.COMMIT_COMMENTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-
+        
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-
+        
             yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.COMMIT_COMMENTS][APIStaticV4.NODES]
-
+        
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.COMMIT_COMMENTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-            
 
-if __name__ == '__main__':
-    com = CommitCommentStruct(
-        github_token=AUTH_KEY,
-        name="sympy",
-        owner="sympy"
-    )
-    
-    for lst in com.iterator():
-        for c in lst:
-            try:
-                print(com.object_decoder(c).created_at)
-            except AttributeError:
-                pass
+    def process(self):
+        for cc in self.iterator():
+            for node in cc:
+                obj = self.object_decoder(node)
+                if obj:
+                    yield obj

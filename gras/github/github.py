@@ -111,10 +111,10 @@ class GithubInterface(BaseInterface):
 
         raise exceptions.RequestException(f"Problem with getting data via url {self.url}.")
     
-    def generator(self):
+    def _generator(self):
         if self.url is None:
             self.url = APIStaticV4.BASE_URL
-        
+    
         while True:
             try:
                 if self.query is not None:
@@ -128,12 +128,16 @@ class GithubInterface(BaseInterface):
                         )
                 else:
                     yield self._send_request(only_json=False, method=self.GET)
-            
+        
             except exceptions.HTTPError as http_err:
                 raise http_err
             except Exception as err:
+                print(str(err))
                 raise err
-    
+
     def iterator(self):
-        generator = self.generator()
+        generator = self._generator()
         return next(generator)
+
+    def process(self):
+        pass
