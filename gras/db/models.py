@@ -12,6 +12,12 @@ class State(enum.Enum):
     CLOSED = "CLOSED"
 
 
+class PullRequestState(enum.Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    MERGED = "MERGED"
+
+
 class LabelType(enum.Enum):
     GENERAL = "GENERAL"
     PRIORITY = "PRIORITY"
@@ -65,8 +71,9 @@ class DBSchema:
         self.engine = engine
         self.conn = conn
         self._metadata = MetaData()
-        
+
         self._state_enum = self.__get_enum(State)
+        self._pr_state_enum = self.__get_enum(PullRequestState)
         self._label_enum = self.__get_enum(LabelType)
         self._event_type_enum = self.__get_enum(EventType)
         self._added_or_removed_type = self.__get_enum(AddedOrRemovedType)
@@ -285,7 +292,7 @@ class DBSchema:
             name VARCHAR(255) NOT NULL,
             color VARCHAR(255) NOT NULL,
             created_at DATETIME NOT NULL,
-            type VARCHAR(255),
+            label_type VARCHAR(255),
             
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
@@ -380,11 +387,11 @@ class DBSchema:
             Column('name', VARCHAR(255), nullable=False),
             Column('color', VARCHAR(255), nullable=False),
             Column('created_at', DATETIME, nullable=False),
-            Column('type', self._label_enum[0], default="COMPONENT")
+            Column('label_type', self._label_enum[0], nullable=False)
         )
 
         if self._label_enum[1]:
-            self.labels.append_constraint(CheckConstraint(f"type IN ({self._get_string(LabelType)})",
+            self.labels.append_constraint(CheckConstraint(f"label_type IN ({self._get_string(LabelType)})",
                                                           name='enum_check'))
 
         self.languages.create(bind=self.conn, checkfirst=True)
@@ -772,7 +779,7 @@ class DBSchema:
         )
 
         if self._state_enum[1]:
-            self.pull_requests.append_constraint(CheckConstraint(f"state IN ({self._get_string(State)})",
+            self.pull_requests.append_constraint(CheckConstraint(f"state IN ({self._get_string(PullRequestState)})",
                                                                  name='enum_check'))
 
         if self._review_decision_enum[1]:
@@ -933,7 +940,7 @@ class DBSchema:
             self.pull_request_events.append_constraint(
                 CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
             )
-    
+
             self.pull_request_events.append_constraint(
                 CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
             )
@@ -1073,17 +1080,17 @@ class DBSchema:
         }
 
         return obj
-    
+
     @staticmethod
-    def labels_object(repo_id, name, color, created_at, type_):
+    def labels_object(repo_id, name, color, created_at, label_type):
         obj = {
             "repo_id"   : repo_id,
             "name"      : get_value(name),
             "color"     : get_value(color),
             "created_at": to_datetime(created_at),
-            "type_"     : get_value(type_)
+            "label_type": get_value(label_type)
         }
-
+    
         return obj
     
     @staticmethod
@@ -1285,14 +1292,14 @@ class DBSchema:
             "num_files_changed": num_files_changed,
             "is_merge"         : is_merge
         }
-    
+
         return obj
 
     @staticmethod
-    def code_change_object(repo_id, oid, filename, additions, deletions, changes, change_type, patch):
+    def code_change_object(repo_id, commit_id, filename, additions, deletions, changes, change_type, patch):
         obj = {
             "repo_id"    : repo_id,
-            "oid"        : oid,
+            "commit_id"  : commit_id,
             "filename"   : get_value(filename),
             "additions"  : additions,
             "deletions"  : deletions,
@@ -1319,5 +1326,5 @@ class DBSchema:
             "negative_reaction_count" : negative_reaction_count,
             "ambiguous_reaction_count": ambiguous_reaction_count
         }
-    
+
         return obj

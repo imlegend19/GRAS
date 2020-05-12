@@ -491,7 +491,7 @@ class CommitModelV4(BaseModel):
 class CodeChangeModel(BaseModel):
     def __init__(self, filename, change_type, additions, deletions, changes, patch):
         super().__init__()
-    
+
         self.filename = filename
         self.change_type = change_type
         self.additions = additions

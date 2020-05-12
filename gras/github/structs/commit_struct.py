@@ -148,34 +148,34 @@ class CommitStructV4(GithubInterface, CommitModelV4):
                                                                                 start_date=start_date,
                                                                                 end_date=end_date, branch=branch)
         )
-    
+
         self.oid = oid
 
     def iterator(self):
         generator = self._generator()
         hasNextPage = True
-    
+
         if not self.oid:
             while hasNextPage:
                 try:
                     response = next(generator)
                 except StopIteration:
                     break
-            
+
                 try:
                     endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][
                         CommitStatic.HISTORY][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
                 except KeyError:
                     endCursor = None
-            
+
                 self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-            
+
                 try:
                     yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.HISTORY][
                         APIStaticV4.NODES]
                 except KeyError:
                     yield None
-            
+
                 try:
                     hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][
                         CommitStatic.HISTORY][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
@@ -183,7 +183,7 @@ class CommitStructV4(GithubInterface, CommitModelV4):
                     hasNextPage = False
         else:
             response = next(generator)
-            return response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT]
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT]
 
     def process(self):
         if not self.oid:
@@ -191,4 +191,5 @@ class CommitStructV4(GithubInterface, CommitModelV4):
                 for commit in lst:
                     yield self.object_decoder(commit)
         else:
-            return self.object_decoder(self.iterator())
+            for dic in self.iterator():
+                yield self.object_decoder(dic)
