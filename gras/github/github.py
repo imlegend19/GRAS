@@ -98,7 +98,8 @@ class GithubInterface(BaseInterface):
 
                 content = req.json()
                 if "errors" in content:
-                    raise exceptions.RequestException(f"Problem with getting data via url {self.url} + {self.query}.")
+                    raise exceptions.RequestException(f"Problem with getting data via url {self.url} + "
+                                                      f"{self.query.format_map(self.query_params)}.")
 
                 if only_json:
                     return req.json()

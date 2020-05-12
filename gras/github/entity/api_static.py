@@ -81,6 +81,7 @@ class CommitStatic(metaclass=BaseStatic):
 
 
 class RepositoryStatic(metaclass=BaseStatic):
+    NAME_WITH_OWNER = "nameWithOwner"
     PARENT = "parent"
     ASSIGNEES = "assignees"
     TAGS = "tags"

@@ -10,19 +10,7 @@ class ForkStruct(GithubInterface, ForkModel):
                 forks(first: 100, orderBy: {{field: CREATED_AT, direction: ASC}}, after: {after}) {{
                     nodes {{
                         createdAt
-                        owner {{
-                            ... on User {{
-                                createdAt
-                                updatedAt
-                                email
-                                name
-                                location
-                                followers {{
-                                    totalCount
-                                }}
-                            }}
-                        }}
-                        login
+                        nameWithOwner
                     }}
                     pageInfo {{
                         hasNextPage
@@ -49,14 +37,14 @@ class ForkStruct(GithubInterface, ForkModel):
                 response = next(generator)
             except StopIteration:
                 break
-    
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][RepositoryStatic.FORKS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-    
+
             self.query_params[APIStaticV4.AFTER] = '\"' + endCursor + '\"' if endCursor is not None else "null"
-    
+
             yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][RepositoryStatic.FORKS][APIStaticV4.NODES]
-    
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 RepositoryStatic.FORKS][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 

@@ -624,23 +624,15 @@ class CommitCommentModel(BaseModel):
 
 
 class ForkModel(BaseModel):
-    def __init__(self, user, forked_at):
+    def __init__(self, login, forked_at):
         super().__init__()
-        
-        self.user = user
+    
+        self.login = login
         self.forked_at = forked_at
     
     def object_decoder(self, dic):
         obj = ForkModel(
-            user=UserModel(
-                login=dic[UserStatic.LOGIN],
-                name=dic[RepositoryStatic.OWNER][UserStatic.NAME],
-                email=dic[RepositoryStatic.OWNER][UserStatic.EMAIL],
-                created_at=dic[RepositoryStatic.OWNER][APIStaticV4.CREATED_AT],
-                total_followers=dic[RepositoryStatic.OWNER][UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT],
-                location=dic[RepositoryStatic.OWNER][UserStatic.LOCATION],
-                updated_at=dic[RepositoryStatic.OWNER][APIStaticV4.UPDATED_AT]
-            ),
+            login=dic[RepositoryStatic.NAME_WITH_OWNER].split('/')[0],
             forked_at=dic[APIStaticV4.CREATED_AT]
         )
 

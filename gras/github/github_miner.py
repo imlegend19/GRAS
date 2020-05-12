@@ -55,34 +55,34 @@ class GithubMiner(BaseMiner):
     @timing(name='process')
     def process(self):
         self.db_schema.create_tables()
-    
-        node_ids = self._dump_anon_users()
-        self._dump_users(node_ids=node_ids, login=None)
-        self._refactor_table(id_='contributor_id', table="contributors", group_by="login, name, email")
-    
+
+        # node_ids = self._dump_anon_users()
+        # self._dump_users(node_ids=node_ids, login=None)
+        # self._refactor_table(id_='contributor_id', table="contributors", group_by="login, name, email")
+
         self._dump_repository()
-    
-        self._dump_branches()
-        self._refactor_table(id_='id', table='branches', group_by="repo_id, name")
-    
-        self._dump_languages()
-        self._refactor_table(id_='id', table='languages', group_by="repo_id, name")
-    
-        self._dump_milestones()
-        self._refactor_table(id_='id', table='milestones', group_by="repo_id, number")
-    
-        self._dump_stargazers()
-        self._refactor_table(id_='id', table='stargazers', group_by="repo_id, user_id")
-    
-        self._dump_watchers()
-        self._refactor_table(id_='id', table='watchers', group_by="repo_id, user_id")
-    
+
+        # self._dump_branches()
+        # self._refactor_table(id_='id', table='branches', group_by="repo_id, name")
+
+        # self._dump_languages()
+        # self._refactor_table(id_='id', table='languages', group_by="repo_id, name")
+
+        # self._dump_milestones()
+        # self._refactor_table(id_='id', table='milestones', group_by="repo_id, number")
+
+        # self._dump_stargazers()
+        # self._refactor_table(id_='id', table='stargazers', group_by="repo_id, user_id")
+
+        # self._dump_watchers()
+        # self._refactor_table(id_='id', table='watchers', group_by="repo_id, user_id")
+
         self._dump_forks()
         self._refactor_table(id_='id', table='forks', group_by="repo_id, user_id")
-    
+
         self._dump_topics()
         self._refactor_table(id_='id', table='topics', group_by="repo_id, url")
-    
+
         self._dump_releases()
         self._refactor_table(id_='id', table='releases', group_by="repo_id, creator_id")
     
@@ -355,7 +355,7 @@ class GithubMiner(BaseMiner):
         for node in forks.process():
             obj = self.db_schema.forks_object(
                 repo_id=self.repo_id,
-                user_id=self._get_user_id(login=None, user_object=node.user),
+                user_id=self._get_user_id(login=node.login),
                 forked_at=node.forked_at
             )
             
@@ -1099,6 +1099,7 @@ class GithubMiner(BaseMiner):
                 self._dump_users(login=None, user_object=user_object)
                 self._get_user_id(user_object.login)
             else:
+                print(res[0], user_object.login)
                 return res[0]
         elif login:
             res = self._conn.execute(
