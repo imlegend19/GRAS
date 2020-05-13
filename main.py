@@ -18,8 +18,7 @@ from gras.utils import ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, to_iso_f
 from local_settings import AUTH_KEY
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
-    os.path.basename(__file__),
-    datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
+    'gras', datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 
 DEFAULT_LOGGING = {
     'version'                 : 1,
@@ -124,8 +123,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
         try:
             self.args = self.parse_args(['--mine', '-RO', 'sympy', '-RN', 'sympy', '-t', AUTH_KEY, '-SD',
-                                         '2012-01-01', '-ED', '2012-01-15', '-dbms', 'sqlite', '-dbo',
-                                         '/home/mahen/PycharmProjects/GRAS/file.db'])
+                                         '2012-01-01', '-ED', '2015-01-30', '-dbms', 'sqlite', '-dbo',
+                                         '/home/mahen/PycharmProjects/GRAS/file.db', '--commit'])
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -157,6 +156,16 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-m', '--mine', help="Mine the repository", default=False, type=bool,
                                         const=True, nargs='?')
+        self.gras_commands.add_argument('-B', '--basic', help="Mining Stage 1-A: Basic", const=True, type=bool,
+                                        nargs='?', default=False)
+        self.gras_commands.add_argument('-BE', '--basic-extra', help="Mining Stage 1-B: Basic Extra", const=True,
+                                        type=bool, nargs='?', default=False)
+        self.gras_commands.add_argument('-IT', '--issue-tracker', help="Mining Stage 2: Issue Tracker", const=True,
+                                        type=bool, nargs='?', default=False)
+        self.gras_commands.add_argument('-CD', '--commit', help="Mining Stage 3: Commit Data", const=True, type=bool,
+                                        nargs='?', default=False)
+        self.gras_commands.add_argument('-PT', '--pull-tracker', help="Mining Stage 4: Pull Request Tracker",
+                                        const=True, type=bool, nargs='?', default=False)
     
     def _add_grass_settings(self):
         self.gras_settings.add_argument('-t', '--token', help="Personal API Access Token for parsing")
@@ -239,8 +248,9 @@ class GrasArgumentParser(argparse.ArgumentParser):
             if args.db_username and args.db_password and not args.db_name:
                 logger.info("Database name not provided! GRAS will create the database with name `gras` if not exists.")
     
-            # if not args.basic and not args.issue_tracker and not args.commit and not args.all:
-            #     logger.info("Stage name not specified, using `basic` by default.")
+            if not args.basic and not args.issue_tracker and not args.commit and not args.pull_tracker:
+                logger.info("Stage name not specified, using `basic` by default.")
+                args.basic = True
     
     def _set_arg_groups(self):
         self.arg_groups = {}

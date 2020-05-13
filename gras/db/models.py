@@ -217,27 +217,6 @@ class DBSchema:
             CONSTRAINT enum_check CHECK (milestones.state IN ('OPEN', 'CLOSED'))
         )
         
-        CREATE TABLE stargazers (
-            id INTEGER NOT NULL,
-            repo_id INTEGER,
-            user_id INTEGER,
-            starred_at DATETIME,
-            
-            PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(user_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
-        )
-        
-        CREATE TABLE watchers (
-            id INTEGER NOT NULL,
-            repo_id INTEGER,
-            user_id INTEGER,
-            
-            PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(user_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
-        )
-        
         CREATE TABLE topics (
             id INTEGER NOT NULL,
             repo_id INTEGER,
@@ -263,17 +242,6 @@ class DBSchema:
             PRIMARY KEY (id),
             FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
             FOREIGN KEY(creator_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
-        )
-        
-        CREATE TABLE forks (
-            id INTEGER NOT NULL,
-            repo_id INTEGER,
-            user_id INTEGER,
-            forked_at DATETIME NOT NULL,
-            
-            PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(user_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
         )
         
         CREATE TABLE branches (

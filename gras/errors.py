@@ -27,3 +27,9 @@ class GrasConfigError(GrasError):
     """Exception to be raise if the config file does not contain all the required details"""
     
     message = "Config File error: %(msg)s"
+
+
+class DatabaseError(GrasError):
+    """Database connecton exception"""
+    
+    message = "%(msg)s"

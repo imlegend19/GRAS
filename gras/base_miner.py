@@ -1,3 +1,4 @@
+import signal
 from abc import ABCMeta, abstractmethod
 
 from gras.utils import to_iso_format
@@ -15,7 +16,13 @@ class BaseMiner(metaclass=ABCMeta):
         self.repo_name = args.repo_name
         self.start_date = to_iso_format(args.start_date)
         self.end_date = to_iso_format(args.end_date)
-
+    
+        self.basic = args.basic
+        self.basic_extra = args.basic_extra
+        self.issue_tracker = args.issue_tracker
+        self.commit = args.commit
+        self.pull_tracker = args.pull_tracker
+    
         self.dbms = args.dbms
         self.db_name = args.db_name
         self.db_username = args.db_username
@@ -24,7 +31,7 @@ class BaseMiner(metaclass=ABCMeta):
         self.db_host = args.db_host
         self.db_port = args.db_port
         self.db_log = args.db_log
-
+    
         self.animator = args.animator
     
     def __getattr__(self, attr):
@@ -63,11 +70,15 @@ class BaseMiner(metaclass=ABCMeta):
 
         """
         pass
-    
+
     @abstractmethod
     def process(self):
         pass
-    
+
     @abstractmethod
     def _connect_to_db(self):
         pass
+
+    @staticmethod
+    def init_worker():
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
