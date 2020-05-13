@@ -3,6 +3,7 @@ import logging
 import multiprocessing as mp
 import sys
 import time
+from collections import OrderedDict
 from functools import partial, wraps
 from timeit import default_timer as timer
 
@@ -13,7 +14,7 @@ from gras.github.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 
 DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isoformat()
 DEFAULT_END_DATE = datetime.datetime.now().isoformat()
-ELAPSED_TIME_ON_FUNCTIONS = {}
+ELAPSED_TIME_ON_FUNCTIONS = OrderedDict()
 
 logger = logging.getLogger("main")
 

@@ -11,11 +11,14 @@ import time
 from datetime import datetime
 from queue import Queue
 
+import numpy as np
+import pandas as pd
+from tabulate import tabulate
+
 from gras.errors import GrasArgumentParserError, GrasConfigError
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
-from gras.utils import ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, to_iso_format
-from local_settings import AUTH_KEY
+from gras.utils import ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, to_iso_format
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
     'gras', datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
@@ -122,9 +125,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_other_arguments()
 
         try:
-            self.args = self.parse_args(['--mine', '-RO', 'sympy', '-RN', 'sympy', '-t', AUTH_KEY, '-SD',
-                                         '2012-01-01', '-ED', '2015-01-30', '-dbms', 'sqlite', '-dbo',
-                                         '/home/mahen/PycharmProjects/GRAS/file.db', '--commit'])
+            self.args = self.parse_args()
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -240,14 +241,14 @@ class GrasArgumentParser(argparse.ArgumentParser):
         if args.mine:
             if args.dbms == "sqlite" and not args.db_output:
                 logger.info(f"SQLite database output file path not provided, using path: {os.getcwd()}/gras.db")
-    
+
             if args.dbms != "sqlite":
                 if not args.db_username or not args.db_password:
                     raise GrasArgumentParserError(msg="Please enter valid database credentials.")
-    
+
             if args.db_username and args.db_password and not args.db_name:
                 logger.info("Database name not provided! GRAS will create the database with name `gras` if not exists.")
-    
+
             if not args.basic and not args.issue_tracker and not args.commit and not args.pull_tracker:
                 logger.info("Stage name not specified, using `basic` by default.")
                 args.basic = True
@@ -458,3 +459,14 @@ if __name__ == '__main__':
     logger.info("Starting GRAS...")
     
     GrasArgumentParser()
+    
+    function_time = []
+    for f, te in ELAPSED_TIME_ON_FUNCTIONS:
+        function_time.append([f, te])
+    
+    function_time.append([None, None])
+    function_time.append(["Total", sum(np.array(function_time)[:, 1].tolist())])
+    
+    df = pd.DataFrame(data=np.array(function_time), columns=["Function", "Time Taken"])
+    
+    logger.info(tabulate([list(row) for row in df.values], headers=list(df.columns)))
