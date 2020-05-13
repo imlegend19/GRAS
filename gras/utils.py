@@ -15,6 +15,7 @@ from gras.github.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isoformat()
 DEFAULT_END_DATE = datetime.datetime.now().isoformat()
 ELAPSED_TIME_ON_FUNCTIONS = OrderedDict()
+STAGE_WISE_TIME = OrderedDict()
 
 logger = logging.getLogger("main")
 
@@ -133,7 +134,7 @@ def locked(func):
     return wrapper
 
 
-def timing(func=None, *, name=None):
+def timing(func=None, *, name=None, is_stage=None):
     """
     Decorator to measure the time taken by the function to execute
     
@@ -151,19 +152,23 @@ def timing(func=None, *, name=None):
     """
     
     if func is None:
-        return partial(timing, name=name)
+        return partial(timing, name=name, is_stage=is_stage)
     
     @wraps(func)
     def wrapper(*args, **kwargs):
         start = timer()
         result = func(*args, **kwargs)
         end = timer()
-        
+    
         total_time = end - start
-        
+    
         logger.info(f"Time taken to execute `{name}`: {total_time} sec")
-        ELAPSED_TIME_ON_FUNCTIONS[name] = total_time
-        
+    
+        if not is_stage:
+            ELAPSED_TIME_ON_FUNCTIONS[name] = total_time
+        else:
+            STAGE_WISE_TIME[name] = total_time
+    
         return result
     
     return wrapper

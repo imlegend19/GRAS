@@ -18,10 +18,12 @@ from tabulate import tabulate
 from gras.errors import GrasArgumentParserError, GrasConfigError
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
-from gras.utils import ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, to_iso_format
+from gras.utils import (
+    ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, to_iso_format
+)
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
-    'gras', datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
+    'gras', datetime.now().strftime('%Y%m%d'))
 
 DEFAULT_LOGGING = {
     'version'                 : 1,
@@ -221,17 +223,17 @@ class GrasArgumentParser(argparse.ArgumentParser):
         
         if args.generate:
             if not args.output:
-                logger.info(f"Output path not provided, using default: {os.getcwd()}/gras.ini")
+                logger.warning(f"Output path not provided, using default: {os.getcwd()}/gras.ini")
         
         if args.stats or args.mine:
             if not args.token:
                 raise GrasArgumentParserError(msg="Please provide the token!")
             
             if not args.start_date:
-                logger.info(f"Start date not provided, using default start date: {DEFAULT_START_DATE}.")
+                logger.warning(f"Start date not provided, using default start date: {DEFAULT_START_DATE}.")
             
             if not args.end_date:
-                logger.info(f"End data not provided, using default end date: {DEFAULT_END_DATE}.")
+                logger.warning(f"End data not provided, using default end date: {DEFAULT_END_DATE}.")
             
             if not args.repo_name or not args.repo_owner:
                 if not args.config:
@@ -240,17 +242,18 @@ class GrasArgumentParser(argparse.ArgumentParser):
         
         if args.mine:
             if args.dbms == "sqlite" and not args.db_output:
-                logger.info(f"SQLite database output file path not provided, using path: {os.getcwd()}/gras.db")
-
+                logger.warning(f"SQLite database output file path not provided, using path: {os.getcwd()}/gras.db")
+    
             if args.dbms != "sqlite":
                 if not args.db_username or not args.db_password:
                     raise GrasArgumentParserError(msg="Please enter valid database credentials.")
-
+    
             if args.db_username and args.db_password and not args.db_name:
-                logger.info("Database name not provided! GRAS will create the database with name `gras` if not exists.")
-
+                logger.warning(
+                    "Database name not provided! GRAS will create the database with name `gras` if not exists.")
+    
             if not args.basic and not args.issue_tracker and not args.commit and not args.pull_tracker:
-                logger.info("Stage name not specified, using `basic` by default.")
+                logger.warning("Stage name not specified, using `basic` by default.")
                 args.basic = True
     
     def _set_arg_groups(self):
@@ -272,7 +275,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                     elif os.path.isdir(file_path):
                         shutil.rmtree(file_path)
                 except Exception as e:
-                    print('Failed to delete %s. Reason: %s' % (file_path, e))
+                    logger.error('Failed to delete %s. Reason: %s' % (file_path, e))
         
         if self.args.generate:
             self._create_config()
@@ -290,8 +293,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
             t.start()
             
             now = datetime.now().strftime('%d/%d/%Y %H:%M:%S')
-            
-            while t.isAlive():
+
+            while t.is_alive():
                 animated_loading(f"{now} - main - INFO - Fetching `{self.args.repo_name}` statistics", ANIMATORS[
                     self.args.animator])
             
@@ -301,12 +304,11 @@ class GrasArgumentParser(argparse.ArgumentParser):
             print("\n\n", "=" * 100, "\n", json.dumps(result, indent=4, sort_keys=True), "\n", "=" * 100)
         
         if self.args.mine:
-            # TODO: Implement stages
             if self.args.interface == "github":
                 gm = GithubMiner(args=self.args)
                 gm.process()
             else:
-                pass
+                raise NotImplementedError
     
     def _create_config(self):
         cfg = configparser.RawConfigParser()
@@ -441,15 +443,44 @@ class GrasArgumentParser(argparse.ArgumentParser):
             
             if cfp.has_option(section, 'operation'):
                 self.args.operation = cfp[section]['operation']
-            
+
             if cfp.has_option(section, 'clear_logs'):
                 try:
                     self.args.clear_logs = cfp[section]['clear_logs']
                 except Exception:
                     raise GrasConfigError(msg="`clear_logs` should be either `True` or `False`!")
-            
+
             if cfp.has_option(section, 'output'):
                 self.args.output = cfp[section]['output']
+
+
+def print_func_timings(dic, name, col_name):
+    sys.stdout.write("\n")
+    
+    function_time = []
+    for f, te in dic.items():
+        function_time.append([f, te])
+    
+    total_time = sum([float(_) for _ in np.array(function_time)[:, 1].tolist()])
+    
+    function_time.append(["Total", total_time])
+    
+    df = pd.DataFrame(data=np.array(function_time), columns=[col_name, "Time Taken"])
+    df.style.set_caption(name)
+    
+    sys.stdout.write(tabulate([list(row) for row in df.values], headers=list(df.columns), tablefmt='fancy_grid'))
+    
+    sys.stdout.write("\n")
+
+
+def main():
+    GrasArgumentParser()
+    
+    if ELAPSED_TIME_ON_FUNCTIONS:
+        print_func_timings(ELAPSED_TIME_ON_FUNCTIONS, name="Function Timings", col_name="Function")
+    
+    if STAGE_WISE_TIME:
+        print_func_timings(STAGE_WISE_TIME, name="Stage Timings", col_name="Stage")
 
 
 if __name__ == '__main__':
@@ -458,15 +489,4 @@ if __name__ == '__main__':
     
     logger.info("Starting GRAS...")
     
-    GrasArgumentParser()
-    
-    function_time = []
-    for f, te in ELAPSED_TIME_ON_FUNCTIONS:
-        function_time.append([f, te])
-    
-    function_time.append([None, None])
-    function_time.append(["Total", sum(np.array(function_time)[:, 1].tolist())])
-    
-    df = pd.DataFrame(data=np.array(function_time), columns=["Function", "Time Taken"])
-    
-    logger.info(tabulate([list(row) for row in df.values], headers=list(df.columns)))
+    main()

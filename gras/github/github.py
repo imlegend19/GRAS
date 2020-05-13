@@ -73,7 +73,7 @@ class GithubInterface(BaseInterface):
         
         tries = 1
         while tries <= 3:
-            logger.debug(f"Sending request to url {self.url}. (Try: {tries})")
+            # logger.debug(f"Sending request to url {self.url}. (Try: {tries})")
             try:
                 req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
             except exceptions.ConnectionError:
@@ -133,7 +133,7 @@ class GithubInterface(BaseInterface):
             except exceptions.HTTPError as http_err:
                 raise http_err
             except Exception as err:
-                print(str(err))
+                logger.error(str(err))
                 raise err
 
     def iterator(self):
