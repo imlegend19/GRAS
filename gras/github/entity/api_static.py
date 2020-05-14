@@ -25,6 +25,9 @@ class APIStaticV4(metaclass=BaseStatic):
     SEARCH = "search"
     NUMBER = "number"
     OID = "oid"
+    RATE_LIMIT = "rateLimit"
+    REMAINING = "remaining"
+    RESET_AT = "resetAt"
 
 
 class UserStatic(metaclass=BaseStatic):

@@ -82,7 +82,7 @@ def get_repo_stats(args, repo_list=None):
         pass
     else:
         repo_stats = RepoStatistics(
-            token=args.token,
+            token=args.tokens[0],
             name=args.repo_name,
             owner=args.repo_owner,
             start_date=to_iso_format(args.start_date),
@@ -169,9 +169,10 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         nargs='?', default=False)
         self.gras_commands.add_argument('-PT', '--pull-tracker', help="Mining Stage 4: Pull Request Tracker",
                                         const=True, type=bool, nargs='?', default=False)
-    
+
     def _add_grass_settings(self):
-        self.gras_settings.add_argument('-t', '--token', help="Personal API Access Token for parsing")
+        self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",
+                                        nargs='+')
         self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',
                                         choices=['github'], required=False)
         self.gras_settings.add_argument('-RO', '--repo-owner', help="Owner of the repository")
@@ -224,17 +225,17 @@ class GrasArgumentParser(argparse.ArgumentParser):
         if args.generate:
             if not args.output:
                 logger.warning(f"Output path not provided, using default: {os.getcwd()}/gras.ini")
-        
+
         if args.stats or args.mine:
-            if not args.token:
-                raise GrasArgumentParserError(msg="Please provide the token!")
-            
+            if not args.tokens:
+                raise GrasArgumentParserError(msg="Please provide at least 1 token!")
+    
             if not args.start_date:
                 logger.warning(f"Start date not provided, using default start date: {DEFAULT_START_DATE}.")
-            
+    
             if not args.end_date:
                 logger.warning(f"End data not provided, using default end date: {DEFAULT_END_DATE}.")
-            
+    
             if not args.repo_name or not args.repo_owner:
                 if not args.config:
                     raise GrasArgumentParserError(msg="Either Repo-name and Repo-owner or GrasConfig file should "
@@ -374,16 +375,16 @@ class GrasArgumentParser(argparse.ArgumentParser):
         
         if cfp.has_section("GRAS-SETTINGS"):
             section = "GRAS-SETTINGS"
-            
-            if cfp.has_option(section, 'token'):
-                self.args.token = cfp[section]['token']
-            
+    
+            if cfp.has_option(section, 'tokens'):
+                self.args.tokens = cfp[section]['tokens']
+    
             if cfp.has_option(section, 'interface'):
                 self.args.interface = cfp[section]['interface']
-            
+    
             if cfp.has_option(section, 'repo_owner'):
                 self.args.repo_owner = cfp[section]['repo_owner']
-            
+    
             if cfp.has_option(section, 'repo_name'):
                 self.args.repo_name = cfp[section]['repo_name']
             

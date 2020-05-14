@@ -22,6 +22,25 @@ logger = logging.getLogger("main")
 lock = mp.Lock()
 
 
+class CircularQueue:
+    def __init__(self, n):
+        self.__nodes: list = [None for _ in range(n)]
+        self.__n: int = n
+        self.__pointer = 0
+    
+    def enqueue(self, node):
+        if self.__nodes[self.__pointer] is None:
+            self.__nodes[self.__pointer] = node
+            self.__pointer = (self.__pointer + 1) % self.__n
+        else:
+            raise OverflowError
+    
+    def next(self):
+        value = self.__nodes[self.__pointer]
+        self.__pointer = (self.__pointer + 1) % self.__n
+        return value
+
+
 def reaction_count(dic, decider) -> int:
     """
     Github supports various reactions. The function classifies them into either positive or negative reaction.

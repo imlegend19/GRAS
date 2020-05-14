@@ -716,5 +716,21 @@ class EventModel(BaseModel):
             pass
         else:
             raise NotImplementedError
+
+        return obj
+
+
+class RateLimitModel(BaseModel):
+    def __init__(self, remaining, reset_at):
+        super().__init__()
+        
+        self.remaining = remaining
+        self.reset_at = reset_at
+    
+    def object_decoder(self, dic):
+        obj = RateLimitModel(
+            remaining=dic[APIStaticV4.REMAINING],
+            reset_at=dic[APIStaticV4.RESET_AT]
+        )
         
         return obj

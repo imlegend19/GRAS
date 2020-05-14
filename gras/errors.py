@@ -33,3 +33,9 @@ class DatabaseError(GrasError):
     """Database connecton exception"""
     
     message = "%(msg)s"
+
+
+class InvalidTokenError(GrasError):
+    """Exception to be raised if the user enters invalid token"""
+    
+    message = "%(msg)s"

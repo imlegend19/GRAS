@@ -1,6 +1,9 @@
+import concurrent.futures
 import signal
 from abc import ABCMeta, abstractmethod
 
+from gras.errors import InvalidTokenError
+from gras.github.structs.rate_limit import RateLimitStruct
 from gras.utils import to_iso_format
 
 
@@ -10,19 +13,18 @@ class BaseMiner(metaclass=ABCMeta):
     """
     
     def __init__(self, args):
-        self.token = args.token
         self.interface = args.interface
         self.repo_owner = args.repo_owner
         self.repo_name = args.repo_name
         self.start_date = to_iso_format(args.start_date)
         self.end_date = to_iso_format(args.end_date)
-    
+        
         self.basic = args.basic
         self.basic_extra = args.basic_extra
         self.issue_tracker = args.issue_tracker
         self.commit = args.commit
         self.pull_tracker = args.pull_tracker
-    
+        
         self.dbms = args.dbms
         self.db_name = args.db_name
         self.db_username = args.db_username
@@ -31,8 +33,9 @@ class BaseMiner(metaclass=ABCMeta):
         self.db_host = args.db_host
         self.db_port = args.db_port
         self.db_log = args.db_log
-    
+        
         self.animator = args.animator
+        self.tokens = args.tokens
     
     def __getattr__(self, attr):
         return self.__dict__[attr]
@@ -70,15 +73,41 @@ class BaseMiner(metaclass=ABCMeta):
 
         """
         pass
-
+    
     @abstractmethod
     def process(self):
         pass
-
+    
     @abstractmethod
     def _connect_to_db(self):
         pass
-
+    
     @staticmethod
     def init_worker():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
+    
+    @staticmethod
+    def __get_rate_limit(token):
+        rate = RateLimitStruct(
+            github_token=token
+        ).process()
+        
+        return rate.remaining
+    
+    def get_next_token(self):
+        rem_token = []
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            process = {executor.submit(self.__get_rate_limit, token): token for token in self.tokens}
+            for future in concurrent.futures.as_completed(process):
+                token = process[future]
+                
+                try:
+                    remaining = future.result()
+                except Exception as e:
+                    raise InvalidTokenError(msg=str(e))
+                
+                rem_token.append((remaining, token))
+        
+        rem_token.sort(reverse=True, key=lambda x: x[0])
+        return rem_token[0][1]
