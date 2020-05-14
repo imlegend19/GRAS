@@ -131,4 +131,5 @@ dmypy.json
 .idea/
 logs/
 
-comments.txt
+comments
+time-log/

@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from gras.base_miner import BaseMiner
 from gras.db.models import DBSchema
-from gras.errors import DatabaseError, GithubMinerError
+from gras.errors import GithubMinerError
 from gras.github.entity.github_models import AnonContributorModel
 from gras.github.structs.branch_struct import BranchStruct
 from gras.github.structs.comment_struct import CommentStruct
@@ -35,7 +35,7 @@ from gras.utils import locked, timing
 logger = logging.getLogger("main")
 logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
 
-MAX_INSERT_OBJECTS = 10000
+MAX_INSERT_OBJECTS = 5000
 
 
 class GithubMiner(BaseMiner):
@@ -58,40 +58,16 @@ class GithubMiner(BaseMiner):
             if self.dbms == "sqlite":
                 engine = create_engine(f'sqlite:///{self.db_output}', echo=self.db_log)
             elif self.dbms == 'mysql':
-                try:
-                    engine = create_engine(
-                        f'mysql+mysqlconnector://{self.db_username}:{self.db_password}@{self.db_host}:'
-                        f'{self.db_port}/{self.db_name}', echo=self.db_log)
-                except ProgrammingError:
-                    # Database does not exist
-                    try:
-                        engine = create_engine(
-                            f'mysql+mysqlconnector://{self.db_username}:{self.db_password}@{self.db_host}:'
-                            f'{self.db_port}', echo=self.db_log)
-
-                        engine.execute(f"CREATE DATABASE IF NOT EXISTS {self.repo_name}")
-                        engine.execute(f"USE {self.repo_name}")
-                    except Exception as e:
-                        raise DatabaseError(msg=str(e))
-            elif self.dbms == 'postgres':
-                try:
-                    engine = create_engine(
-                        f'postgresql+psycopg2://{self.db_username}:{self.db_password}@{self.db_host}:'
-                        f'{self.db_port}/{self.db_name}', echo=self.db_log)
-                except ProgrammingError:
-                    # Database does not exist
-                    try:
-                        engine = create_engine(
-                            f'postgresql+psycopg2://{self.db_username}:{self.db_password}@{self.db_host}:'
-                            f'{self.db_port}', echo=self.db_log)
-
-                        engine.execute(f"CREATE DATABASE IF NOT EXISTS {self.repo_name}")
-                        engine.execute(f"USE {self.repo_name}")
-                    except Exception as e:
-                        raise DatabaseError(msg=str(e))
+                engine = create_engine(
+                    f'mysql+pymysql://{self.db_username}:{self.db_password}@{self.db_host}:'
+                    f'{self.db_port}/{self.db_name}?charset=utf8mb4', echo=self.db_log)
+            elif self.dbms == 'postgresql':
+                engine = create_engine(
+                    f'postgresql+psycopg2://{self.db_username}:{self.db_password}@{self.db_host}:'
+                    f'{self.db_port}/{self.db_name}', echo=self.db_log)
             else:
                 raise NotImplementedError
-
+    
             return engine, engine.connect()
         except ProgrammingError as e:
             if 'Access denied' in str(e):
@@ -101,6 +77,7 @@ class GithubMiner(BaseMiner):
     
     def process(self):
         self.db_schema.create_tables()
+
         self._dump_repository()
 
         if self.basic:
@@ -255,9 +232,7 @@ class GithubMiner(BaseMiner):
                         total_followers=node.total_followers,
                         location=node.location
                     )
-    
-                    print(node.name)
-    
+
                     obj_list.append(obj)
                 
                 logger.info("Dumping Other Contributors...")
@@ -397,9 +372,9 @@ class GithubMiner(BaseMiner):
                 user_id=self._get_user_id(login=None, user_object=node.user),
                 starred_at=node.starred_at
             )
-    
+
             obj_list.append(obj)
-    
+
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                 self._insert(object_=self.db_schema.stargazers.insert(), param=obj_list)
                 obj_list.clear()
@@ -421,9 +396,9 @@ class GithubMiner(BaseMiner):
                 repo_id=self.repo_id,
                 user_id=self._get_user_id(login=None, user_object=node.user)
             )
-    
+
             obj_list.append(obj)
-    
+
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                 self._insert(object_=self.db_schema.watchers.insert(), param=obj_list)
                 obj_list.clear()
@@ -446,9 +421,9 @@ class GithubMiner(BaseMiner):
                 user_id=self._get_user_id(login=node.login),
                 forked_at=node.forked_at
             )
-    
+
             obj_list.append(obj)
-    
+
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                 self._insert(object_=self.db_schema.forks.insert(), param=obj_list)
                 obj_list.clear()
@@ -589,8 +564,10 @@ class GithubMiner(BaseMiner):
             obj_list.append(obj)
 
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
                 self._insert(object_=self.db_schema.issues.insert(), param=obj_list)
                 obj_list.clear()
+                logger.debug("Success!")
         
         logger.info(f"Total Issues: {len(issue_list)}...")
         self._insert(self.db_schema.issues.insert(), obj_list)
@@ -843,7 +820,7 @@ class GithubMiner(BaseMiner):
                         p = mp.Process(target=self._dump_code_change, args=(num,))
                         p.start()
                         processes.append(p)
-        
+
                     while all([x.is_alive() for x in processes]):
                         continue
         else:

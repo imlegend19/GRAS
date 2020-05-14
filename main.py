@@ -128,9 +128,10 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
         try:
             self.args = self.parse_args(
-                ['-t', 'b62c6b609bb8065399d4f09a85d6bad15894f345', '607c3244f568fe931dbeddb2bc4056e517741a56', '-RN',
-                 'sympy', '-RO', 'sympy', '-SD', '2012-01-01', '-ED', '2012-01-15', '--mine', '--basic', '-dbms',
-                 'mysql', '-U', 'mahen', '-DB', 'gras', '-P'
+                ['-RN', 'kubernetes', '-RO', 'kubernetes', '--mine', '-IT', '-dbms', 'postgresql', '-U', 'postgres',
+                 '-DB', 'kubernetes', '-H', '34.93.207.47', '-P', '-p', '5432', '-t',
+                 "5b4174a5138e19e56492ed9ed156b0536ae6fc28", "e07f3d6b8761a25c05790e999e6b9b3fe5dee242",
+                 "611d49d3ea9b270e7533b1ed001f42dbdac3a145"
                  ])
         except Exception as e:
             logger.error(e)
