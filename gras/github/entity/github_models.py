@@ -97,6 +97,7 @@ class StargazerModel(BaseModel):
         obj = StargazerModel(
             starred_at=dic[RepositoryStatic.STARRED_AT],
             user=UserModel(
+                user_type="USER",
                 login=dic[APIStaticV4.NODE][UserStatic.LOGIN],
                 name=dic[APIStaticV4.NODE][UserStatic.NAME],
                 email=dic[APIStaticV4.NODE][UserStatic.EMAIL],
@@ -153,6 +154,7 @@ class WatcherModel(BaseModel):
     def object_decoder(self, dic):
         obj = WatcherModel(
             user=UserModel(
+                user_type="USER",
                 login=dic[UserStatic.LOGIN],
                 name=dic[UserStatic.NAME],
                 email=dic[UserStatic.EMAIL],
@@ -516,7 +518,7 @@ class CodeChangeModel(BaseModel):
 
 
 class UserModel(BaseModel):
-    def __init__(self, login, name, email, created_at, total_followers, location, updated_at):
+    def __init__(self, user_type, login, name, email, created_at, total_followers, location, updated_at):
         super().__init__()
         
         self.login = login
@@ -526,27 +528,44 @@ class UserModel(BaseModel):
         self.total_followers = total_followers
         self.location = location
         self.updated_at = updated_at
-
-    def object_decoder(self, dic):
-        try:
-            followers = dic[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
-        except TypeError:
-            followers = dic[UserStatic.FOLLOWERS]
+        self.user_type = user_type
     
+    def object_decoder(self, dic):
+        if dic[APIStaticV4.TYPE] == "User":
+            try:
+                followers = dic[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
+            except TypeError:
+                followers = dic[UserStatic.FOLLOWERS]
+            
+            name = dic[UserStatic.NAME]
+            email = dic[UserStatic.EMAIL]
+            location = dic[UserStatic.LOCATION]
+        elif dic[APIStaticV4.TYPE] == "Organization":
+            followers = 0
+            name = dic[UserStatic.NAME]
+            email = dic[UserStatic.EMAIL]
+            location = dic[UserStatic.LOCATION]
+        else:
+            followers = 0
+            name = None
+            email = None
+            location = None
+        
         try:
             created_at = dic[APIStaticV4.CREATED_AT]
             updated_at = dic[APIStaticV4.UPDATED_AT]
         except KeyError:
             created_at = dic[APIStaticV3.CREATED_AT]
             updated_at = dic[APIStaticV3.UPDATED_AT]
-    
+        
         obj = UserModel(
+            user_type=dic[APIStaticV4.TYPE].upper(),
             login=dic[UserStatic.LOGIN],
-            name=dic[UserStatic.NAME],
-            email=dic[UserStatic.EMAIL],
+            name=name,
+            email=email,
             created_at=created_at,
             total_followers=followers,
-            location=dic[UserStatic.LOCATION],
+            location=location,
             updated_at=updated_at
         )
     

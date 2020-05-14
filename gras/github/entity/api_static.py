@@ -28,6 +28,7 @@ class APIStaticV4(metaclass=BaseStatic):
     RATE_LIMIT = "rateLimit"
     REMAINING = "remaining"
     RESET_AT = "resetAt"
+    TYPE = "type"
 
 
 class UserStatic(metaclass=BaseStatic):

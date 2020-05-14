@@ -1,10 +1,13 @@
 import enum
 
+from sqlalchemy import Unicode
 from sqlalchemy.dialects.mysql import ENUM, LONGTEXT
 from sqlalchemy.schema import CheckConstraint, Column, ForeignKey, MetaData, Table, UniqueConstraint
 from sqlalchemy.types import BOOLEAN, DATETIME, INTEGER, TEXT, VARCHAR
 
 from gras.utils import get_value, to_datetime
+
+UNICODE = None
 
 
 class State(enum.Enum):
@@ -66,12 +69,20 @@ class IssueType(enum.Enum):
     PULL_REQUEST = "PULL_REQUEST"
 
 
+class UserType(enum.Enum):
+    USER = "USER"
+    ORGANIZATION = "ORGANIZATION"
+    BOT = "BOT"
+
+
 class DBSchema:
     def __init__(self, conn, engine):
         self.engine = engine
         self.conn = conn
         self._metadata = MetaData()
-
+        
+        self.__set_unicode_variable()
+        
         self._state_enum = self.__get_enum(State)
         self._pr_state_enum = self.__get_enum(PullRequestState)
         self._label_enum = self.__get_enum(LabelType)
@@ -79,6 +90,15 @@ class DBSchema:
         self._added_or_removed_type = self.__get_enum(AddedOrRemovedType)
         self._review_decision_enum = self.__get_enum(ReviewDecision)
         self._issue_type_enum = self.__get_enum(IssueType)
+        self._user_type_enum = self.__get_enum(UserType)
+    
+    def __set_unicode_variable(self):
+        global UNICODE
+        
+        if self.engine == "mysql":
+            UNICODE = Unicode(255, collation='utf8_bin')
+        else:
+            UNICODE = VARCHAR(255)
     
     def __get_enum(self, cls):
         if self.engine.name == "mysql":
@@ -132,17 +152,22 @@ class DBSchema:
         self.contributors = Table(
             'contributors', self._metadata,
             Column('contributor_id', INTEGER, autoincrement=True, primary_key=True),
-            Column('login', VARCHAR(255)),
-            Column('name', VARCHAR(255)),
-            Column('email', VARCHAR(255)),
+            Column('login', UNICODE),
+            Column('name', UNICODE),
+            Column('email', UNICODE),
             Column('created_at', DATETIME),
             Column('updated_at', DATETIME),
             Column('total_followers', INTEGER, nullable=False, default=0),
-            Column('location', VARCHAR(255)),
+            Column('location', UNICODE),
+            Column('user_type', self._user_type_enum[0], nullable=False),
             Column('is_anonymous', BOOLEAN, nullable=False, default=0),
             UniqueConstraint('login', 'email', name='login_email_ind')
         )
-        
+
+        if self._user_type_enum[1]:
+            self.contributors.append_constraint(CheckConstraint(f"user_type IN ({self._get_string(UserType)})",
+                                                                name='enum_check'))
+
         self.contributors.create(bind=self.conn, checkfirst=True)
     
     def _create_repository_table(self):
@@ -169,19 +194,19 @@ class DBSchema:
         self.repository = Table(
             'repository', self._metadata,
             Column('repo_id', INTEGER, autoincrement=True, primary_key=True),
-            Column('name', VARCHAR(255), nullable=False),
-            Column('owner', VARCHAR(255), nullable=False),
+            Column('name', UNICODE, nullable=False),
+            Column('owner', UNICODE, nullable=False),
             Column('created_at', DATETIME, nullable=False),
             Column('updated_at', DATETIME, nullable=False),
             Column('description', TEXT),
             Column('disk_usage', INTEGER, nullable=False),
             Column('fork_count', INTEGER, default=0, nullable=False),
-            Column('url', VARCHAR(255), nullable=False),
-            Column('homepage_url', VARCHAR(255), nullable=False),
-            Column('primary_language', VARCHAR(255), nullable=False),
+            Column('url', UNICODE, nullable=False),
+            Column('homepage_url', UNICODE, nullable=False),
+            Column('primary_language', UNICODE, nullable=False),
             Column('total_stargazers', INTEGER, default=0, nullable=False),
             Column('total_watchers', INTEGER, default=0, nullable=False),
-            Column('forked_from', VARCHAR(255))
+            Column('forked_from', UNICODE)
         )
 
         self.repository.create(bind=self.conn, checkfirst=True)
@@ -271,7 +296,7 @@ class DBSchema:
             'languages', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('name', VARCHAR(255), nullable=False),
+            Column('name', UNICODE, nullable=False),
             Column('size', INTEGER, default=0, nullable=False)
         )
 
@@ -314,8 +339,8 @@ class DBSchema:
             'topics', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('url', VARCHAR(255), nullable=False),
-            Column('name', VARCHAR(255), nullable=False),
+            Column('url', UNICODE, nullable=False),
+            Column('name', UNICODE, nullable=False),
             Column('total_stargazers', INTEGER, default=0, nullable=False)
         )
 
@@ -324,12 +349,12 @@ class DBSchema:
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
             Column('creator_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
-            Column('name', VARCHAR(255), nullable=False),
+            Column('name', UNICODE, nullable=False),
             Column('description', TEXT),
             Column('created_at', DATETIME, nullable=False),
             Column('updated_at', DATETIME, nullable=False),
             Column('is_prerelease', BOOLEAN, default=0, nullable=False),
-            Column('tag', VARCHAR(255))
+            Column('tag', UNICODE)
         )
 
         self.forks = Table(
@@ -344,16 +369,16 @@ class DBSchema:
             'branches', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('name', VARCHAR(255), nullable=False),
-            Column('target_commit_id', VARCHAR(255), nullable=False)
+            Column('name', UNICODE, nullable=False),
+            Column('target_commit_id', UNICODE, nullable=False)
         )
 
         self.labels = Table(
             'labels', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('name', VARCHAR(255), nullable=False),
-            Column('color', VARCHAR(255), nullable=False),
+            Column('name', UNICODE, nullable=False),
+            Column('color', UNICODE, nullable=False),
             Column('created_at', DATETIME, nullable=False),
             Column('label_type', self._label_enum[0], nullable=False)
         )
@@ -508,7 +533,7 @@ class DBSchema:
             Column('created_at', DATETIME, nullable=False),
             Column('updated_at', DATETIME, nullable=False),
             Column('is_minimized', BOOLEAN, default=False),
-            Column('minimized_reason', VARCHAR(255)),
+            Column('minimized_reason', UNICODE),
             Column('positive_reaction_count', INTEGER, default=0, nullable=False),
             Column('negative_reaction_count', INTEGER, default=0, nullable=False),
             Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
@@ -538,9 +563,9 @@ class DBSchema:
             Column('event_type', self._event_type_enum[0], nullable=False),
             Column('who', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
             Column('when', DATETIME, nullable=False),
-            Column('added', VARCHAR(255)),
+            Column('added', UNICODE),
             Column('added_type', self._added_or_removed_type[0]),
-            Column('removed', VARCHAR(255)),
+            Column('removed', UNICODE),
             Column('removed_type', self._added_or_removed_type[0]),
             Column('is_cross_repository', BOOLEAN, default=0, nullable=False)
         )
@@ -626,7 +651,7 @@ class DBSchema:
             'commits', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('oid', VARCHAR(255), nullable=False),
+            Column('oid', UNICODE, nullable=False),
             Column('additions', INTEGER, default=0, nullable=False),
             Column('deletions', INTEGER, default=0, nullable=False),
             Column('author_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
@@ -643,7 +668,7 @@ class DBSchema:
             Column('id', INTEGER, primary_key=True, autoincrement=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
             Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE"), nullable=False),
-            Column('filename', VARCHAR(255), nullable=False),
+            Column('filename', UNICODE, nullable=False),
             Column('additions', INTEGER, default=0),
             Column('deletions', INTEGER, default=0),
             Column('changes', INTEGER, default=0),
@@ -660,7 +685,7 @@ class DBSchema:
             Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
             Column('created_at', DATETIME, nullable=False),
             Column('updated_at', DATETIME, nullable=False),
-            Column('path', VARCHAR(255)),
+            Column('path', UNICODE),
             Column('position', INTEGER),
             Column('positive_reaction_count', INTEGER, default=0, nullable=False),
             Column('negative_reaction_count', INTEGER, default=0, nullable=False),
@@ -670,7 +695,7 @@ class DBSchema:
         self.commits.create(bind=self.conn, checkfirst=True)
         self.commit_comments.create(bind=self.conn, checkfirst=True)
         self.code_change.create(bind=self.conn, checkfirst=True)
-
+    
     def _create_pr_table(self):
         """
         CREATE TABLE pull_requests (
@@ -720,7 +745,7 @@ class DBSchema:
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
             Column('number', INTEGER, nullable=False),
-            Column('title', VARCHAR(255)),
+            Column('title', UNICODE),
             Column('body', TEXT),
             Column('author_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
             Column('num_files_changed', INTEGER, default=0),
@@ -728,9 +753,9 @@ class DBSchema:
             Column('updated_at', DATETIME, nullable=False),
             Column('additions', INTEGER, default=0, nullable=False),
             Column('deletions', INTEGER, default=0, nullable=False),
-            Column('base_ref_name', VARCHAR(255)),
+            Column('base_ref_name', UNICODE),
             Column('base_ref_commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
-            Column('head_ref_name', VARCHAR(255)),
+            Column('head_ref_name', UNICODE),
             Column('head_ref_commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
             Column('closed', BOOLEAN, nullable=False),
             Column('closed_at', DATETIME),
@@ -756,7 +781,7 @@ class DBSchema:
                                                                  name="rd_enum_check"))
 
         self.pull_requests.create(bind=self.conn, checkfirst=True)
-
+    
     def _create_pr_tracker_tables(self):
         """
         CREATE TABLE pull_request_comments (
@@ -855,7 +880,7 @@ class DBSchema:
             Column('created_at', DATETIME, nullable=False),
             Column('updated_at', DATETIME, nullable=False),
             Column('is_minimized', BOOLEAN, default=False),
-            Column('minimized_reason', VARCHAR(255)),
+            Column('minimized_reason', UNICODE),
             Column('positive_reaction_count', INTEGER, default=0, nullable=False),
             Column('negative_reaction_count', INTEGER, default=0, nullable=False),
             Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
@@ -893,9 +918,9 @@ class DBSchema:
             Column('event_type', self._event_type_enum[0], nullable=False),
             Column('who', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
             Column('when', DATETIME, nullable=False),
-            Column('added', VARCHAR(255)),
+            Column('added', UNICODE),
             Column('added_type', self._added_or_removed_type[0]),
-            Column('removed', VARCHAR(255)),
+            Column('removed', UNICODE),
             Column('removed_type', self._added_or_removed_type[0]),
             Column('is_cross_repository', BOOLEAN, default=0, nullable=False)
         )
@@ -920,7 +945,7 @@ class DBSchema:
         self.pull_request_events.create(bind=self.conn, checkfirst=True)
     
     @staticmethod
-    def contributors_object(login, name, email, created_at, updated_at, location, total_followers=0,
+    def contributors_object(user_type, login, name, email, created_at, updated_at, location, total_followers=0,
                             is_anonymous=0):
         obj = {
             'login'          : get_value(login),
@@ -930,6 +955,7 @@ class DBSchema:
             'updated_at'     : to_datetime(updated_at),
             'total_followers': total_followers,
             'location'       : get_value(location),
+            'user_type'      : get_value(user_type),
             'is_anonymous'   : is_anonymous
         }
         
@@ -1048,7 +1074,7 @@ class DBSchema:
         }
 
         return obj
-
+    
     @staticmethod
     def labels_object(repo_id, name, color, created_at, label_type):
         obj = {
@@ -1058,7 +1084,7 @@ class DBSchema:
             "created_at": to_datetime(created_at),
             "label_type": get_value(label_type)
         }
-    
+
         return obj
     
     @staticmethod
@@ -1243,7 +1269,7 @@ class DBSchema:
         }
 
         return obj
-
+    
     @staticmethod
     def commits_object(repo_id, oid, additions, deletions, author_id, authored_date, committer_id, committer_date,
                        message, num_files_changed, is_merge):
@@ -1262,7 +1288,7 @@ class DBSchema:
         }
 
         return obj
-
+    
     @staticmethod
     def code_change_object(repo_id, commit_id, filename, additions, deletions, changes, change_type, patch):
         obj = {
@@ -1275,9 +1301,9 @@ class DBSchema:
             "change_type": get_value(change_type),
             "patch"      : patch
         }
-    
-        return obj
 
+        return obj
+    
     @staticmethod
     def commit_comments_object(repo_id, commenter_id, body, commit_id, created_at, updated_at, path, position,
                                positive_reaction_count, negative_reaction_count, ambiguous_reaction_count):

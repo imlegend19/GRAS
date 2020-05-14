@@ -41,8 +41,8 @@ MAX_INSERT_OBJECTS = 10000
 class GithubMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args=args)
-        
-        self._connect_to_db()
+
+        self._engine, self._conn = self._connect_to_db()
         self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
     
     def _load_from_file(self, file):
@@ -92,10 +92,7 @@ class GithubMiner(BaseMiner):
             else:
                 raise NotImplementedError
 
-            conn = engine.connect()
-
-            self._engine = engine
-            self._conn = conn
+            return engine, engine.connect()
         except ProgrammingError as e:
             if 'Access denied' in str(e):
                 logger.error(f"Access denied! Please check your password for {self.db_username}.")
@@ -192,6 +189,7 @@ class GithubMiner(BaseMiner):
             logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")
 
             obj = self.db_schema.contributors_object(
+                user_type="USER",
                 login=None,
                 name=name,
                 email=email,
@@ -215,6 +213,7 @@ class GithubMiner(BaseMiner):
             for cont in cont_list.process():
                 if isinstance(cont, AnonContributorModel):
                     obj = self.db_schema.contributors_object(
+                        user_type="USER",
                         login=None,
                         name=cont.name,
                         email=cont.email,
@@ -247,6 +246,7 @@ class GithubMiner(BaseMiner):
                 obj_list = []
                 for node in users.process():
                     obj = self.db_schema.contributors_object(
+                        user_type=node.user_type,
                         login=node.login,
                         name=node.name,
                         email=node.email,
@@ -255,7 +255,9 @@ class GithubMiner(BaseMiner):
                         total_followers=node.total_followers,
                         location=node.location
                     )
-
+    
+                    print(node.name)
+    
                     obj_list.append(obj)
                 
                 logger.info("Dumping Other Contributors...")
@@ -276,6 +278,7 @@ class GithubMiner(BaseMiner):
                 ).process()
             
             obj = self.db_schema.contributors_object(
+                user_type=user.user_type,
                 login=login,
                 name=user.name,
                 email=user.email,
@@ -290,6 +293,7 @@ class GithubMiner(BaseMiner):
             self._insert(self.db_schema.contributors.insert(), obj)
         elif user_object:
             obj = self.db_schema.contributors_object(
+                user_type=user_object.user_type,
                 login=user_object.login,
                 name=user_object.name,
                 email=user_object.email,
@@ -1135,12 +1139,14 @@ class GithubMiner(BaseMiner):
         deleted = self._conn.execute(
             f"""
             DELETE FROM {table}
-            WHERE {id_} NOT IN
-                (
-                    SELECT min({id_})
-                    FROM {table}
-                    GROUP BY {group_by}
-                );
+            WHERE {id_} NOT IN (
+                SELECT {id_}
+                FROM (
+                         SELECT min({id_})
+                         FROM {table}
+                         GROUP BY {group_by}
+                     ) AS t
+            )
             """
         )
 

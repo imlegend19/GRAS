@@ -1,6 +1,5 @@
 import argparse
 import configparser
-import getpass
 import json
 import logging.config
 import os
@@ -128,7 +127,11 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_other_arguments()
 
         try:
-            self.args = self.parse_args()
+            self.args = self.parse_args(
+                ['-t', 'b62c6b609bb8065399d4f09a85d6bad15894f345', '607c3244f568fe931dbeddb2bc4056e517741a56', '-RN',
+                 'sympy', '-RO', 'sympy', '-SD', '2012-01-01', '-ED', '2012-01-15', '--mine', '--basic', '-dbms',
+                 'mysql', '-U', 'mahen', '-DB', 'gras', '-P'
+                 ])
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -136,7 +139,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         set_up_token_queue(self.args.tokens)
 
         if self.args.db_password:
-            self.args.db_password = getpass.getpass('Enter Password: ')
+            self.args.db_password = input('Enter Password: ')
 
         if self.args.config:
             self._read_config()
@@ -232,13 +235,13 @@ class GrasArgumentParser(argparse.ArgumentParser):
         if args.stats or args.mine:
             if not args.tokens:
                 raise GrasArgumentParserError(msg="Please provide at least 1 token!")
-    
+
             if not args.start_date:
                 logger.warning(f"Start date not provided, using default start date: {DEFAULT_START_DATE}.")
-    
+
             if not args.end_date:
                 logger.warning(f"End data not provided, using default end date: {DEFAULT_END_DATE}.")
-    
+
             if not args.repo_name or not args.repo_owner:
                 if not args.config:
                     raise GrasArgumentParserError(msg="Either Repo-name and Repo-owner or GrasConfig file should "
@@ -247,15 +250,15 @@ class GrasArgumentParser(argparse.ArgumentParser):
         if args.mine:
             if args.dbms == "sqlite" and not args.db_output:
                 logger.warning(f"SQLite database output file path not provided, using path: {os.getcwd()}/gras.db")
-    
+
             if args.dbms != "sqlite":
                 if not args.db_username or not args.db_password:
                     raise GrasArgumentParserError(msg="Please enter valid database credentials.")
-    
+
             if args.db_username and args.db_password and not args.db_name:
                 logger.warning(
                     "Database name not provided! GRAS will create the database with name `gras` if not exists.")
-    
+
             if not args.basic and not args.issue_tracker and not args.commit and not args.pull_tracker:
                 logger.warning("Stage name not specified, using `basic` by default.")
                 args.basic = True
@@ -378,16 +381,16 @@ class GrasArgumentParser(argparse.ArgumentParser):
         
         if cfp.has_section("GRAS-SETTINGS"):
             section = "GRAS-SETTINGS"
-    
+
             if cfp.has_option(section, 'tokens'):
                 self.args.tokens = cfp[section]['tokens']
-    
+
             if cfp.has_option(section, 'interface'):
                 self.args.interface = cfp[section]['interface']
-    
+
             if cfp.has_option(section, 'repo_owner'):
                 self.args.repo_owner = cfp[section]['repo_owner']
-    
+
             if cfp.has_option(section, 'repo_name'):
                 self.args.repo_name = cfp[section]['repo_name']
             

@@ -58,16 +58,30 @@ class UserNodesStruct(GithubInterface, UserModel):
     QUERY = """
         {{
             nodes(ids: [{node_ids}]) {{
-                ... on User {{
+                type: __typename
+                ... on Organization {{
+                    createdAt
+                    updatedAt
+                    email
                     login
                     name
-                    email
                     location
+                }}
+                ... on User {{
                     createdAt
+                    email
+                    login
+                    name
+                    location
                     updatedAt
                     followers {{
                         totalCount
                     }}
+                }}
+                ... on Bot {{
+                    login
+                    updatedAt
+                    createdAt
                 }}
             }}
         }}
