@@ -26,9 +26,8 @@ class TopicStruct(GithubInterface, TopicModel):
         }}
     """
     
-    def __init__(self, github_token, name, owner):
+    def __init__(self, name, owner):
         super().__init__(
-            github_token=github_token,
             query=self.TOPIC_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )

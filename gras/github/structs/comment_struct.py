@@ -35,13 +35,12 @@ class CommentStruct(GithubInterface, CommentModel):
         }}
     """
     
-    def __init__(self, github_token, name, owner, number, type_filter):
+    def __init__(self, name, owner, number, type_filter):
         super().__init__(
-            github_token=github_token,
             query=self.COMMENT_QUERY,
             query_params=dict(owner=owner, name=name, number=number, type_filter=type_filter, after="null")
         )
-        
+    
         self.type_filter = type_filter
     
     def iterator(self):

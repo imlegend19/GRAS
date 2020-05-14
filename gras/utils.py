@@ -16,6 +16,7 @@ DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isofor
 DEFAULT_END_DATE = datetime.datetime.now().isoformat()
 ELAPSED_TIME_ON_FUNCTIONS = OrderedDict()
 STAGE_WISE_TIME = OrderedDict()
+TOKEN_QUEUE = None
 
 logger = logging.getLogger("main")
 
@@ -182,15 +183,28 @@ def timing(func=None, *, name=None, is_stage=None):
         total_time = end - start
     
         logger.info(f"Time taken to execute `{name}`: {total_time} sec")
-    
+
         if not is_stage:
             ELAPSED_TIME_ON_FUNCTIONS[name] = total_time
         else:
             STAGE_WISE_TIME[name] = total_time
-    
+
         return result
-    
+
     return wrapper
+
+
+def set_up_token_queue(tokens):
+    global TOKEN_QUEUE
+    
+    TOKEN_QUEUE = CircularQueue(n=len(tokens))
+    
+    for token in tokens:
+        TOKEN_QUEUE.enqueue(token)
+
+
+def get_next_token():
+    return TOKEN_QUEUE.next()
 
 
 ARROW_ANIMATOR = ['⬍', '⬈', '➞', '⬊', '⬍', '⬋', '⬅', '⬉']

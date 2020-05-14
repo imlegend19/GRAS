@@ -24,13 +24,12 @@ class BranchStruct(GithubInterface, BranchModel):
         }}
     """
     
-    def __init__(self, github_token, name, owner):
+    def __init__(self, name, owner):
         super().__init__(
-            github_token=github_token,
             query=self.BRANCH_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
-        
+    
         self.name = name
         self.owner = owner
     

@@ -50,15 +50,14 @@ class IssueStruct(GithubInterface, IssueModel):
         }}
     """
     
-    def __init__(self, github_token, name, owner, start_date, end_date, chunk_size=200):
+    def __init__(self, name, owner, start_date, end_date, chunk_size=200):
         super().__init__(
-            github_token=github_token,
             query=self.ISSUE_QUERY,
             query_params=dict(owner=owner, name=name, after="null",
                               start_date="*" if start_date is None else start_date,
                               end_date="*" if end_date is None else end_date)
         )
-        
+    
         self.chunk_size = chunk_size
     
     def iterator(self):

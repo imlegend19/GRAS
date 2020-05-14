@@ -205,7 +205,6 @@ class GithubMiner(BaseMiner):
             self._insert(self.db_schema.contributors.insert(), obj)
         else:
             cont_list = ContributorList(
-                github_token=self.get_next_token(),
                 name=self.repo_name,
                 owner=self.repo_owner
             )
@@ -242,7 +241,6 @@ class GithubMiner(BaseMiner):
             for i in range(0, len(node_ids), 100):
                 ids_str = ",".join(node_ids[i:i + 100])
                 users = UserNodesStruct(
-                    github_token=self.get_next_token(),
                     node_ids=ids_str
                 )
                 
@@ -265,18 +263,15 @@ class GithubMiner(BaseMiner):
         elif login:
             try:
                 user = UserStruct(
-                    github_token=self.get_next_token(),
                     login=login
                 ).process()
             except KeyError:
                 user = UserStructV3(
-                    github_token=self.get_next_token(),
                     login=login
                 ).process()
             
             if not user:
                 user = UserStructV3(
-                    github_token=self.get_next_token(),
                     login=login
                 ).process()
             
@@ -312,7 +307,6 @@ class GithubMiner(BaseMiner):
     
     def _dump_repository(self):
         repo = RepositoryStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         ).process()
@@ -340,7 +334,6 @@ class GithubMiner(BaseMiner):
     @timing(name='languages')
     def _dump_languages(self):
         lang = LanguageStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -361,7 +354,6 @@ class GithubMiner(BaseMiner):
     @timing(name='milestones')
     def _dump_milestones(self):
         milestones = MilestoneStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -389,7 +381,6 @@ class GithubMiner(BaseMiner):
     @timing(name='stargazers')
     def _dump_stargazers(self):
         stargazers = StargazerStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -415,7 +406,6 @@ class GithubMiner(BaseMiner):
     @timing(name='watchers')
     def _dump_watchers(self):
         watchers = WatcherStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -440,7 +430,6 @@ class GithubMiner(BaseMiner):
     @timing(name='forks')
     def _dump_forks(self):
         forks = ForkStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -466,7 +455,6 @@ class GithubMiner(BaseMiner):
     @timing(name='topics')
     def _dump_topics(self):
         topics = TopicStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -489,7 +477,6 @@ class GithubMiner(BaseMiner):
     @timing(name='releases')
     def _dump_releases(self):
         releases = ReleaseStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -516,7 +503,6 @@ class GithubMiner(BaseMiner):
     @timing(name='branches')
     def _dump_branches(self):
         branches = BranchStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -539,7 +525,6 @@ class GithubMiner(BaseMiner):
     def _dump_labels(self):
         # TODO: Set label types as per user
         labels = LabelStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner
         )
@@ -565,7 +550,6 @@ class GithubMiner(BaseMiner):
         logger.info("Dumping Issues...")
         
         issues = IssueStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner,
             start_date=self.start_date,
@@ -716,7 +700,6 @@ class GithubMiner(BaseMiner):
     
     def _dump_issue_events(self, number):
         issue_event = EventStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner,
             since=self.start_date,
@@ -781,7 +764,6 @@ class GithubMiner(BaseMiner):
     
     def _dump_issue_comments(self, number):
         issue_comments = CommentStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner,
             number=number,
@@ -803,7 +785,6 @@ class GithubMiner(BaseMiner):
                 logger.info(f"Dumping commits for branch {branch}...")
 
                 commits = CommitStructV4(
-                    github_token=self.get_next_token(),
                     name=self.repo_name,
                     owner=self.repo_owner,
                     start_date=self.start_date,
@@ -863,7 +844,6 @@ class GithubMiner(BaseMiner):
                         continue
         else:
             com = CommitStructV4(
-                github_token=self.get_next_token(),
                 name=self.repo_name,
                 owner=self.repo_owner,
                 oid=oid
@@ -897,7 +877,6 @@ class GithubMiner(BaseMiner):
         # TODO: Compress the patch and store (GRAS should have various compressor functions)
 
         code_change_node = CodeChangeStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner,
             commit_id=oid
@@ -929,7 +908,6 @@ class GithubMiner(BaseMiner):
         logger.info("Dumping Commit Comments...")
         
         commit_comments = CommitCommentStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner,
         )
@@ -964,7 +942,6 @@ class GithubMiner(BaseMiner):
         logger.info("Dumping Pull Requests...")
         
         prs = PullRequestStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner,
             start_date=self.start_date,
@@ -1123,7 +1100,6 @@ class GithubMiner(BaseMiner):
     
     def _dump_pull_request_events(self, number):
         pr_event = EventStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner,
             since=self.start_date,
@@ -1140,7 +1116,6 @@ class GithubMiner(BaseMiner):
     
     def _dump_pull_request_comments(self, number):
         pr_comments = CommentStruct(
-            github_token=self.get_next_token(),
             name=self.repo_name,
             owner=self.repo_owner,
             number=number,

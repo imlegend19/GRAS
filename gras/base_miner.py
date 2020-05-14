@@ -89,7 +89,6 @@ class BaseMiner(metaclass=ABCMeta):
     @staticmethod
     def __get_rate_limit(token):
         rate = RateLimitStruct(
-            github_token=token
         ).process()
         
         return rate.remaining

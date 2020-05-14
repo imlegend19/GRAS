@@ -22,10 +22,9 @@ class AssignableUserStruct(GithubInterface, UserModel):
         }}
     """
     
-    def __init__(self, github_token, owner, name, after="null"):
+    def __init__(self, owner, name, after="null"):
         super().__init__()
-
-        self.github_token = github_token
+    
         self.query = self.QUERY
         self.query_params = dict(name=name, owner=owner, after=after)
     
@@ -73,10 +72,9 @@ class UserNodesStruct(GithubInterface, UserModel):
             }}
         }}
     """
-    
-    def __init__(self, github_token, node_ids):
+
+    def __init__(self, node_ids):
         super().__init__(
-            github_token=github_token,
             query=self.QUERY,
             query_params=dict(node_ids=node_ids)
         )
@@ -91,9 +89,8 @@ class UserNodesStruct(GithubInterface, UserModel):
 
 
 class ContributorList(GithubInterface, AnonContributorModel):
-    def __init__(self, github_token, name, owner, anon=1):
+    def __init__(self, name, owner, anon=1):
         super().__init__(
-            github_token=github_token,
             query=None,
             url=f"https://api.github.com/repos/{owner}/{name}/contributors?per_page=100&page=1&anon={anon}",
             query_params=None
@@ -127,9 +124,8 @@ class ContributorList(GithubInterface, AnonContributorModel):
 
 
 class UserStructV3(GithubInterface, UserModel):
-    def __init__(self, github_token, login):
+    def __init__(self, login):
         super().__init__(
-            github_token=github_token,
             query=None,
             url=f"https://api.github.com/users/{login}",
             query_params=None
@@ -159,11 +155,10 @@ class UserStruct(GithubInterface, UserModel):
             }}
         }}
     """
-    
-    def __init__(self, github_token, login):
+
+    def __init__(self, login):
         super().__init__()
-        
-        self.github_token = github_token
+    
         self.query = self.QUERY
         self.query_params = dict(login=login)
     

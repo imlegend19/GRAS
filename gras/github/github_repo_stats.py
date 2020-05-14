@@ -3,7 +3,6 @@ from gras.github.entity.api_static import (
 )
 from gras.github.github import GithubInterface
 from gras.github.structs.branch_struct import BranchStruct
-from local_settings import AUTH_KEY
 
 
 class RepoStatistics:
@@ -16,7 +15,6 @@ class RepoStatistics:
     
     def _total_contributors(self, anon):
         u = GithubInterface(
-            github_token=AUTH_KEY,
             url=f"https://api.github.com/repos/{self.owner}/{self.name}/contributors?per_page=100&anon={anon}"
         )
         
@@ -49,7 +47,6 @@ class RepoStatistics:
         """
         
         gi = GithubInterface(
-            github_token=self.token,
             query=QUERY,
             query_params=dict(name=self.name, owner=self.owner, start_date=self.start_date, end_date=self.end_date)
         )
@@ -97,7 +94,6 @@ class RepoStatistics:
         """
         
         gi = GithubInterface(
-            github_token=self.token,
             query=QUERY,
             query_params=dict(name=self.name, owner=self.owner)
         )
@@ -121,7 +117,7 @@ class RepoStatistics:
         total_anon_contributors = self._total_contributors(anon=1) - total_contributors
 
         branch_list = []
-        for br in BranchStruct(github_token=self.token, name=self.name, owner=self.owner).process():
+        for br in BranchStruct(name=self.name, owner=self.owner).process():
             branch_list.append(br.name)
 
         branches = {}
@@ -147,7 +143,6 @@ class RepoStatistics:
             branches[branch] = {}
             
             gi = GithubInterface(
-                github_token=self.token,
                 query=QUERY,
                 query_params=dict(name=self.name, owner=self.owner, start_date=self.start_date,
                                   end_date=self.end_date,

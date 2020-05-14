@@ -1,6 +1,5 @@
 from gras.github.entity.api_static import APIStaticV4
 from gras.github.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class CustomQueryStruct(GithubInterface):
@@ -24,9 +23,8 @@ class CustomQueryStruct(GithubInterface):
         }}
     """
     
-    def __init__(self, github_token, name, owner):
+    def __init__(self, name, owner):
         super().__init__(
-            github_token=github_token,
             query=CustomQueryStruct.QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
             additional_headers=dict(Accept="application/vnd.github.hawkgirl-preview+json")
@@ -69,7 +67,7 @@ class CustomQueryStruct(GithubInterface):
 
 
 if __name__ == '__main__':
-    cq = CustomQueryStruct(github_token=AUTH_KEY, name="sympy", owner="sympy")
+    cq = CustomQueryStruct(name="sympy", owner="sympy")
     
     for lst in cq.iterator():
         for c in lst:

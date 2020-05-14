@@ -4,9 +4,8 @@ from gras.github.github import GithubInterface
 
 
 class CodeChangeStruct(GithubInterface, CodeChangeModel):
-    def __init__(self, github_token, name, owner, commit_id):
+    def __init__(self, name, owner, commit_id):
         super().__init__(
-            github_token=github_token,
             query=None,
             url=f"https://api.github.com/repos/{owner}/{name}/commits/{commit_id}",
             query_params=None
@@ -24,9 +23,8 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
 
 
 class CommitStructV3(GithubInterface, CommitModelV3):
-    def __init__(self, github_token, name, owner, start_date, end_date, merge):
+    def __init__(self, name, owner, start_date, end_date, merge):
         super().__init__(
-            github_token=github_token,
             query=None,
             url=f"https://api.github.com/search/commits?q=repo:{owner}/{name}+merge:{merge}+"
                 f"committer-date:{start_date}..{end_date}+sort:committer-date-asc&per_page=100&page=1",
@@ -140,15 +138,14 @@ class CommitStructV4(GithubInterface, CommitModelV4):
         }}
     """
 
-    def __init__(self, github_token, name, owner, start_date=None, end_date=None, branch=None, after="null", oid=None):
+    def __init__(self, name, owner, start_date=None, end_date=None, branch=None, after="null", oid=None):
         super().__init__(
-            github_token=github_token,
             query=self.SINGLE_COMMIT_QUERY if oid else self.COMMIT_QUERY,
             query_params=dict(name=name, owner=owner, oid=oid) if oid else dict(name=name, owner=owner, after=after,
                                                                                 start_date=start_date,
                                                                                 end_date=end_date, branch=branch)
         )
-
+    
         self.oid = oid
 
     def iterator(self):

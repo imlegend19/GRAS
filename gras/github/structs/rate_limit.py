@@ -14,9 +14,8 @@ class RateLimitStruct(GithubInterface, RateLimitModel):
         }
     """
     
-    def __init__(self, github_token):
+    def __init__(self):
         super().__init__(
-            github_token=github_token,
             query=self.QUERY,
             query_params=None
         )

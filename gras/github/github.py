@@ -6,6 +6,7 @@ from requests import Session, adapters, exceptions
 
 from gras.base_interface import BaseInterface
 from gras.github.entity.api_static import APIStaticV4
+from gras.utils import get_next_token
 
 logger = logging.getLogger("main")
 
@@ -17,21 +18,21 @@ class GithubInterface(BaseInterface):
     @property
     def tag(self):
         return 'github'
-    
-    def __init__(self, github_token=None, query_params=None, url=APIStaticV4.BASE_URL, query=None,
+
+    def __init__(self, query_params=None, url=APIStaticV4.BASE_URL, query=None,
                  additional_headers=None):
         super().__init__()
-        
-        self.github_token = github_token
+    
         self.query = query
         self.url = url
         self.query_params = query_params
         self.additional_headers = additional_headers or dict()
+        self.token = None
     
     @property
     def headers(self):
         default_headers = dict(
-            Authorization=f"token {self.github_token}",
+            Authorization=f"token {self.token}",
             Connection="close",
         )
         
@@ -70,6 +71,7 @@ class GithubInterface(BaseInterface):
     
     def _send_request(self, param=None, only_json=True, method=POST):
         self._create_http_session()
+        self.token = get_next_token()
         
         tries = 1
         while tries <= 3:

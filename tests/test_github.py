@@ -7,7 +7,6 @@ from requests import exceptions
 
 from gras.github.github import GithubInterface
 from gras.utils import to_iso_format
-from local_settings import AUTH_KEY
 
 
 class TestGithubInterface(unittest.TestCase):
@@ -30,7 +29,6 @@ class TestGithubInterface(unittest.TestCase):
         mock_request.return_value.status_code = 200
         
         github = GithubInterface(
-            github_token=self.github_token or AUTH_KEY,
             url=f"https://api.github.com/search/commits?q=repo:{self.owner}/{self.name}+merge:false+"
                 f"committer-date:{self.start_date}..{self.end_date}+sort:committer-date-asc&per_page=1&page=1",
             additional_headers=dict(Accept="application/vnd.github.cloak-preview+json")
@@ -44,7 +42,6 @@ class TestGithubInterface(unittest.TestCase):
         mock_request.return_value.side_effect = f"Problem with getting data via url {self.url}."
         
         github = GithubInterface(
-            github_token=self.github_token or AUTH_KEY,
             url=self.url
         )
         

@@ -19,7 +19,8 @@ from gras.errors import GrasArgumentParserError, GrasConfigError
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
 from gras.utils import (
-    ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, to_iso_format
+    ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
+    to_iso_format
 )
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
@@ -131,13 +132,15 @@ class GrasArgumentParser(argparse.ArgumentParser):
         except Exception as e:
             logger.error(e)
             sys.exit(1)
-        
+
+        set_up_token_queue(self.args.tokens)
+
         if self.args.db_password:
             self.args.db_password = getpass.getpass('Enter Password: ')
-        
+
         if self.args.config:
             self._read_config()
-        
+
         self._set_arg_groups()
         self._validate()
         self._execute()

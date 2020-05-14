@@ -36,10 +36,9 @@ class CommitCommentStruct(GithubInterface, CommitCommentModel):
         }}
     """
 
-    def __init__(self, github_token, name, owner):
+    def __init__(self, name, owner):
         super().__init__()
     
-        self.github_token = github_token
         self.query = CommitCommentStruct.QUERY
         self.query_params = dict(name=name, owner=owner, after="null")
 

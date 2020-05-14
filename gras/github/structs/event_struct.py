@@ -153,13 +153,12 @@ class EventStruct(GithubInterface, EventModel):
         }}
     """
     
-    def __init__(self, github_token, owner, name, type_filter, since, number):
+    def __init__(self, owner, name, type_filter, since, number):
         super().__init__(
-            github_token=github_token,
             query=self.QUERY,
             query_params=dict(name=name, owner=owner, type_filter=type_filter, since=since, number=number)
         )
-        
+    
         self.type_filter = type_filter
         self.issue_number = number
     
