@@ -9,6 +9,7 @@ class IssueStruct(GithubInterface, IssueModel):
         {{
             search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:created-asc", 
                    type: ISSUE, first: 100, after: {after}) {{
+                issueCount
                 pageInfo {{
                     endCursor
                     hasNextPage
@@ -49,13 +50,13 @@ class IssueStruct(GithubInterface, IssueModel):
             }}
         }}
     """
-    
-    def __init__(self, name, owner, start_date, end_date, chunk_size=200):
+
+    def __init__(self, name, owner, start_date, end_date, chunk_size=25):
         super().__init__(
             query=self.ISSUE_QUERY,
             query_params=dict(owner=owner, name=name, after="null",
-                              start_date="*" if start_date is None else start_date,
-                              end_date="*" if end_date is None else end_date)
+                              start_date=start_date.split('T')[0],
+                              end_date=end_date.split('T')[0])
         )
     
         self.chunk_size = chunk_size
@@ -75,6 +76,9 @@ class IssueStruct(GithubInterface, IssueModel):
             while hasNextPage:
                 try:
                     response = next(generator)
+                    print(
+                        f"Issue Count: {response[APIStaticV4.DATA][APIStaticV4.SEARCH]['issueCount']} btn {start}.."
+                        f"{end}")
                 except StopIteration:
                     break
 

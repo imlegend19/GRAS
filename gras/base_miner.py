@@ -36,6 +36,7 @@ class BaseMiner(metaclass=ABCMeta):
         
         self.animator = args.animator
         self.tokens = args.tokens
+        self.chunk_size = args.chunk_size
     
     def __getattr__(self, attr):
         return self.__dict__[attr]

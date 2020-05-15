@@ -127,12 +127,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_other_arguments()
 
         try:
-            self.args = self.parse_args(
-                ['-RN', 'kubernetes', '-RO', 'kubernetes', '--mine', '-IT', '-dbms', 'postgresql', '-U', 'postgres',
-                 '-DB', 'kubernetes', '-H', '34.93.207.47', '-P', '-p', '5432', '-t',
-                 "5b4174a5138e19e56492ed9ed156b0536ae6fc28", "e07f3d6b8761a25c05790e999e6b9b3fe5dee242",
-                 "611d49d3ea9b270e7533b1ed001f42dbdac3a145"
-                 ])
+            self.args = self.parse_args()
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -176,6 +171,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         nargs='?', default=False)
         self.gras_commands.add_argument('-PT', '--pull-tracker', help="Mining Stage 4: Pull Request Tracker",
                                         const=True, type=bool, nargs='?', default=False)
+        self.gras_commands.add_argument('-CS', '--chunk-size', help="Time Period Chunk Size (in Days)", type=int,
+                                        default=20)
 
     def _add_grass_settings(self):
         self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",

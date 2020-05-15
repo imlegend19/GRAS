@@ -13,7 +13,7 @@ from dateutil import parser as date_parser
 from gras.github.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 
 DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isoformat()
-DEFAULT_END_DATE = datetime.datetime.now().isoformat()
+DEFAULT_END_DATE = datetime.datetime.strptime('2100-01-01', '%Y-%m-%d').isoformat()
 ELAPSED_TIME_ON_FUNCTIONS = OrderedDict()
 STAGE_WISE_TIME = OrderedDict()
 TOKEN_QUEUE = None

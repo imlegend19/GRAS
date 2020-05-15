@@ -532,7 +532,8 @@ class GithubMiner(BaseMiner):
             name=self.repo_name,
             owner=self.repo_owner,
             start_date=self.start_date,
-            end_date=self.end_date
+            end_date=self.end_date,
+            chunk_size=self.chunk_size
         )
         
         obj_list = []
@@ -559,9 +560,10 @@ class GithubMiner(BaseMiner):
 
             issue_assignees_lst.append((node.number, node.assignees))
             issue_labels_lst.append((node.number, node.labels))
-            issue_list.append(node.number)
 
-            obj_list.append(obj)
+            if node.number not in issue_list:
+                issue_list.append(node.number)
+                obj_list.append(obj)
 
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                 logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
@@ -602,11 +604,11 @@ class GithubMiner(BaseMiner):
         obj_list = []
         
         for node in node_list:
-            issue_id = node[0]
+            number = node[0]
             for assignee_login in node[1]:
                 obj = self.db_schema.issue_assignees_object(
                     repo_id=self.repo_id,
-                    issue_id=issue_id,
+                    issue_id=self._get_table_id(table="issues", field="number", value=number),
                     assignee_id=self._get_user_id(login=assignee_login)
                 )
                 
@@ -620,11 +622,11 @@ class GithubMiner(BaseMiner):
         obj_list = []
         
         for node in label_list:
-            issue_id = node[0]
+            number = node[0]
             for label_name in node[1]:
                 obj = self.db_schema.issue_labels_object(
                     repo_id=self.repo_id,
-                    issue_id=issue_id,
+                    issue_id=self._get_table_id(table="issues", field="number", value=number),
                     label_id=self._get_table_id('labels', 'name', label_name)
                 )
                 
@@ -795,8 +797,10 @@ class GithubMiner(BaseMiner):
                     obj_list.append(obj)
 
                     if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                        logger.debug(f"Inserting {MAX_INSERT_OBJECTS} commits...")
                         self._insert(object_=self.db_schema.commits.insert(), param=obj_list)
                         obj_list.clear()
+                        logger.debug("Success!")
 
                     if node.commit_id in commit_ids:
                         logger.debug("Tree search complete! Changing branch...")
@@ -926,7 +930,8 @@ class GithubMiner(BaseMiner):
             name=self.repo_name,
             owner=self.repo_owner,
             start_date=self.start_date,
-            end_date=self.end_date
+            end_date=self.end_date,
+            chunk_size=self.chunk_size
         )
         
         obj_list = []
@@ -973,8 +978,10 @@ class GithubMiner(BaseMiner):
             obj_list.append(obj)
 
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                logger.debug(f"Inserting {MAX_INSERT_OBJECTS} pull requests...")
                 self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
                 obj_list.clear()
+                logger.debug("Success!")
         
         logger.info(f"Total Pull Requests: {len(pr_list)}...")
         self._insert(self.db_schema.pull_requests.insert(), obj_list)
