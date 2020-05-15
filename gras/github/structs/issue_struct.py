@@ -1,7 +1,11 @@
+import logging
+
 from gras.github.entity.api_static import APIStaticV4
 from gras.github.entity.github_models import IssueModel
 from gras.github.github import GithubInterface
 from gras.utils import time_period_chunks
+
+logger = logging.getLogger("main")
 
 
 class IssueStruct(GithubInterface, IssueModel):
@@ -50,7 +54,7 @@ class IssueStruct(GithubInterface, IssueModel):
             }}
         }}
     """
-
+    
     def __init__(self, name, owner, start_date, end_date, chunk_size=25):
         super().__init__(
             query=self.ISSUE_QUERY,
@@ -58,7 +62,7 @@ class IssueStruct(GithubInterface, IssueModel):
                               start_date=start_date.split('T')[0],
                               end_date=end_date.split('T')[0])
         )
-    
+
         self.chunk_size = chunk_size
     
     def iterator(self):
@@ -91,7 +95,7 @@ class IssueStruct(GithubInterface, IssueModel):
 
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
                     APIStaticV4.HAS_NEXT_PAGE]
-
+    
     def process(self):
         for lst in self.iterator():
             for issue in lst:

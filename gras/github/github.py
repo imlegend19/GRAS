@@ -112,7 +112,8 @@ class GithubInterface(BaseInterface):
                 tries += 1
                 time.sleep(2)
 
-        raise exceptions.RequestException(f"Problem with getting data via url {self.url}.")
+        raise exceptions.RequestException(f"Problem with getting data via url {self.url} + "
+                                          f"{self.query.format_map(self.query_params)}.")
     
     def _generator(self):
         if self.url is None:

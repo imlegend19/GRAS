@@ -126,7 +126,7 @@ def get_value(str_):
     if not str_:
         return None
     else:
-        return str_.strip()
+        return str_.strip().replace('\x00', '')
 
 
 def locked(func):
