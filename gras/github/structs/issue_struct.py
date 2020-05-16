@@ -72,7 +72,7 @@ class IssueDetailStruct(GithubInterface, IssueModel):
         return self.object_decoder(self.iterator())
 
 
-class IssueStruct(GithubInterface, IssueModel):
+class IssueSearchStruct(GithubInterface, IssueModel):
     ISSUE_QUERY = """
         {{
             search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:created-asc",
@@ -173,6 +173,94 @@ class IssueStruct(GithubInterface, IssueModel):
 
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
                     APIStaticV4.HAS_NEXT_PAGE]
+    
+    def process(self):
+        for lst in self.iterator():
+            for issue in lst:
+                yield self.object_decoder(issue)
+
+
+class IssueStruct(GithubInterface, IssueModel):
+    QUERY = """
+        {{
+            repository(name: "{name}", owner: "{owner}") {{
+                issues(first: 100, orderBy: {{ field: CREATED_AT, direction: ASC }}, after: {after}) {{
+                    pageInfo {{
+                        hasNextPage
+                        endCursor
+                    }}
+                    nodes {{
+                        createdAt
+                        updatedAt
+                        closedAt
+                        title
+                        bodyText
+                        author {{
+                            ... on User {{
+                                type: __typename
+                                email
+                                createdAt
+                                login
+                                name
+                                location
+                                updatedAt
+                                followers {{
+                                    totalCount
+                                }}
+                            }}
+                        }}
+                        assignees(first: 10) {{
+                            nodes {{
+                                login
+                            }}
+                        }}
+                        number
+                        milestone {{
+                            number
+                        }}
+                        labels(first: 30, orderBy: {{ field: CREATED_AT, direction: ASC }}) {{
+                            nodes {{
+                                name
+                            }}
+                        }}
+                        state
+                        reactionGroups {{
+                        content
+                            users {{
+                                totalCount
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    """
+    
+    def __init__(self, name, owner):
+        super().__init__(
+            query=self.QUERY,
+            query_params=dict(owner=owner, name=name, after="null")
+        )
+    
+    def iterator(self):
+        generator = self._generator()
+        hasNextPage = True
+        
+        while hasNextPage:
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
+            
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUES][
+                APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
+            
+            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
+            
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUES][APIStaticV4.NODES]
+            
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUES][
+                APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
     
     def process(self):
         for lst in self.iterator():

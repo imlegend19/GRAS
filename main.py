@@ -173,6 +173,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         const=True, type=bool, nargs='?', default=False)
         self.gras_commands.add_argument('-CS', '--chunk-size', help="Time Period Chunk Size (in Days)", type=int,
                                         default=20)
+        self.gras_commands.add_argument('-f', '--full', help="Mine the complete repository", const=True, nargs='?',
+                                        type=bool)
 
     def _add_gras_settings(self):
         self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",
@@ -234,10 +236,10 @@ class GrasArgumentParser(argparse.ArgumentParser):
             if not args.tokens:
                 raise GrasArgumentParserError(msg="Please provide at least 1 token!")
 
-            if not args.start_date:
+            if not args.start_date and not args.full:
                 logger.warning(f"Start date not provided, using default start date: {DEFAULT_START_DATE}.")
 
-            if not args.end_date:
+            if not args.end_date and not args.full:
                 logger.warning(f"End data not provided, using default end date: {DEFAULT_END_DATE}.")
 
             if not args.repo_name or not args.repo_owner:

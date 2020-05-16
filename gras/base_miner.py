@@ -18,6 +18,7 @@ class BaseMiner(metaclass=ABCMeta):
         self.repo_name = args.repo_name
         self.start_date = to_iso_format(args.start_date)
         self.end_date = to_iso_format(args.end_date)
+        self.full = args.full
         
         self.basic = args.basic
         self.basic_extra = args.basic_extra

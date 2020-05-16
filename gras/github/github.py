@@ -59,8 +59,14 @@ class GithubInterface(BaseInterface):
 
         try:
             response.raise_for_status()
+        except exceptions.Timeout as e:
+            logger.error(f"Timeout Error: {e}.")
+            time.sleep(2)
+            response = self._fetch(url=url, headers=headers, method=method, payload=payload)
+        except exceptions.TooManyRedirects as e:
+            logger.error(f"Too Many Redirects: {e}")
         except HTTPError:
-            raise ObjectDoesNotExistError(msg="Object does not exist!")
+            raise ObjectDoesNotExistError(msg=f"Object does not exist! Url: {url}, Payload: {payload}")
         except Exception as e:
             # TODO: Raise exception
             logger.error(e)
@@ -83,6 +89,9 @@ class GithubInterface(BaseInterface):
         while tries <= 3:
             # logger.debug(f"Sending request to url {self.url}. (Try: {tries})")
             try:
+                req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
+            except exceptions.Timeout:
+                time.sleep(2)
                 req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
             except exceptions.ConnectionError:
                 time.sleep(2)
