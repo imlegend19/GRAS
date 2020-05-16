@@ -39,3 +39,9 @@ class InvalidTokenError(GrasError):
     """Exception to be raised if the user enters invalid token"""
     
     message = "%(msg)s"
+
+
+class ObjectDoesNotExistError(GrasError):
+    """Exception to be raised if HTTPError is throws, i.e when object to be fetched has been deleted."""
+    
+    message = "%(msg)s"

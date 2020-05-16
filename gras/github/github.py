@@ -2,9 +2,10 @@ import logging
 import time
 from datetime import datetime
 
-from requests import Session, adapters, exceptions
+from requests import HTTPError, Session, adapters, exceptions
 
 from gras.base_interface import BaseInterface
+from gras.errors import ObjectDoesNotExistError
 from gras.github.entity.api_static import APIStaticV4
 from gras.utils import get_next_token
 
@@ -55,11 +56,14 @@ class GithubInterface(BaseInterface):
             response = self.session.get(url, params=payload, headers=headers)
         else:
             response = self.session.post(url, json=payload, headers=headers)
-        
+
         try:
             response.raise_for_status()
+        except HTTPError:
+            raise ObjectDoesNotExistError(msg="Object does not exist!")
         except Exception as e:
-            raise e
+            # TODO: Raise exception
+            logger.error(e)
         
         return response
     

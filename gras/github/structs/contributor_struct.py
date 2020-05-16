@@ -1,8 +1,13 @@
+import logging
+
 from requests import exceptions
 
+from gras.errors import ObjectDoesNotExistError
 from gras.github.entity.api_static import APIStaticV3, APIStaticV4, UserStatic
 from gras.github.entity.github_models import AnonContributorModel, UserModel
 from gras.github.github import GithubInterface
+
+logger = logging.getLogger("main")
 
 
 class AssignableUserStruct(GithubInterface, UserModel):
@@ -24,7 +29,7 @@ class AssignableUserStruct(GithubInterface, UserModel):
     
     def __init__(self, owner, name, after="null"):
         super().__init__()
-    
+
         self.query = self.QUERY
         self.query_params = dict(name=name, owner=owner, after=after)
     
@@ -147,10 +152,22 @@ class UserStructV3(GithubInterface, UserModel):
     
     def iterator(self):
         generator = self._generator()
-        return next(generator).json()
     
+        try:
+            return next(generator).json()
+        except ObjectDoesNotExistError:
+            logger.error("User does not exist!")
+            return None
+        except Exception as e:
+            logger.error(e)
+            return None
+
     def process(self):
-        return self.object_decoder(self.iterator())
+        user = self.iterator()
+        if not user:
+            return None
+    
+        return self.object_decoder(user)
 
 
 class UserStruct(GithubInterface, UserModel):
@@ -172,7 +189,7 @@ class UserStruct(GithubInterface, UserModel):
 
     def __init__(self, login):
         super().__init__()
-    
+
         self.query = self.QUERY
         self.query_params = dict(login=login)
     

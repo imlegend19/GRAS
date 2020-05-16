@@ -35,6 +35,7 @@ from gras.utils import locked, timing
 logger = logging.getLogger("main")
 logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
 
+lock = mp.Lock()
 MAX_INSERT_OBJECTS = 5000
 
 
@@ -67,7 +68,7 @@ class GithubMiner(BaseMiner):
                     f'{self.db_port}/{self.db_name}', echo=self.db_log)
             else:
                 raise NotImplementedError
-    
+
             return engine, engine.connect()
         except ProgrammingError as e:
             if 'Access denied' in str(e):
@@ -237,20 +238,32 @@ class GithubMiner(BaseMiner):
                 
                 logger.info("Dumping Other Contributors...")
                 self._insert(self.db_schema.contributors.insert(), obj_list)
+
         elif login:
             try:
                 user = UserStruct(
                     login=login
                 ).process()
-            except KeyError:
-                user = UserStructV3(
-                    login=login
-                ).process()
+            except Exception as e:
+                logger.error(f"Error Caught: {str(e)}")
+                try:
+                    user = UserStructV3(
+                        login=login
+                    ).process()
+                except Exception as e:
+                    logger.error(e)
+                    return False
+        
+                if not user:
+                    return False
             
             if not user:
                 user = UserStructV3(
                     login=login
                 ).process()
+    
+                if not user:
+                    return False
             
             obj = self.db_schema.contributors_object(
                 user_type=user.user_type,
@@ -263,8 +276,8 @@ class GithubMiner(BaseMiner):
                 location=user.location,
                 is_anonymous=0
             )
-            
-            logger.debug(f"Dumping User with login: {login}")
+    
+            # logger.debug(f"Dumping User with login: {login}")
             self._insert(self.db_schema.contributors.insert(), obj)
         elif user_object:
             obj = self.db_schema.contributors_object(
@@ -278,11 +291,13 @@ class GithubMiner(BaseMiner):
                 location=user_object.location,
                 is_anonymous=0
             )
-            
+
             logger.debug(f"Dumping User with login: {user_object.login}")
             self._insert(self.db_schema.contributors.insert(), obj)
         else:
             raise GithubMinerError(msg="`_dump_users()` exception! Please consider reporting this error to the team.")
+
+        return True
     
     def _dump_repository(self):
         repo = RepositoryStruct(
@@ -578,26 +593,35 @@ class GithubMiner(BaseMiner):
         self._dump_issue_labels(issue_labels_lst)
         
         logger.info("Dumping Issue Events...")
+
         for i in range(0, len(issue_list), mp.cpu_count()):
-            processes = []
-            for num in issue_list[i: i + mp.cpu_count()]:
-                p = mp.Process(target=self._dump_issue_events, args=(num,))
-                p.start()
-                processes.append(p)
-            
-            while all([x.is_alive() for x in processes]):
-                continue
+            if sys.platform == 'win32':
+                with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
+                    executor.map(self._dump_code_change, issue_list[i: i + mp.cpu_count()])
+            else:
+                processes = []
+                for num in issue_list[i: i + mp.cpu_count()]:
+                    p = mp.Process(target=self._dump_issue_events, args=(num,))
+                    p.start()
+                    processes.append(p)
+        
+                while all([x.is_alive() for x in processes]):
+                    continue
         
         logger.info("Dumping Issue Comments...")
         for i in range(0, len(issue_list), mp.cpu_count()):
-            processes = []
-            for num in issue_list[i: i + mp.cpu_count()]:
-                p = mp.Process(target=self._dump_issue_comments, args=(num,))
-                p.start()
-                processes.append(p)
-            
-            while all([x.is_alive() for x in processes]):
-                continue
+            if sys.platform == 'win32':
+                with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
+                    executor.map(self._dump_code_change, issue_list[i: i + mp.cpu_count()])
+            else:
+                processes = []
+                for num in issue_list[i: i + mp.cpu_count()]:
+                    p = mp.Process(target=self._dump_issue_comments, args=(num,))
+                    p.start()
+                    processes.append(p)
+        
+                while all([x.is_alive() for x in processes]):
+                    continue
     
     @timing(name='issue_assignees')
     def _dump_issue_assignees(self, node_list):
@@ -997,6 +1021,7 @@ class GithubMiner(BaseMiner):
                     executor.map(self._dump_pull_request_events, pr_list[i: i + mp.cpu_count()])
             else:
                 processes = []
+
                 for num in pr_list[i: i + mp.cpu_count()]:
                     p = mp.Process(target=self._dump_pull_request_events, args=(num,))
                     p.start()
@@ -1157,15 +1182,19 @@ class GithubMiner(BaseMiner):
     
     def _close_the_db(self):
         self._conn.close()
-    
+
     @locked
     def _insert(self, object_, param):
+        lock.acquire()
+    
         try:
             if param:
                 inserted = self._conn.execute(object_, param)
                 logger.debug(f"Affected Rows: {inserted.rowcount}")
         except IntegrityError as e:
             logger.debug(f"Caught Integrity Error: {e}")
+    
+        lock.release()
     
     def _set_repo_id(self):
         res = self._conn.execute(
@@ -1189,8 +1218,11 @@ class GithubMiner(BaseMiner):
             ).fetchone()
 
             if not res:
-                self._dump_users(login=None, user_object=user_object)
-                return self._get_user_id(user_object.login)
+                has_dumped = self._dump_users(login=None, user_object=user_object)
+                if has_dumped:
+                    return self._get_user_id(user_object.login)
+                else:
+                    return None
             else:
                 return res[0]
         elif login:
@@ -1203,8 +1235,11 @@ class GithubMiner(BaseMiner):
             ).fetchone()
 
             if not res:
-                self._dump_users(login=login)
-                return self._get_user_id(login)
+                has_dumped = self._dump_users(login=login)
+                if has_dumped:
+                    return self._get_user_id(login)
+                else:
+                    return None
             else:
                 return res[0]
         elif name and email:
@@ -1217,8 +1252,11 @@ class GithubMiner(BaseMiner):
             ).fetchone()
 
             if not res:
-                self._dump_anon_users(name=name, email=email)
-                return self._get_user_id(login=None, name=name, email=email)
+                has_dumped = self._dump_anon_users(name=name, email=email)
+                if has_dumped:
+                    return self._get_user_id(login=None, name=name, email=email)
+                else:
+                    return None
             else:
                 return res[0]
         else:

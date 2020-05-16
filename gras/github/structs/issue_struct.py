@@ -69,6 +69,7 @@ class IssueStruct(GithubInterface, IssueModel):
         assert self.query_params["start_date"] is not None
         assert self.query_params["end_date"] is not None
         
+        it = 1
         for start, end in time_period_chunks(self.query_params["start_date"],
                                              self.query_params["end_date"], chunk_size=self.chunk_size):
             self.query_params["start_date"] = start
@@ -91,6 +92,8 @@ class IssueStruct(GithubInterface, IssueModel):
 
                 self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
 
+                print(it)
+                it += 1
                 yield response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.NODES]
 
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
