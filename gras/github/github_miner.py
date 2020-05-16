@@ -244,8 +244,7 @@ class GithubMiner(BaseMiner):
                 user = UserStruct(
                     login=login
                 ).process()
-            except Exception as e:
-                logger.error(f"Error Caught: {str(e)}")
+            except Exception:
                 try:
                     user = UserStructV3(
                         login=login
@@ -253,7 +252,7 @@ class GithubMiner(BaseMiner):
                 except Exception as e:
                     logger.error(e)
                     return False
-        
+    
                 if not user:
                     return False
             
@@ -565,7 +564,7 @@ class GithubMiner(BaseMiner):
                 closed_at=node.closed_at,
                 title=node.title,
                 body=node.body,
-                reporter_id=self._get_user_id(login=node.author_login),
+                reporter_id=self._get_user_id(login=None, user_object=node.author),
                 milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
                 positive_reaction_count=node.positive_reaction_count,
                 negative_reaction_count=node.negative_reaction_count,
@@ -971,7 +970,7 @@ class GithubMiner(BaseMiner):
                 number=node.number,
                 title=node.title,
                 body=node.body,
-                author_id=self._get_user_id(login=node.author_login),
+                author_id=self._get_user_id(login=None, user_object=node.author),
                 num_files_changed=node.num_files_changed,
                 created_at=node.created_at,
                 updated_at=node.updated_at,
@@ -985,7 +984,7 @@ class GithubMiner(BaseMiner):
                 closed_at=node.closed_at,
                 merged=node.merged,
                 merged_at=node.merged_at,
-                merged_by=self._get_user_id(login=node.merged_by),
+                merged_by=self._get_user_id(login=None, user_object=node.merged_by),
                 milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
                 positive_reaction_count=node.positive_reaction_count,
                 negative_reaction_count=node.negative_reaction_count,

@@ -129,7 +129,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         try:
             self.args = self.parse_args([
                 '-RN', 'tensorflow', '-RO', 'tensorflow', '--mine', '-IT', '-dbms', 'sqlite',
-                '-dbo', 'tensorflow.db', '-CS', '35', '-SD', '2019-08-09T00:00:00', '-ED', '2019-08-10T00:00:00', '-t',
+                '-dbo', 'tensorflow.db', '-CS', '35', '-SD', '2015-10-15T00:00:00', '-ED', '2019-08-10T00:00:00', '-t',
                 "b62c6b609bb8065399d4f09a85d6bad15894f345",
                 "607c3244f568fe931dbeddb2bc4056e517741a56",
                 "b647ad8aaa1482bd6b090ab8f290b3579ca5b7dc ",

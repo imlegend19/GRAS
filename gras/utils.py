@@ -1,8 +1,10 @@
 import datetime
+import inspect
 import logging
 import multiprocessing as mp
 import sys
 import time
+import warnings
 from collections import OrderedDict
 from functools import partial, wraps
 from timeit import default_timer as timer
@@ -116,6 +118,12 @@ def waiting_animation(n, msg):
 
 
 def to_datetime(date):
+    """
+    Converts non-null string to date in ISO-8601 format.
+    
+    :param date: str
+    :return: Returns a :class:`datetime.datetime` object
+    """
     if not date:
         return None
     else:
@@ -123,16 +131,63 @@ def to_datetime(date):
 
 
 def get_value(str_):
+    """
+    Helper function to store formatted string. Will replace '\x00' characters in string with ''.
+    
+    :param str_: <str> to be formatted
+    :return:
+    """
     if not str_:
         return None
     else:
         return str_.strip().replace('\x00', '')
 
 
+class DeprecatedWarning(UserWarning):
+    pass
+
+
+def deprecated(instructions):
+    """
+    Flags a method as deprecated.
+    
+    :param instructions: A human-friendly string of instructions, such
+            as: 'Please migrate to function() ASAP.'
+    """
+    
+    def decorator(func):
+        """
+        This is a decorator which can be used to mark functions
+        as deprecated. It will result in a warning being emitted
+        when the function is used.
+        """
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            message = 'Call to deprecated function {}. {}'.format(
+                func.__name__,
+                instructions)
+            
+            frame = inspect.currentframe().f_back
+            
+            warnings.warn_explicit(message,
+                                   category=DeprecatedWarning,
+                                   filename=inspect.getfile(frame.f_code),
+                                   lineno=frame.f_lineno)
+            
+            return func(*args, **kwargs)
+        
+        return wrapper
+    
+    return decorator
+
+
 def locked(func):
     """
     A decorator to wrap the function with :class:`~multiprocessing.Lock`. This ensure that
     only 1 Process can execute the function at a time.
+    
+    :param func: Function
     
     Examples:
     
@@ -157,6 +212,10 @@ def locked(func):
 def timing(func=None, *, name=None, is_stage=None):
     """
     Decorator to measure the time taken by the function to execute
+    
+    :param func: Function
+    :param name: Display Name of the function for which the time is being calculated
+    :param is_stage: Identifier for mining stage
     
     Examples:
         
@@ -195,6 +254,11 @@ def timing(func=None, *, name=None, is_stage=None):
 
 
 def set_up_token_queue(tokens):
+    """
+    Sets a token :class:`~gras.utils.CircularQueue`
+    
+    :param tokens: list of tokens
+    """
     global TOKEN_QUEUE
     
     TOKEN_QUEUE = CircularQueue(n=len(tokens))
@@ -204,6 +268,11 @@ def set_up_token_queue(tokens):
 
 
 def get_next_token():
+    """
+    Retrieves the next token in the queue
+    
+    :return: token <str>
+    """
     return TOKEN_QUEUE.next()
 
 

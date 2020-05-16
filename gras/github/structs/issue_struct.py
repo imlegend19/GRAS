@@ -11,7 +11,7 @@ logger = logging.getLogger("main")
 class IssueStruct(GithubInterface, IssueModel):
     ISSUE_QUERY = """
         {{
-            search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:created-asc", 
+            search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:created-asc",
                    type: ISSUE, first: 100, after: {after}) {{
                 issueCount
                 pageInfo {{
@@ -26,7 +26,18 @@ class IssueStruct(GithubInterface, IssueModel):
                         title
                         bodyText
                         author {{
-                            login
+                            ... on User {{
+                                type: __typename
+                                email
+                                createdAt
+                                login
+                                name
+                                location
+                                updatedAt
+                                followers {{
+                                    totalCount
+                                }}
+                            }}
                         }}
                         assignees(first: 10) {{
                             nodes {{
@@ -69,11 +80,11 @@ class IssueStruct(GithubInterface, IssueModel):
         assert self.query_params["start_date"] is not None
         assert self.query_params["end_date"] is not None
         
-        it = 1
         for start, end in time_period_chunks(self.query_params["start_date"],
                                              self.query_params["end_date"], chunk_size=self.chunk_size):
             self.query_params["start_date"] = start
             self.query_params["end_date"] = end
+            self.query_params["after"] = "null"
             
             generator = self._generator()
             hasNextPage = True
@@ -81,9 +92,10 @@ class IssueStruct(GithubInterface, IssueModel):
             while hasNextPage:
                 try:
                     response = next(generator)
-                    print(
+                    logger.debug(
                         f"Issue Count: {response[APIStaticV4.DATA][APIStaticV4.SEARCH]['issueCount']} btn {start}.."
-                        f"{end}")
+                        f"{end}"
+                    )
                 except StopIteration:
                     break
 
@@ -92,8 +104,7 @@ class IssueStruct(GithubInterface, IssueModel):
 
                 self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
 
-                print(it)
-                it += 1
+                print(len(response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.NODES]))
                 yield response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.NODES]
 
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][

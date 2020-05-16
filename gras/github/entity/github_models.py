@@ -185,11 +185,11 @@ class LanguageModel(BaseModel):
 
 
 class IssueModel(BaseModel):
-    def __init__(self, created_at, updated_at, closed_at, title, body, author_login, assignees, number,
+    def __init__(self, created_at, updated_at, closed_at, title, body, author, assignees, number,
                  milestone_number, labels, state, positive_reaction_count, negative_reaction_count,
                  ambiguous_reaction_count):
         super().__init__()
-        
+    
         self.ambiguous_reaction_count = ambiguous_reaction_count
         self.negative_reaction_count = negative_reaction_count
         self.positive_reaction_count = positive_reaction_count
@@ -200,19 +200,30 @@ class IssueModel(BaseModel):
         self.milestone_number = milestone_number
         self.number = number
         self.assignees = assignees
-        self.author_login = author_login
+        self.author = author
         self.body = body
         self.title = title
         self.created_at = created_at
-    
+
     def object_decoder(self, dic):
+        if dic[IssueStatic.AUTHOR] is None:
+            author = None
+        else:
+            user = dic[IssueStatic.AUTHOR]
+            author = UserModel(
+                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
+            )
+    
         obj = IssueModel(
             created_at=dic[APIStaticV4.CREATED_AT],
             updated_at=dic[APIStaticV4.UPDATED_AT],
             closed_at=dic[IssueStatic.CLOSED_AT],
             title=dic[IssueStatic.TITLE],
             body=dic[IssueStatic.BODY_TEXT],
-            author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][UserStatic.LOGIN],
+            author=author,
             assignees=list(node[UserStatic.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]),
             number=dic[APIStaticV4.NUMBER],
             milestone_number=None if dic[IssueStatic.MILESTONE] is None else dic[IssueStatic.MILESTONE][
@@ -277,7 +288,7 @@ class FileModel(BaseModel):
 
 
 class PullRequestModel(BaseModel):
-    def __init__(self, number, title, body, author_login, assignees, num_files_changed, closed, closed_at, created_at,
+    def __init__(self, number, title, body, author, assignees, num_files_changed, closed, closed_at, created_at,
                  updated_at, additions, deletions, base_ref_name, base_ref_oid, head_ref_name, head_ref_oid, labels,
                  merged, merged_at, merged_by, commits, milestone_number, positive_reaction_count,
                  negative_reaction_count, ambiguous_reaction_count, state, review_decision):
@@ -286,7 +297,7 @@ class PullRequestModel(BaseModel):
         self.number = number
         self.title = title
         self.body = body
-        self.author_login = author_login
+        self.author = author
         self.assignees = assignees
         self.num_files_changed = num_files_changed
         self.closed = closed
@@ -312,10 +323,32 @@ class PullRequestModel(BaseModel):
         self.review_decision = review_decision
     
     def object_decoder(self, dic):
+        if dic[IssueStatic.AUTHOR] is None:
+            author = None
+        else:
+            user = dic[IssueStatic.AUTHOR]
+            author = UserModel(
+                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
+            )
+        
+        if dic[IssueStatic.MERGED_BY] is None:
+            merged_by = None
+        else:
+            user = dic[IssueStatic.MERGED_BY]
+            merged_by = UserModel(
+                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
+            )
+        
         obj = PullRequestModel(
             number=dic[APIStaticV4.NUMBER],
             title=dic[IssueStatic.TITLE],
-            author_login=dic[IssueStatic.AUTHOR][UserStatic.LOGIN],
+            author=author,
             assignees=list(node[UserStatic.LOGIN] for node in (dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]
                                                                if dic[IssueStatic.ASSIGNEES] is not None else [])),
             body=dic[IssueStatic.BODY_TEXT],
@@ -335,7 +368,7 @@ class PullRequestModel(BaseModel):
             labels=list(node[UserStatic.NAME] for node in dic[IssueStatic.LABELS][APIStaticV4.NODES]),
             merged=dic[IssueStatic.MERGED],
             merged_at=dic[IssueStatic.MERGED_AT],
-            merged_by=dic[IssueStatic.MERGED_BY][UserStatic.LOGIN] if dic[IssueStatic.MERGED_BY] is not None else None,
+            merged_by=merged_by,
             milestone_number=dic[IssueStatic.MILESTONE][
                 APIStaticV4.NUMBER] if dic[IssueStatic.MILESTONE] is not None else None,
             positive_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
@@ -513,7 +546,7 @@ class CodeChangeModel(BaseModel):
             )
         except KeyError:
             return None
-    
+
         return obj
 
 
@@ -568,7 +601,7 @@ class UserModel(BaseModel):
             location=location,
             updated_at=updated_at
         )
-    
+
         return obj
 
 
@@ -645,7 +678,7 @@ class CommitCommentModel(BaseModel):
 class ForkModel(BaseModel):
     def __init__(self, login, forked_at):
         super().__init__()
-    
+
         self.login = login
         self.forked_at = forked_at
     

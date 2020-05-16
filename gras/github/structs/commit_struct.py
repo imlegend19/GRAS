@@ -1,5 +1,5 @@
 from gras.github.entity.api_static import APIStaticV3, APIStaticV4, CommitStatic
-from gras.github.entity.github_models import CodeChangeModel, CommitModelV3, CommitModelV4
+from gras.github.entity.github_models import CodeChangeModel, CommitModelV3, CommitModelV4, deprecated
 from gras.github.github import GithubInterface
 
 
@@ -22,6 +22,7 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
                 yield obj
 
 
+@deprecated("Please use :class:`~CommitStructV4` instead.")
 class CommitStructV3(GithubInterface, CommitModelV3):
     def __init__(self, name, owner, start_date, end_date, merge):
         super().__init__(

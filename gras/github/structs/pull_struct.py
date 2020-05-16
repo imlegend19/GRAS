@@ -16,12 +16,23 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
                     ... on PullRequest {{
                         title
                         author {{
-                          login
+                            ... on User {{
+                                type: __typename
+                                email
+                                createdAt
+                                login
+                                name
+                                location
+                                updatedAt
+                                followers {{
+                                    totalCount
+                                }}
+                            }}
                         }}
                         assignees(first: 30) {{
-                          nodes {{
-                            login
-                          }}
+                            nodes {{
+                                login
+                            }}
                         }}
                         bodyText
                         changedFiles
@@ -50,7 +61,18 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
                         merged
                         mergedAt
                         mergedBy {{
-                            login
+                            ... on User {{
+                                type: __typename
+                                email
+                                createdAt
+                                login
+                                name
+                                location
+                                updatedAt
+                                followers {{
+                                    totalCount
+                                }}
+                            }}
                         }}
                         milestone {{
                             number
@@ -88,6 +110,7 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
                                              self.query_params["end_date"], chunk_size=self.chunk_size):
             self.query_params["start_date"] = start
             self.query_params["end_date"] = end
+            self.query_params["after"] = "null"
             
             generator = self._generator()
             hasNextPage = True
