@@ -4,6 +4,25 @@ from gras.github.github import GithubInterface
 
 
 class LabelStruct(GithubInterface, LabelModel):
+    """
+        The object models the query to fetch the list of labels associated with a repository and generates an
+        object using
+        :class:`gras.github.entity.github_models.LabelModel` containing the fetched data.
+
+        Please see GitHub's `repository documentation`_, `label connection documentation`_ for more information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _label connection documentation:
+            https://developer.github.com/v4/object/labelconnection
+
+        :param name: name of the repository
+        :type name: str
+        :param owner: owner of the repository
+        :type owner: str
+    """
+
     LABEL_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -23,17 +42,26 @@ class LabelStruct(GithubInterface, LabelModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner):
+        """Constructor method
+        """
         super().__init__(
             query=self.LABEL_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
-        )
-    
+            )
+
     def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.label_struct.LabelStruct`. For more information see
+            :class:`gras.github.github.githubInterface`.
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+
         generator = self._generator()
         hasNextPage = True
-        
+
         while hasNextPage:
             try:
                 response = next(generator)
@@ -51,6 +79,12 @@ class LabelStruct(GithubInterface, LabelModel):
                 APIStaticV4.HAS_NEXT_PAGE]
 
     def process(self):
+        """
+        generates a :class:`gras.github.entity.github_models.LabelModel` object representing the fetched data.
+        :return: A :class:`gras.github.entity.github_models.LabelModel` object
+        :rtype: class
+        """
+
         for lst in self.iterator():
             for label in lst:
                 yield self.object_decoder(label)
