@@ -20,11 +20,11 @@ from gras.github.structs.contributor_struct import (
 )
 from gras.github.structs.event_struct import EventStruct
 from gras.github.structs.fork_struct import ForkStruct
-from gras.github.structs.issue_struct import IssueStruct
+from gras.github.structs.issue_struct import IssueDetailStruct, IssueStruct
 from gras.github.structs.label_struct import LabelStruct
 from gras.github.structs.language_struct import LanguageStruct
 from gras.github.structs.milestone_struct import MilestoneStruct
-from gras.github.structs.pull_struct import PullRequestStruct
+from gras.github.structs.pull_struct import PullRequestDetailStruct, PullRequestStruct
 from gras.github.structs.release_struct import ReleaseStruct
 from gras.github.structs.repository_struct import RepositoryStruct
 from gras.github.structs.stargazer_struct import StargazerStruct
@@ -537,90 +537,115 @@ class GithubMiner(BaseMiner):
 
         logger.info("Dumping Labels...")
         self._insert(self.db_schema.labels.insert(), obj_list)
-    
+
     @timing(name='issues')
-    def _dump_issues(self):
-        logger.info("Dumping Issues...")
+    def _dump_issues(self, number=None):
+        if number is not None:
+            issue = IssueDetailStruct(
+                name=self.repo_name,
+                owner=self.repo_owner,
+                number=number
+            ).process()
         
-        issues = IssueStruct(
-            name=self.repo_name,
-            owner=self.repo_owner,
-            start_date=self.start_date,
-            end_date=self.end_date,
-            chunk_size=self.chunk_size
-        )
-        
-        obj_list = []
-        issue_assignees_lst = []
-        issue_labels_lst = []
-        issue_list = []
-        
-        for node in issues.process():
             obj = self.db_schema.issues_object(
-                number=node.number,
+                number=issue.number,
                 repo_id=self.repo_id,
-                created_at=node.created_at,
-                updated_at=node.updated_at,
-                closed_at=node.closed_at,
-                title=node.title,
-                body=node.body,
-                reporter_id=self._get_user_id(login=None, user_object=node.author),
-                milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
-                positive_reaction_count=node.positive_reaction_count,
-                negative_reaction_count=node.negative_reaction_count,
-                ambiguous_reaction_count=node.ambiguous_reaction_count,
-                state=node.state
+                created_at=issue.created_at,
+                updated_at=issue.updated_at,
+                closed_at=issue.closed_at,
+                title=issue.title,
+                body=issue.body,
+                reporter_id=self._get_user_id(login=None, user_object=issue.author),
+                milestone_id=self._get_table_id(table='milestones', field='number', value=issue.milestone_number),
+                positive_reaction_count=issue.positive_reaction_count,
+                negative_reaction_count=issue.negative_reaction_count,
+                ambiguous_reaction_count=issue.ambiguous_reaction_count,
+                state=issue.state
             )
-
-            issue_assignees_lst.append((node.number, node.assignees))
-            issue_labels_lst.append((node.number, node.labels))
-
-            if node.number not in issue_list:
-                issue_list.append(node.number)
-                obj_list.append(obj)
-
-            if len(obj_list) % MAX_INSERT_OBJECTS == 0:
-                logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
-                self._insert(object_=self.db_schema.issues.insert(), param=obj_list)
-                obj_list.clear()
-                logger.debug("Success!")
         
-        logger.info(f"Total Issues: {len(issue_list)}...")
-        self._insert(self.db_schema.issues.insert(), obj_list)
+            self._insert(self.db_schema.issues.insert(), obj)
+        else:
+            logger.info("Dumping Issues...")
         
-        self._dump_issue_assignees(issue_assignees_lst)
-        self._dump_issue_labels(issue_labels_lst)
+            issues = IssueStruct(
+                name=self.repo_name,
+                owner=self.repo_owner,
+                start_date=self.start_date,
+                end_date=self.end_date,
+                chunk_size=self.chunk_size
+            )
         
-        logger.info("Dumping Issue Events...")
-
-        for i in range(0, len(issue_list), mp.cpu_count()):
-            if sys.platform == 'win32':
-                with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
-                    executor.map(self._dump_code_change, issue_list[i: i + mp.cpu_count()])
-            else:
-                processes = []
-                for num in issue_list[i: i + mp.cpu_count()]:
-                    p = mp.Process(target=self._dump_issue_events, args=(num,))
-                    p.start()
-                    processes.append(p)
+            obj_list = []
+            issue_assignees_lst = []
+            issue_labels_lst = []
+            issue_list = []
         
-                while all([x.is_alive() for x in processes]):
-                    continue
+            for node in issues.process():
+                obj = self.db_schema.issues_object(
+                    number=node.number,
+                    repo_id=self.repo_id,
+                    created_at=node.created_at,
+                    updated_at=node.updated_at,
+                    closed_at=node.closed_at,
+                    title=node.title,
+                    body=node.body,
+                    reporter_id=self._get_user_id(login=None, user_object=node.author),
+                    milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
+                    positive_reaction_count=node.positive_reaction_count,
+                    negative_reaction_count=node.negative_reaction_count,
+                    ambiguous_reaction_count=node.ambiguous_reaction_count,
+                    state=node.state
+                )
+            
+                issue_assignees_lst.append((node.number, node.assignees))
+                issue_labels_lst.append((node.number, node.labels))
+            
+                if node.number not in issue_list:
+                    issue_list.append(node.number)
+                    obj_list.append(obj)
+            
+                if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                    logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
+                    self._insert(object_=self.db_schema.issues.insert(), param=obj_list)
+                    obj_list.clear()
+                    logger.debug("Success!")
         
-        logger.info("Dumping Issue Comments...")
-        for i in range(0, len(issue_list), mp.cpu_count()):
-            if sys.platform == 'win32':
-                with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
-                    executor.map(self._dump_code_change, issue_list[i: i + mp.cpu_count()])
-            else:
-                processes = []
-                for num in issue_list[i: i + mp.cpu_count()]:
-                    p = mp.Process(target=self._dump_issue_comments, args=(num,))
-                    p.start()
-                    processes.append(p)
+            logger.info(f"Total Issues: {len(issue_list)}...")
+            self._insert(self.db_schema.issues.insert(), obj_list)
         
-                while all([x.is_alive() for x in processes]):
-                    continue
+            self._dump_issue_assignees(issue_assignees_lst)
+            self._dump_issue_labels(issue_labels_lst)
+        
+            logger.info("Dumping Issue Events...")
+        
+            for i in range(0, len(issue_list), mp.cpu_count()):
+                if sys.platform == 'win32':
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
+                        executor.map(self._dump_issue_events, issue_list[i: i + mp.cpu_count()])
+                else:
+                    processes = []
+                    for num in issue_list[i: i + mp.cpu_count()]:
+                        p = mp.Process(target=self._dump_issue_events, args=(num,))
+                        p.start()
+                        processes.append(p)
+                
+                    while all([x.is_alive() for x in processes]):
+                        continue
+        
+            logger.info("Dumping Issue Comments...")
+            for i in range(0, len(issue_list), mp.cpu_count()):
+                if sys.platform == 'win32':
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
+                        executor.map(self._dump_issue_comments, issue_list[i: i + mp.cpu_count()])
+                else:
+                    processes = []
+                    for num in issue_list[i: i + mp.cpu_count()]:
+                        p = mp.Process(target=self._dump_issue_comments, args=(num,))
+                        p.start()
+                        processes.append(p)
+                
+                    while all([x.is_alive() for x in processes]):
+                        continue
     
     @timing(name='issue_assignees')
     def _dump_issue_assignees(self, node_list):
@@ -944,105 +969,142 @@ class GithubMiner(BaseMiner):
                 obj_list.clear()
         
         self._insert(object_=self.db_schema.commit_comments.insert(), param=obj_list)
-    
+
     @timing(name='pull_requests')
-    def _dump_pull_requests(self):
-        logger.info("Dumping Pull Requests...")
+    def _dump_pull_requests(self, number=None):
+        if number is not None:
+            pr = PullRequestDetailStruct(
+                name=self.repo_name,
+                owner=self.repo_owner,
+                number=number
+            ).process()
         
-        prs = PullRequestStruct(
-            name=self.repo_name,
-            owner=self.repo_owner,
-            start_date=self.start_date,
-            end_date=self.end_date,
-            chunk_size=self.chunk_size
-        )
-        
-        obj_list = []
-        pr_assignees_lst = []
-        pr_labels_lst = []
-        pr_commits = []
-        pr_list = []
-        
-        for node in prs.process():
-            logger.debug(f"Ongoing PR: {node.number}")
             obj = self.db_schema.pull_requests_object(
                 repo_id=self.repo_id,
-                number=node.number,
-                title=node.title,
-                body=node.body,
-                author_id=self._get_user_id(login=None, user_object=node.author),
-                num_files_changed=node.num_files_changed,
-                created_at=node.created_at,
-                updated_at=node.updated_at,
-                additions=node.additions,
-                deletions=node.deletions,
-                base_ref_name=node.base_ref_name,
-                base_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.base_ref_oid),
-                head_ref_name=node.head_ref_name,
-                head_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.head_ref_oid),
-                closed=node.closed,
-                closed_at=node.closed_at,
-                merged=node.merged,
-                merged_at=node.merged_at,
-                merged_by=self._get_user_id(login=None, user_object=node.merged_by),
-                milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
-                positive_reaction_count=node.positive_reaction_count,
-                negative_reaction_count=node.negative_reaction_count,
-                ambiguous_reaction_count=node.ambiguous_reaction_count,
-                state=node.state,
-                review_decision=node.review_decision
+                number=pr.number,
+                title=pr.title,
+                body=pr.body,
+                author_id=self._get_user_id(login=None, user_object=pr.author),
+                num_files_changed=pr.num_files_changed,
+                created_at=pr.created_at,
+                updated_at=pr.updated_at,
+                additions=pr.additions,
+                deletions=pr.deletions,
+                base_ref_name=pr.base_ref_name,
+                base_ref_commit_id=self._get_table_id(table='commits', field='oid', value=pr.base_ref_oid),
+                head_ref_name=pr.head_ref_name,
+                head_ref_commit_id=self._get_table_id(table='commits', field='oid', value=pr.head_ref_oid),
+                closed=pr.closed,
+                closed_at=pr.closed_at,
+                merged=pr.merged,
+                merged_at=pr.merged_at,
+                merged_by=self._get_user_id(login=None, user_object=pr.merged_by),
+                milestone_id=self._get_table_id(table='milestones', field='number', value=pr.milestone_number),
+                positive_reaction_count=pr.positive_reaction_count,
+                negative_reaction_count=pr.negative_reaction_count,
+                ambiguous_reaction_count=pr.ambiguous_reaction_count,
+                state=pr.state,
+                review_decision=pr.review_decision
             )
-
-            pr_assignees_lst.append((node.number, node.assignees))
-            pr_labels_lst.append((node.number, node.labels))
-            pr_commits.append((node.number, node.commits))
-            pr_list.append(node.number)
-
-            obj_list.append(obj)
-
-            if len(obj_list) % MAX_INSERT_OBJECTS == 0:
-                logger.debug(f"Inserting {MAX_INSERT_OBJECTS} pull requests...")
-                self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
-                obj_list.clear()
-                logger.debug("Success!")
         
-        logger.info(f"Total Pull Requests: {len(pr_list)}...")
-        self._insert(self.db_schema.pull_requests.insert(), obj_list)
+            self._insert(self.db_schema.pull_requests.insert(), obj)
+        else:
+            logger.info("Dumping Pull Requests...")
         
-        self._dump_pull_request_assignees(pr_assignees_lst)
-        self._dump_pull_request_labels(pr_labels_lst)
-        self._dump_pull_request_commits(pr_commits)
+            prs = PullRequestStruct(
+                name=self.repo_name,
+                owner=self.repo_owner,
+                start_date=self.start_date,
+                end_date=self.end_date,
+                chunk_size=self.chunk_size
+            )
         
-        logger.info("Dumping Pull Request Events...")
-        for i in range(0, len(pr_list), mp.cpu_count()):
-            if sys.platform == 'win32':
-                with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
-                    executor.map(self._dump_pull_request_events, pr_list[i: i + mp.cpu_count()])
-            else:
-                processes = []
-
-                for num in pr_list[i: i + mp.cpu_count()]:
-                    p = mp.Process(target=self._dump_pull_request_events, args=(num,))
-                    p.start()
-                    processes.append(p)
+            obj_list = []
+            pr_assignees_lst = []
+            pr_labels_lst = []
+            pr_commits = []
+            pr_list = []
+        
+            for node in prs.process():
+                logger.debug(f"Ongoing PR: {node.number}")
+                obj = self.db_schema.pull_requests_object(
+                    repo_id=self.repo_id,
+                    number=node.number,
+                    title=node.title,
+                    body=node.body,
+                    author_id=self._get_user_id(login=None, user_object=node.author),
+                    num_files_changed=node.num_files_changed,
+                    created_at=node.created_at,
+                    updated_at=node.updated_at,
+                    additions=node.additions,
+                    deletions=node.deletions,
+                    base_ref_name=node.base_ref_name,
+                    base_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.base_ref_oid),
+                    head_ref_name=node.head_ref_name,
+                    head_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.head_ref_oid),
+                    closed=node.closed,
+                    closed_at=node.closed_at,
+                    merged=node.merged,
+                    merged_at=node.merged_at,
+                    merged_by=self._get_user_id(login=None, user_object=node.merged_by),
+                    milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
+                    positive_reaction_count=node.positive_reaction_count,
+                    negative_reaction_count=node.negative_reaction_count,
+                    ambiguous_reaction_count=node.ambiguous_reaction_count,
+                    state=node.state,
+                    review_decision=node.review_decision
+                )
+            
+                pr_assignees_lst.append((node.number, node.assignees))
+                pr_labels_lst.append((node.number, node.labels))
+                pr_commits.append((node.number, node.commits))
+                pr_list.append(node.number)
+            
+                obj_list.append(obj)
+            
+                if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                    logger.debug(f"Inserting {MAX_INSERT_OBJECTS} pull requests...")
+                    self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
+                    obj_list.clear()
+                    logger.debug("Success!")
+        
+            logger.info(f"Total Pull Requests: {len(pr_list)}...")
+            self._insert(self.db_schema.pull_requests.insert(), obj_list)
+        
+            self._dump_pull_request_assignees(pr_assignees_lst)
+            self._dump_pull_request_labels(pr_labels_lst)
+            self._dump_pull_request_commits(pr_commits)
+        
+            logger.info("Dumping Pull Request Events...")
+            for i in range(0, len(pr_list), mp.cpu_count()):
+                if sys.platform == 'win32':
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
+                        executor.map(self._dump_pull_request_events, pr_list[i: i + mp.cpu_count()])
+                else:
+                    processes = []
                 
-                while all([x.is_alive() for x in processes]):
-                    continue
-        
-        logger.info("Dumping Pull Request Comments...")
-        for i in range(0, len(pr_list), mp.cpu_count()):
-            if sys.platform == 'win32':
-                with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
-                    executor.map(self._dump_pull_request_comments, pr_list[i: i + mp.cpu_count()])
-            else:
-                processes = []
-                for num in pr_list[i: i + mp.cpu_count()]:
-                    p = mp.Process(target=self._dump_pull_request_comments, args=(num,))
-                    p.start()
-                    processes.append(p)
+                    for num in pr_list[i: i + mp.cpu_count()]:
+                        p = mp.Process(target=self._dump_pull_request_events, args=(num,))
+                        p.start()
+                        processes.append(p)
                 
-                while all([x.is_alive() for x in processes]):
-                    continue
+                    while all([x.is_alive() for x in processes]):
+                        continue
+        
+            logger.info("Dumping Pull Request Comments...")
+            for i in range(0, len(pr_list), mp.cpu_count()):
+                if sys.platform == 'win32':
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
+                        executor.map(self._dump_pull_request_comments, pr_list[i: i + mp.cpu_count()])
+                else:
+                    processes = []
+                    for num in pr_list[i: i + mp.cpu_count()]:
+                        p = mp.Process(target=self._dump_pull_request_comments, args=(num,))
+                        p.start()
+                        processes.append(p)
+                
+                    while all([x.is_alive() for x in processes]):
+                        continue
     
     @timing(name='pull_request_assignees')
     def _dump_pull_request_assignees(self, node_list):
@@ -1279,9 +1341,18 @@ class GithubMiner(BaseMiner):
                     self._dump_commits(oid=value)
                     return self._get_table_id(table=table, field=field, value=value, toggle=True)
                 else:
-                    logger.error(f"Commit oid: {value} has been deleted! Returning `None`.")
-                    # TODO: This means that the commit has been deleted! Add `is_deleted` field in commits table
+                    logger.debug(f"Commit oid: {value} has been deleted! Returning `None`.")
                     return None
+            elif table == "issues":
+                if not toggle:
+                    self._dump_issues(number=value)
+                    return self._get_table_id(table=table, field=field, value=value, toggle=True)
+                else:
+                    logger.debug(f"Issue number: {value} has been deleted! Returning `None`.")
+                    return None
+            elif table == "pull_requests":
+                if not toggle:
+                    self._dump_pull_requests(number=value)
             else:
                 logger.error(f"pk not found for table: {table}, field: {field}, value: {value}.")
                 # TODO: Implement remaining create objects (would have multiple if cases)

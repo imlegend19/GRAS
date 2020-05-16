@@ -122,24 +122,12 @@ class GrasArgumentParser(argparse.ArgumentParser):
         
         self._init_groups()
         self._add_gras_commands()
-        self._add_grass_settings()
+        self._add_gras_settings()
         self._add_database_settings()
         self._add_other_arguments()
 
         try:
-            self.args = self.parse_args([
-                '-RN', 'tensorflow', '-RO', 'tensorflow', '--mine', '-IT', '-dbms', 'sqlite',
-                '-dbo', 'tensorflow.db', '-CS', '35', '-SD', '2015-10-15T00:00:00', '-ED', '2019-08-10T00:00:00', '-t',
-                "b62c6b609bb8065399d4f09a85d6bad15894f345",
-                "607c3244f568fe931dbeddb2bc4056e517741a56",
-                "b647ad8aaa1482bd6b090ab8f290b3579ca5b7dc ",
-                "5b4174a5138e19e56492ed9ed156b0536ae6fc28",
-                "e07f3d6b8761a25c05790e999e6b9b3fe5dee242",
-                "611d49d3ea9b270e7533b1ed001f42dbdac3a145",
-                "055caf4d79af024f16c903b4886bcb0c608a465a",
-                "c19a9abcc15793107c88ced3d5115358894b1c69",
-                "223163d584710a1f4efbb3e04698b19385fd503b",
-            ])
+            self.args = self.parse_args()
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -186,7 +174,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self.gras_commands.add_argument('-CS', '--chunk-size', help="Time Period Chunk Size (in Days)", type=int,
                                         default=20)
 
-    def _add_grass_settings(self):
+    def _add_gras_settings(self):
         self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",
                                         nargs='+')
         self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',

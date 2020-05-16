@@ -21,14 +21,14 @@ class GithubInterface(BaseInterface):
         return 'github'
 
     def __init__(self, query_params=None, url=APIStaticV4.BASE_URL, query=None,
-                 additional_headers=None):
+                 additional_headers=None, github_token=None):
         super().__init__()
     
         self.query = query
         self.url = url
         self.query_params = query_params
         self.additional_headers = additional_headers or dict()
-        self.token = None
+        self.token = github_token
     
     @property
     def headers(self):
@@ -75,8 +75,10 @@ class GithubInterface(BaseInterface):
     
     def _send_request(self, param=None, only_json=True, method=POST):
         self._create_http_session()
-        self.token = get_next_token()
-        
+    
+        if not self.token:
+            self.token = get_next_token()
+    
         tries = 1
         while tries <= 3:
             # logger.debug(f"Sending request to url {self.url}. (Try: {tries})")

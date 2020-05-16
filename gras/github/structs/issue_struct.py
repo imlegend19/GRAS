@@ -1,11 +1,75 @@
 import logging
 
-from gras.github.entity.api_static import APIStaticV4
+from gras.github.entity.api_static import APIStaticV4, IssueStatic
 from gras.github.entity.github_models import IssueModel
 from gras.github.github import GithubInterface
 from gras.utils import time_period_chunks
 
 logger = logging.getLogger("main")
+
+
+class IssueDetailStruct(GithubInterface, IssueModel):
+    QUERY = """
+        {{
+            repository(name: "{name}", owner: "{owner}") {{
+                issue(number: {number}) {{
+                    createdAt
+                    updatedAt
+                    closedAt
+                    title
+                    bodyText
+                    author {{
+                        ... on User {{
+                            type: __typename
+                            email
+                            createdAt
+                            login
+                            name
+                            location
+                            updatedAt
+                            followers {{
+                                totalCount
+                            }}
+                        }}
+                    }}
+                    assignees(first: 10) {{
+                        nodes {{
+                            login
+                        }}
+                    }}
+                    number
+                    milestone {{
+                        number
+                    }}
+                    state
+                    labels(first: 30, orderBy: {{ field: CREATED_AT, direction: ASC }}) {{
+                        nodes {{
+                            name
+                        }}
+                    }}
+                    reactionGroups {{
+                        content
+                        users {{
+                            totalCount
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    """
+    
+    def __init__(self, name, owner, number):
+        super().__init__(
+            query=self.QUERY,
+            query_params=dict(owner=owner, name=name, number=number)
+        )
+    
+    def iterator(self):
+        generator = self._generator()
+        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE]
+    
+    def process(self):
+        return self.object_decoder(self.iterator())
 
 
 class IssueStruct(GithubInterface, IssueModel):
