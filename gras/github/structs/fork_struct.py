@@ -4,25 +4,6 @@ from gras.github.github import GithubInterface
 
 
 class ForkStruct(GithubInterface, ForkModel):
-    """
-        The object models the query to fetch the list of directly forked repositories and
-        generates an object using
-        :class:`gras.github.entity.github_models.ForkModel` containing the fetched data.
-
-        Please see GitHub's `repository documentation`_, `fork connection documentation`_ for more information.
-
-        .. _repository documentation:
-            https://developer.github.com/v4/object/repository/
-
-        .. _fork connection documentation:
-            https://developer.github.com/v4/object/repositoryconnection/
-
-        :param name: name of the repository
-        :type name: str
-        :param owner: owner of the repository
-        :type owner: str
-    """
-
     FORK_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -41,7 +22,24 @@ class ForkStruct(GithubInterface, ForkModel):
     """
 
     def __init__(self, name, owner):
-        """Constructor method
+        """
+        The object models the query to fetch the list of directly forked repositories and
+        generates an object using
+        :class:`gras.github.entity.github_models.ForkModel` containing the fetched data.
+
+        Please see GitHub's `repository documentation`_, `fork connection documentation`_ for more information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _fork connection documentation:
+            https://developer.github.com/v4/object/repositoryconnection/
+
+        :param name: name of the repository
+        :type name: str
+        
+        :param owner: owner of the repository
+        :type owner: str
         """
         super().__init__(
             query=self.FORK_QUERY,
@@ -50,10 +48,11 @@ class ForkStruct(GithubInterface, ForkModel):
 
     def iterator(self):
         """
-            Iterator function for :class:`gras.github.structs.fork_struct.ForkStruct`. For more information see
-            :class:`gras.github.github.githubInterface`.
-            :return: a single API response or a list of responses
-            :rtype: generator<dict>
+        Iterator function for :class:`gras.github.structs.fork_struct.ForkStruct`. For more information see
+        :class:`gras.github.github.githubInterface`.
+
+        :return: a single API response or a list of responses
+        :rtype: generator<dict>
         """
 
         generator = self._generator()
@@ -77,7 +76,8 @@ class ForkStruct(GithubInterface, ForkModel):
 
     def process(self):
         """
-        generates a :class:`gras.github.entity.github_models.ForkModel` object representing the fetched data.
+        Generates a :class:`gras.github.entity.github_models.ForkModel` object representing the fetched data.
+        
         :return: A :class:`gras.github.entity.github_models.ForkModel` object
         :rtype: class
         """
