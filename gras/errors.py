@@ -30,7 +30,7 @@ class GrasConfigError(GrasError):
 
 
 class DatabaseError(GrasError):
-    """Database connecton exception"""
+    """Database connection exception"""
     
     message = "%(msg)s"
 
@@ -43,5 +43,11 @@ class InvalidTokenError(GrasError):
 
 class ObjectDoesNotExistError(GrasError):
     """Exception to be raised if HTTPError is throws, i.e when object to be fetched has been deleted."""
+    
+    message = "%(msg)s"
+
+
+class QueryObjectError(GrasError):
+    """Exception to be raised by :class:`~gras.github.query_builder.QueryObject`"""
     
     message = "%(msg)s"

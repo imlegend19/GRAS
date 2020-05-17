@@ -40,15 +40,15 @@ class LanguageStruct(GithubInterface, LanguageModel):
             }}
         }}
     """
-    
-    def __init__(self, name, owner):
-        """Constructor method
-        """
+
+    def __init__(self, name, owner, github_token=None):
+        """Constructor method"""
         super().__init__(
             query=self.LANGUAGE_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
+            github_token=github_token
         )
-    
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.language_struct.LanguageStruct`. For more information see
