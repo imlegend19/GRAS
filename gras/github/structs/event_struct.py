@@ -3,16 +3,20 @@ from gras.github.entity.github_models import EventModel
 from gras.github.github import GithubInterface
 
 
-class EventStruct(GithubInterface, EventModel):
+class EventDetailStruct(GithubInterface, EventModel):
     QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
                 {type_filter}(number: {number}) {{
                     timelineItems(first:250, itemTypes:[ASSIGNED_EVENT, CROSS_REFERENCED_EVENT, DEMILESTONED_EVENT,
-                                             LABELED_EVENT, MARKED_AS_DUPLICATE_EVENT, MENTIONED_EVENT,
-                                             MILESTONED_EVENT, PINNED_EVENT, REFERENCED_EVENT, RENAMED_TITLE_EVENT,
-                                             REOPENED_EVENT, TRANSFERRED_EVENT, UNASSIGNED_EVENT, UNLABELED_EVENT,
-                                             UNMARKED_AS_DUPLICATE_EVENT, UNPINNED_EVENT], since: "{since}") {{
+                                        LABELED_EVENT, MARKED_AS_DUPLICATE_EVENT, MENTIONED_EVENT,
+                                        MILESTONED_EVENT, PINNED_EVENT, REFERENCED_EVENT, RENAMED_TITLE_EVENT,
+                                        REOPENED_EVENT, TRANSFERRED_EVENT, UNASSIGNED_EVENT, UNLABELED_EVENT,
+                                        UNMARKED_AS_DUPLICATE_EVENT, UNPINNED_EVENT], since: {since}) {{
+                        pageInfo {{
+                            endCursor
+                            hasNextPage
+                        }}
                         nodes {{
                             eventType: __typename
                             ... on AssignedEvent {{
@@ -156,17 +160,35 @@ class EventStruct(GithubInterface, EventModel):
     def __init__(self, owner, name, type_filter, since, number):
         super().__init__(
             query=self.QUERY,
-            query_params=dict(name=name, owner=owner, type_filter=type_filter, since=since, number=number)
+            query_params=dict(name=name, owner=owner, type_filter=type_filter, number=number,
+                              since="\"" + since + "\"" if since else "null")
         )
-    
+
         self.type_filter = type_filter
         self.issue_number = number
     
     def iterator(self):
         generator = self._generator()
-        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][
-            EventStatic.TIMELINE_ITEMS][APIStaticV4.NODES]
+        hasNextPage = True
+    
+        while hasNextPage:
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
+        
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][
+                EventStatic.TIMELINE_ITEMS][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
+        
+            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
+        
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][
+                EventStatic.TIMELINE_ITEMS][APIStaticV4.NODES]
+        
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][self.type_filter][
+                EventStatic.TIMELINE_ITEMS][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
     
     def process(self):
-        for node in self.iterator():
-            yield self.object_decoder(node, number=self.issue_number)
+        for lst in self.iterator():
+            for node in lst:
+                yield self.object_decoder(node, number=self.issue_number)

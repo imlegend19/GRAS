@@ -18,7 +18,7 @@ from gras.github.structs.contributor_struct import (
     ContributorList, UserNodesStruct, UserStruct,
     UserStructV3
 )
-from gras.github.structs.event_struct import EventStruct
+from gras.github.structs.event_struct import EventDetailStruct
 from gras.github.structs.fork_struct import ForkStruct
 from gras.github.structs.issue_struct import IssueDetailStruct, IssueSearchStruct, IssueStruct
 from gras.github.structs.label_struct import LabelStruct
@@ -36,7 +36,7 @@ logger = logging.getLogger("main")
 logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
 
 lock = mp.Lock()
-MAX_INSERT_OBJECTS = 5000
+MAX_INSERT_OBJECTS = 1000
 
 
 class GithubMiner(BaseMiner):
@@ -625,13 +625,16 @@ class GithubMiner(BaseMiner):
                     end_date=self.end_date,
                     chunk_size=self.chunk_size
                 )
-    
+
             obj_list = []
             issue_assignees_lst = []
             issue_labels_lst = []
             issue_list = []
-    
+
+            it = 0
             for node in issues.process():
+                print(f"Ongoing {it} --> {node.number}")
+                it += 1
                 obj = self.db_schema.issues_object(
                     number=node.number,
                     repo_id=self.repo_id,
@@ -750,16 +753,16 @@ class GithubMiner(BaseMiner):
         return obj_list
     
     def _dump_issue_events(self, number):
-        issue_event = EventStruct(
+        issue_event = EventDetailStruct(
             name=self.repo_name,
             owner=self.repo_owner,
-            since=self.start_date,
+            since=self.start_date if not self.full else None,
             type_filter="issue",
             number=number
         )
-
+    
         issue_id = self._get_table_id(table="issues", field="number", value=number)
-
+    
         obj_list = self._events_object_list(issue_event, id_=issue_id, type_="ISSUE")
 
         logger.debug(f"Dumping Issue Events for Issue Number: {number}...")
@@ -771,8 +774,9 @@ class GithubMiner(BaseMiner):
     
         for issues in self.__get_issues():
             if sys.platform == 'win32':
-                with concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
-                    executor.map(self._dump_issue_events, issues)
+                executor = concurrent.futures.ThreadPoolExecutor(max_workers=mp.cpu_count())
+                for iss in issues:
+                    executor.submit(self._dump_issue_events, iss)
             else:
                 processes = []
                 for num in issues:
@@ -870,7 +874,7 @@ class GithubMiner(BaseMiner):
         
             for branch in self.__get_branches():
                 logger.info(f"Dumping commits for branch {branch}...")
-            
+
                 commits = CommitStructV4(
                     name=self.repo_name,
                     owner=self.repo_owner,
@@ -878,10 +882,13 @@ class GithubMiner(BaseMiner):
                     end_date=self.end_date,
                     branch=branch
                 )
-            
+
                 obj_list = []
-            
+
+                it = 0
                 for node in commits.process():
+                    print(f"Ongoing {it} --> {node.oid}")
+                    it += 1
                     obj = self.db_schema.commits_object(
                         repo_id=self.repo_id,
                         oid=node.commit_id,
@@ -1198,10 +1205,10 @@ class GithubMiner(BaseMiner):
         self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
     
     def _dump_pull_request_events(self, number):
-        pr_event = EventStruct(
+        pr_event = EventDetailStruct(
             name=self.repo_name,
             owner=self.repo_owner,
-            since=self.start_date,
+            since=self.start_date if not self.full else None,
             type_filter="pullRequest",
             number=number
         )
@@ -1308,17 +1315,14 @@ class GithubMiner(BaseMiner):
 
     @locked
     def _insert(self, object_, param):
-        lock.acquire()
-
         try:
             if param:
                 inserted = self._conn.execute(object_, param)
                 logger.debug(f"Affected Rows: {inserted.rowcount}")
         except IntegrityError as e:
             logger.debug(f"Caught Integrity Error: {e}")
+            pass
 
-        lock.release()
-    
     def _set_repo_id(self):
         res = self._conn.execute(
             f"""

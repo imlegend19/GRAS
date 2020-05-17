@@ -497,4 +497,4 @@ if __name__ == '__main__':
     logger.info("Starting GRAS...")
 
     main()
-    sys.exit(1)
+    # sys.exit(1)
