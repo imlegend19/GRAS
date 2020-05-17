@@ -4,6 +4,24 @@ from gras.github.github import GithubInterface
 
 
 class LanguageStruct(GithubInterface, LanguageModel):
+    """
+        The object models the query to fetch the language composition of a repository and generates an object using
+        :class:`gras.github.entity.github_models.LanguageModel` containing the fetched data.
+
+        Please see GitHub's `repository documentation`_, `language connection documentation`_ for more information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _language connection documentation:
+            https://developer.github.com/v4/object/languageconnection
+
+        :param name: name of the repository
+        :type name: str
+        :param owner: owner of the repository
+        :type owner: str
+    """
+
     LANGUAGE_QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -24,12 +42,21 @@ class LanguageStruct(GithubInterface, LanguageModel):
     """
     
     def __init__(self, name, owner):
+        """Constructor method
+        """
         super().__init__(
             query=self.LANGUAGE_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
     
     def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.language_struct.LanguageStruct`. For more information see
+            :class:`gras.github.github.githubInterface`.
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+
         generator = self._generator()
         hasNextPage = True
         
@@ -64,6 +91,12 @@ class LanguageStruct(GithubInterface, LanguageModel):
                 RepositoryStatic.LANGUAGES][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
     def process(self):
+        """
+        generates a :class:`gras.github.entity.github_models.LanguageModel` object representing the fetched data.
+        :return: A :class:`gras.github.entity.github_models.LanguageModel` object
+        :rtype: class
+        """
+
         for lst in self.iterator():
             for lang in lst:
                 yield self.object_decoder(lang)
