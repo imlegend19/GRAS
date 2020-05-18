@@ -1,10 +1,16 @@
 import concurrent.futures
+import logging
 import signal
 from abc import ABCMeta, abstractmethod
+
+from sqlalchemy import create_engine
+from sqlalchemy.exc import ProgrammingError
 
 from gras.errors import InvalidTokenError
 from gras.github.structs.rate_limit import RateLimitStruct
 from gras.utils import to_iso_format
+
+logger = logging.getLogger("main")
 
 
 class BaseMiner(metaclass=ABCMeta):
@@ -80,9 +86,34 @@ class BaseMiner(metaclass=ABCMeta):
     def process(self):
         pass
     
-    @abstractmethod
     def _connect_to_db(self):
-        pass
+        # dialect+driver://username:password@db_host:db_port/database
+        
+        try:
+            if self.dbms == "sqlite":
+                engine = create_engine(f'sqlite:///{self.db_output}', echo=self.db_log, connect_args={
+                    'check_same_thread': False
+                })
+            elif self.dbms == 'mysql':
+                engine = create_engine(
+                    f'mysql+pymysql://{self.db_username}:{self.db_password}@{self.db_host}:'
+                    f'{self.db_port}/{self.db_name}?charset=utf8mb4', echo=self.db_log)
+            elif self.dbms == 'postgresql':
+                engine = create_engine(
+                    f'postgresql+psycopg2://{self.db_username}:{self.db_password}@{self.db_host}:'
+                    f'{self.db_port}/{self.db_name}', echo=self.db_log)
+            else:
+                raise NotImplementedError
+            
+            return engine, engine.connect()
+        except ProgrammingError as e:
+            if 'Access denied' in str(e):
+                logger.error(f"Access denied! Please check your password for {self.db_username}.")
+            else:
+                logger.error(str(e))
+    
+    def _close_the_db(self):
+        self._conn.close()
     
     @staticmethod
     def init_worker():
@@ -91,6 +122,7 @@ class BaseMiner(metaclass=ABCMeta):
     @staticmethod
     def __get_rate_limit(token):
         rate = RateLimitStruct(
+            github_token=token
         ).process()
         
         return rate.remaining

@@ -721,17 +721,18 @@ class EventModel(BaseModel):
         )
         
         if event_type == EventStatic.ASSIGNED_EVENT:
-            obj.added = dic[EventStatic.ADDED][UserStatic.LOGIN]
+            obj.added = dic[EventStatic.ADDED][UserStatic.LOGIN] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = "USER"
         elif event_type == EventStatic.CROSS_REFERENCED_EVENT:
-            obj.added = dic[EventStatic.ADDED][APIStaticV4.NUMBER]
-            obj.added_type = re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.ADDED][EventStatic.TYPE]).upper()
+            obj.added = dic[EventStatic.ADDED][APIStaticV4.NUMBER] if dic[EventStatic.ADDED] is not None else None
+            obj.added_type = re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.ADDED][
+                EventStatic.TYPE]).upper() if dic[EventStatic.ADDED] is not None else None
             obj.is_cross_repository = True
         elif event_type == EventStatic.DEMILESTONED_EVENT:
             obj.removed = dic[EventStatic.REMOVED]
             obj.removed_type = "MILESTONE"
         elif event_type == EventStatic.LABELED_EVENT:
-            obj.added = dic[EventStatic.ADDED][UserStatic.NAME]
+            obj.added = dic[EventStatic.ADDED][UserStatic.NAME] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = "LABEL"
         elif event_type == EventStatic.MARKED_AS_DUPLICATE_EVENT:
             pass
@@ -743,7 +744,7 @@ class EventModel(BaseModel):
         elif event_type == EventStatic.PINNED_EVENT:
             pass
         elif event_type == EventStatic.REFERENCED_EVENT:
-            obj.added = dic[EventStatic.ADDED][APIStaticV4.OID]
+            obj.added = dic[EventStatic.ADDED][APIStaticV4.OID] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = "COMMIT_ID"
             obj.is_cross_repository = True
         elif event_type == EventStatic.RENAMED_TITLE_EVENT:
@@ -760,7 +761,7 @@ class EventModel(BaseModel):
         elif event_type == EventStatic.UNASSIGNED_EVENT:
             pass
         elif event_type == EventStatic.UNLABELED_EVENT:
-            obj.removed = dic[EventStatic.REMOVED][UserStatic.NAME]
+            obj.removed = dic[EventStatic.REMOVED][UserStatic.NAME] if dic[EventStatic.REMOVED] is not None else None
             obj.removed_type = "LABEL"
         elif event_type == EventStatic.UNMARKED_AS_DUPLICATE_EVENT:
             pass

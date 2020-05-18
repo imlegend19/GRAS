@@ -81,7 +81,7 @@ class LabelStruct(GithubInterface, LabelModel):
         Generates a :class:`~gras.github.entity.github_models.LabelModel` object representing the fetched data.
         
         :return: A :class:`~gras.github.entity.github_models.LabelModel` object
-        :rtype: object
+        :rtype: list<generator>
         """
 
         for lst in self.iterator():

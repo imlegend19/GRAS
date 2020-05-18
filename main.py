@@ -364,7 +364,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
             
             try:
                 for key in cfp[section]:
-                    key = cfp[section][key].split('/')
+                    key_lst = cfp[section][key].split('/')
                     value = cfp[section][key].split(',')
                     
                     if value[0] is None:
@@ -372,8 +372,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
                     
                     if value[1] is None:
                         value[1] = DEFAULT_END_DATE
-                    
-                    repos.append((key[0], key[1], value[0], value[1]))
+
+                    repos.append((key_lst[0], key_lst[1], value[0], value[1]))
             except Exception:
                 raise GrasConfigError(msg="Please check REPOSITORY-LIST section.")
             
@@ -497,4 +497,4 @@ if __name__ == '__main__':
     logger.info("Starting GRAS...")
 
     main()
-    # sys.exit(1)
+    sys.exit(1)
