@@ -240,7 +240,8 @@ class ContributorList(GithubInterface, AnonContributorModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.AnonContributorModel` object representing the fetched data.
+            generates a :class:`gras.github.entity.github_models.AnonContributorModel` object representing the
+            fetched data.
             :return: A :class:`gras.github.entity.github_models.AnonContributorModel` object
             :rtype: class
         """

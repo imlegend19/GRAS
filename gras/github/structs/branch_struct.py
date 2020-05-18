@@ -41,17 +41,17 @@ class BranchStruct(GithubInterface, BranchModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner):
         """Constructor Method"""
         super().__init__(
             query=self.BRANCH_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
-        )
-    
+            )
+
         self.name = name
         self.owner = owner
-    
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.branch_struct.BranchStruct`. For more information see
@@ -62,20 +62,20 @@ class BranchStruct(GithubInterface, BranchModel):
 
         generator = self._generator()
         hasNextPage = True
-        
+
         while hasNextPage:
             try:
                 response = next(generator)
             except StopIteration:
                 break
-            
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][RepositoryStatic.REFS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            
+
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-            
+
             yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][RepositoryStatic.REFS][APIStaticV4.NODES]
-            
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][RepositoryStatic.REFS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
 
