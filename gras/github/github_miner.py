@@ -128,18 +128,18 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
-        try:
-            self._dump_issues()
-        finally:
-            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
-            self._refactor_table(id_='id', table='issue_assignees', group_by="repo_id, issue_id, assignee_id")
-            self._refactor_table(id_='id', table='issue_labels', group_by='repo_id, issue_id, label_id')
-
+        # try:
+        #     self._dump_issues()
+        # finally:
+        #     self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+        #     self._refactor_table(id_='id', table='issue_assignees', group_by="repo_id, issue_id, assignee_id")
+        #     self._refactor_table(id_='id', table='issue_labels', group_by='repo_id, issue_id, label_id')
+    
         try:
             self._fetch_issue_events()
         finally:
             self._refactor_table(id_='id', table='issue_events', group_by='repo_id, issue_id, event_type, who, "when"')
-
+    
         try:
             self._fetch_issue_comments()
         finally:
@@ -755,8 +755,7 @@ class GithubMiner(BaseMiner):
                 process = {executor.submit(self._dump_issue_events, iss): iss for iss in issues}
                 for future in concurrent.futures.as_completed(process):
                     number = process[future]
-                    future.result()
-                    logger.debug(f"Inserted comments for issue number: {number}")
+                    logger.debug(f"Inserted events for issue number: {number}")
 
     def _comments_object_list(self, comments, id_, type_):
         obj_list = []
