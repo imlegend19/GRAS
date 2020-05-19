@@ -18,6 +18,7 @@ class BranchStruct(GithubInterface, BranchModel):
 
         :param name: name of the repository
         :type name: str
+        
         :param owner: owner of the repository
         :type owner: str
     """
@@ -56,6 +57,7 @@ class BranchStruct(GithubInterface, BranchModel):
         """
             Iterator function for :class:`gras.github.structs.branch_struct.BranchStruct`. For more information see
             :class:`gras.github.github.githubInterface`.
+            
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
@@ -81,7 +83,8 @@ class BranchStruct(GithubInterface, BranchModel):
 
     def process(self):
         """
-        generates a :class:`gras.github.entity.github_models.BranchModel` object representing the fetched data.
+        Generates a :class:`gras.github.entity.github_models.BranchModel` object representing the fetched data.
+        
         :return: A :class:`gras.github.entity.github_models.BranchModel` object
         :rtype: class
         """
