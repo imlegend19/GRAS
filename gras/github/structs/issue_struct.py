@@ -254,7 +254,6 @@ class IssueSearchStruct(GithubInterface, IssueModel):
 
                 self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
 
-                print(len(response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.NODES]))
                 yield response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.NODES]
 
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
