@@ -9,6 +9,33 @@ logger = logging.getLogger("main")
 
 
 class IssueDetailStruct(GithubInterface, IssueModel):
+    """
+        The object models the query to fetch details of an issue in a repository and
+        generates an object using :class:`gras.github.entity.github_models.IssueModel` containing the
+        fetched data.
+
+        Please see GitHub's `repository documentation`_ , `issue documentation`_ , `user documentation`_ for more
+        information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _issue documentation:
+            https://developer.github.com/v4/object/issue/
+
+        .. _user documentation:
+            https://developer.github.com/v4/object/user/
+
+        :param name: name of the repository
+        :type name: str
+
+        :param owner: owner of the repository
+        :type owner: str
+
+        :param number: issue number
+        :type number: int
+    """
+
     QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -59,20 +86,71 @@ class IssueDetailStruct(GithubInterface, IssueModel):
     """
     
     def __init__(self, name, owner, number):
+        """Constructor Method"""
         super().__init__(
             query=self.QUERY,
             query_params=dict(owner=owner, name=name, number=number)
         )
     
     def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.issue_struct.IssueDetailStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+
         generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE]
     
     def process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.IssueModel` object representing the fetched data.
+            :return: A :class:`gras.github.entity.github_models.IssueModel` object
+            :rtype: class
+        """
+
         return self.object_decoder(self.iterator())
 
 
 class IssueSearchStruct(GithubInterface, IssueModel):
+    """
+        The object models the query to fetch issues created in a specific time frame in a repository and
+        generates an object using :class:`gras.github.entity.github_models.IssueModel` containing the
+        fetched data.
+
+        Please see GitHub's `repository documentation`_ , `issue documentation`_ , `user documentation`_ ,
+         `node documentation`_ for more
+        information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _issue documentation:
+            https://developer.github.com/v4/object/issue/
+
+        .. _user documentation:
+            https://developer.github.com/v4/object/user/
+
+        .. _node documentation:
+            https://developer.github.com/v4/interface/node/
+
+        :param name: name of the repository
+        :type name: str
+
+        :param owner: owner of the repository
+        :type owner: str
+
+        :param start_date: fetch data after this date
+        :type start_date: :class:`datetime.datetime` object
+
+        :param end_date: fetch data till this date
+        :type end_date: :class:`datetime.datetime` object
+
+        :param chunk_size: required to divide search space into `chunk_size` days
+        :type chunk_size: int
+    """
+
     ISSUE_QUERY = """
         {{
             search(query: "repo:{owner}/{name} is:issue created:{start_date}..{end_date} sort:created-asc",
@@ -131,6 +209,7 @@ class IssueSearchStruct(GithubInterface, IssueModel):
     """
     
     def __init__(self, name, owner, start_date, end_date, chunk_size=25):
+        """Constructor Method"""
         super().__init__(
             query=self.ISSUE_QUERY,
             query_params=dict(owner=owner, name=name, after="null",
@@ -141,6 +220,13 @@ class IssueSearchStruct(GithubInterface, IssueModel):
         self.chunk_size = chunk_size
     
     def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.issue_struct.IssueSearchStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+
         assert self.query_params["start_date"] is not None
         assert self.query_params["end_date"] is not None
         
@@ -175,12 +261,46 @@ class IssueSearchStruct(GithubInterface, IssueModel):
                     APIStaticV4.HAS_NEXT_PAGE]
     
     def process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.IssueModel` object representing the fetched data.
+            :return: A :class:`gras.github.entity.github_models.IssueModel` object
+            :rtype: class
+        """
+
         for lst in self.iterator():
             for issue in lst:
                 yield self.object_decoder(issue)
 
 
 class IssueStruct(GithubInterface, IssueModel):
+    """
+        The object models the query to fetch issues in a repository and generates an object using
+        :class:`gras.github.entity.github_models.IssueModel` containing the
+        fetched data.
+
+        Please see GitHub's `repository documentation`_ , `issue documentation`_ , `user documentation`_ ,
+        `node documentation`_ for more information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _issue documentation:
+            https://developer.github.com/v4/object/issue/
+
+        .. _user documentation:
+            https://developer.github.com/v4/object/user/
+
+        .. _node documentation:
+            https://developer.github.com/v4/interface/node/
+
+        :param name: name of the repository
+        :type name: str
+
+        :param owner: owner of the repository
+        :type owner: str
+
+    """
+
     QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -237,12 +357,20 @@ class IssueStruct(GithubInterface, IssueModel):
     """
     
     def __init__(self, name, owner):
+        """Constructor Method"""
         super().__init__(
             query=self.QUERY,
             query_params=dict(owner=owner, name=name, after="null")
         )
     
     def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.issue_struct.IssueStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+
         generator = self._generator()
         hasNextPage = True
         
@@ -263,6 +391,12 @@ class IssueStruct(GithubInterface, IssueModel):
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
     
     def process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.IssueModel` object representing the fetched data.
+            :return: A :class:`gras.github.entity.github_models.IssueModel` object
+            :rtype: class
+        """
+
         for lst in self.iterator():
             for issue in lst:
                 yield self.object_decoder(issue)

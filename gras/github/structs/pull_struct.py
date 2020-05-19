@@ -4,6 +4,32 @@ from gras.github.github import GithubInterface
 
 
 class PullRequestDetailStruct(GithubInterface, PullRequestModel):
+    """
+        The object models the query to fetch details of a pull request in a repository and generates an object using
+        :class:`gras.github.entity.github_models.PullRequestModel` containing the fetched data.
+
+        Please see GitHub's `repository documentation`_ , `pull-request documentation`_ , `user documentation`_ for more
+        information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _pull-request documentation:
+            https://developer.github.com/v4/object/pullrequest/
+
+        .. _user documentation:
+            https://developer.github.com/v4/object/user/
+
+        :param name: name of the repository
+        :type name: str
+
+        :param owner: owner of the repository
+        :type owner: str
+
+        :param number: pull request number
+        :type number: int
+    """
+
     QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -84,22 +110,68 @@ class PullRequestDetailStruct(GithubInterface, PullRequestModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner, number):
+        """Constructor Method"""
         super().__init__(
             query=self.QUERY,
             query_params=dict(owner=owner, name=name, number=number)
-        )
-    
+            )
+
     def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.pull_struct.PullRequestDetailStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+
         generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUEST]
-    
+
     def process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.PullRequestModel` object representing the fetched data.
+            :return: A :class:`gras.github.entity.github_models.PullRequestModel` object
+            :rtype: class
+        """
+
         return self.object_decoder(self.iterator())
 
 
 class PullRequestSearchStruct(GithubInterface, PullRequestModel):
+    """
+        The object models the query to fetch pull requests in a repository and generates an object using
+        :class:`gras.github.entity.github_models.PullRequestModel` containing the fetched data.
+
+        Please see GitHub's `repository documentation`_ , `pull-request documentation`_ , `user documentation`_ for more
+        information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _pull-request documentation:
+            https://developer.github.com/v4/object/pullrequest/
+
+        .. _user documentation:
+            https://developer.github.com/v4/object/user/
+
+        :param name: name of the repository
+        :type name: str
+
+        :param owner: owner of the repository
+        :type owner: str
+
+        :param start_date: fetch data after this date
+        :type start_date: :class:`datetime.datetime` object
+
+        :param end_date: fetch data till this date
+        :type end_date: :class:`datetime.datetime` object
+
+        :param chunk_size: required to divide search space into `chunk_size` days
+        :type chunk_size: int
+    """
+
     PR_QUERY = """
         {{
             search(query: "repo:{owner}/{name} is:pr created:{start_date}..{end_date} sort:created-asc", 
@@ -187,30 +259,38 @@ class PullRequestSearchStruct(GithubInterface, PullRequestModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner, start_date, end_date, chunk_size=200):
+        """Constructor Method"""
         super().__init__(
             query=self.PR_QUERY,
             query_params=dict(owner=owner, name=name, after="null",
                               start_date="*" if start_date is None else start_date,
                               end_date="*" if end_date is None else end_date)
-        )
+            )
 
         self.chunk_size = chunk_size
-    
+
     def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.pull_struct.PullRequestSearchStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+
         assert self.query_params["start_date"] is not None
         assert self.query_params["end_date"] is not None
-        
+
         for start, end in time_period_chunks(self.query_params["start_date"],
                                              self.query_params["end_date"], chunk_size=self.chunk_size):
             self.query_params["start_date"] = start
             self.query_params["end_date"] = end
             self.query_params["after"] = "null"
-            
+
             generator = self._generator()
             hasNextPage = True
-            
+
             while hasNextPage:
                 try:
                     response = next(generator)
@@ -226,14 +306,44 @@ class PullRequestSearchStruct(GithubInterface, PullRequestModel):
 
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
                     APIStaticV4.HAS_NEXT_PAGE]
-    
+
     def process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.PullRequestModel` object representing the fetched data.
+            :return: A :class:`gras.github.entity.github_models.PullRequestModel` object
+            :rtype: class
+        """
+
         for lst in self.iterator():
             for pr in lst:
                 yield self.object_decoder(pr)
 
 
 class PullRequestStruct(GithubInterface, PullRequestModel):
+    """
+        The object models the query to fetch pull requests in a repository and generates an object using
+        :class:`gras.github.entity.github_models.PullRequestModel` containing the fetched data.
+
+        Please see GitHub's `repository documentation`_ , `pull-request documentation`_ , `user documentation`_ for more
+        information.
+
+        .. _repository documentation:
+            https://developer.github.com/v4/object/repository/
+
+        .. _pull-request documentation:
+            https://developer.github.com/v4/object/pullrequest/
+
+        .. _user documentation:
+            https://developer.github.com/v4/object/user/
+
+        :param name: name of the repository
+        :type name: str
+
+        :param owner: owner of the repository
+        :type owner: str
+
+    """
+
     QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -320,34 +430,48 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner):
+        """Constructor Method"""
         super().__init__(
             query=self.QUERY,
             query_params=dict(owner=owner, name=name, after="null")
-        )
-    
+            )
+
     def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.pull_struct.PullRequestStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+
         generator = self._generator()
         hasNextPage = True
-        
+
         while hasNextPage:
             try:
                 response = next(generator)
             except StopIteration:
                 break
-            
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUESTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            
+
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-            
+
             yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUESTS][APIStaticV4.NODES]
-            
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUESTS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-    
+
     def process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.PullRequestModel` object representing the fetched data.
+            :return: A :class:`gras.github.entity.github_models.PullRequestModel` object
+            :rtype: class
+        """
+
         for lst in self.iterator():
             for issue in lst:
                 yield self.object_decoder(issue)
