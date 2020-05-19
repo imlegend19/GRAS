@@ -2,22 +2,31 @@ from gras.errors import QueryObjectError
 
 
 class QueryObject:
-    def __init__(self, raw=False, object_type=None, object_fields=None, children=None, alias=None,
-                 inline_fragment=False, key=None, var=None):
+    def __init__(self, raw=None, object_type=None, object_fields=None, children=None, alias=None,
+                 inline_fragment=False):
         self.object_type = object_type
         self.object_fields = object_fields
         self.children = children
         self.raw = raw
         self.alias = alias
         self.inline_fragment = inline_fragment
-    
-        if key is not None and var is None:
-            raise QueryObjectError(msg="`var` should be specified if `key` is not None.")
-    
+        
         if self.object_type is None and self.raw is None:
             raise QueryObjectError(msg="`raw` or `object_type` have to be specified.")
-    
-        self._build()
+        
+        if not raw:
+            self._build()
+        else:
+            lines = [x if x.strip() != '' else None for x in list(filter(''.__ne__, raw.splitlines()))]
+            lines = list(filter(None.__ne__, lines))
+            
+            for i in range(len(lines)):
+                if i == 0 or i == len(lines) - 1:
+                    lines[i] = lines[i].strip()
+                else:
+                    lines[i] = "\t" + lines[i].strip()
+            
+            self.query = "\n".join(lines)
     
     @staticmethod
     def __formatted_string(object_, end=True):
@@ -66,7 +75,7 @@ class QueryObject:
             final_query = f"{name} " + "{{\n"
         else:
             final_query = "{{\n"
-    
+
         final_query += self.__formatted_string(self) + "\n}}"
     
         return final_query
@@ -97,9 +106,23 @@ def remove_alias(query, alias):
                 break
             else:
                 break
-        
+
         del lines[index_to_pop[0]: index_to_pop[-1] + 1]
     else:
         lines.pop(alias_indent)
-    
+
     return "\n".join(lines)
+
+
+if __name__ == '__main__':
+    x1 = """
+    pageInfo(for: 2254, after: {after}) {{
+        endCursor
+        hasNextPage
+    }}
+    """
+    q = QueryObject(
+        raw=x1
+    ).aggregate()
+    
+    print(q)

@@ -9,8 +9,7 @@ from collections import OrderedDict
 from functools import partial, wraps
 from timeit import default_timer as timer
 
-import dateutil
-from dateutil import parser as date_parser
+from dateutil import parser
 
 from gras.github.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 
@@ -18,7 +17,6 @@ DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isofor
 DEFAULT_END_DATE = datetime.datetime.strptime('2100-01-01', '%Y-%m-%d').isoformat()
 ELAPSED_TIME_ON_FUNCTIONS = OrderedDict()
 STAGE_WISE_TIME = OrderedDict()
-TOKEN_QUEUE = None
 
 logger = logging.getLogger("main")
 
@@ -37,11 +35,14 @@ class CircularQueue:
             self.__pointer = (self.__pointer + 1) % self.__n
         else:
             raise OverflowError
-    
+
     def next(self):
         value = self.__nodes[self.__pointer]
         self.__pointer = (self.__pointer + 1) % self.__n
         return value
+
+
+TOKEN_QUEUE: CircularQueue = CircularQueue(n=0)
 
 
 def reaction_count(dic, decider) -> int:
@@ -83,8 +84,8 @@ def reaction_count(dic, decider) -> int:
 
 
 def time_period_chunks(start_date, end_date, chunk_size=400):
-    dt_start = dateutil.parser.parse(start_date)
-    dt_end = dateutil.parser.parse(end_date)
+    dt_start = parser.parse(start_date)
+    dt_end = parser.parse(end_date)
     
     assert dt_start < dt_end
     
@@ -104,7 +105,7 @@ def to_iso_format(date):
     if not date:
         return None
     else:
-        return date_parser.parse(date).isoformat()
+        return parser.parse(date).isoformat()
 
 
 def waiting_animation(n, msg):
@@ -127,7 +128,7 @@ def to_datetime(date):
     if not date:
         return None
     else:
-        return dateutil.parser.parse(date)
+        return parser.parse(date)
 
 
 def get_value(str_):
@@ -140,7 +141,7 @@ def get_value(str_):
     if not str_:
         return None
     else:
-        return str_.strip().replace('\x00', '')
+        return str_.strip().replace('\x00', '').replace("'", "\\'")
 
 
 class DeprecatedWarning(UserWarning):
@@ -273,6 +274,7 @@ def get_next_token():
     
     :return: token <str>
     """
+    assert TOKEN_QUEUE is not None
     return TOKEN_QUEUE.next()
 
 
