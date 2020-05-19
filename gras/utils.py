@@ -11,6 +11,7 @@ from timeit import default_timer as timer
 
 from dateutil import parser
 
+from gras.errors import BadGatewayError, GrasError
 from gras.github.entity.api_static import APIStaticV4, IssueStatic, UserStatic
 
 DEFAULT_START_DATE = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').isoformat()
@@ -195,7 +196,7 @@ def locked(func):
         >>>
         >>> @locked
         >>> def function_to_be_locked(*args, **kwargs):
-        >>>     pass
+        >>>     ...
         >>>
     """
     
@@ -223,11 +224,11 @@ def timing(func=None, *, name=None, is_stage=None):
         >>>
         >>> @timing(name="foo")
         >>> def func():
-        >>>     pass
+        >>>     ...
         >>>
         >>> @timing
         >>> def func():
-        >>>     pass
+        >>>     ...
         >>>
     """
     
@@ -241,7 +242,7 @@ def timing(func=None, *, name=None, is_stage=None):
         end = timer()
     
         total_time = end - start
-    
+
         logger.info(f"Time taken to execute `{name}`: {total_time} sec")
 
         if not is_stage:
@@ -251,6 +252,37 @@ def timing(func=None, *, name=None, is_stage=None):
 
         return result
 
+    return wrapper
+
+
+def exception_handler(func, retries=3, exceptions_to_catch=Exception, exception_to_raise=Exception):
+    """
+    A decorator to handle exception and recall the function `retries` number of times.
+    
+    :param func: Function
+    :param retries: Number of times the function should be recalled
+    :param exceptions_to_catch: The exception to catch, ex. `BadGatewayError`
+    :param exception_to_raise: The exception to raise
+    
+    Examples:
+    
+        >>>
+        >>> @exception_handler(retries=3, exceptions_to_catch=BadGatewayError, exception_to_raise=GrasError)
+        >>> def func():
+        >>>     ...
+        >>>
+    """
+    
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        for _ in range(retries):
+            try:
+                return func(*args, **kwargs)
+            except exceptions_to_catch:
+                pass
+        
+        raise exception_to_raise
+    
     return wrapper
 
 

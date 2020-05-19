@@ -173,7 +173,8 @@ class DBSchema:
             Column('location', UNICODE),
             Column('user_type', self._user_type_enum[0], nullable=False),
             Column('is_anonymous', BOOLEAN, nullable=False, default=0),
-            UniqueConstraint('login', 'email', name='login_email_ind')
+            UniqueConstraint('login', 'email', name='login_email_ind'),
+            UniqueConstraint('name', 'email', name='name_email_ind')
         )
 
         if self._user_type_enum[1]:

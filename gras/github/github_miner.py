@@ -2,8 +2,6 @@ import concurrent.futures
 import logging
 import multiprocessing as mp
 
-from sqlalchemy.exc import IntegrityError
-
 from gras.base_miner import BaseMiner
 from gras.db.models import DBSchema
 from gras.errors import GithubMinerError
@@ -22,13 +20,13 @@ from gras.github.structs.issue_struct import IssueDetailStruct, IssueSearchStruc
 from gras.github.structs.label_struct import LabelStruct
 from gras.github.structs.language_struct import LanguageStruct
 from gras.github.structs.milestone_struct import MilestoneStruct
-from gras.github.structs.pull_struct import PullRequestDetailStruct, PullRequestSearchStruct
+from gras.github.structs.pull_struct import PullRequestDetailStruct, PullRequestSearchStruct, PullRequestStruct
 from gras.github.structs.release_struct import ReleaseStruct
 from gras.github.structs.repository_struct import RepositoryStruct
 from gras.github.structs.stargazer_struct import StargazerStruct
 from gras.github.structs.topic_struct import TopicStruct
 from gras.github.structs.watcher_struct import WatcherStruct
-from gras.utils import locked, timing
+from gras.utils import timing
 
 logger = logging.getLogger("main")
 logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
@@ -128,12 +126,12 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
-        # try:
-        #     self._dump_issues()
-        # finally:
-        #     self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
-        #     self._refactor_table(id_='id', table='issue_assignees', group_by="repo_id, issue_id, assignee_id")
-        #     self._refactor_table(id_='id', table='issue_labels', group_by='repo_id, issue_id, label_id')
+        try:
+            self._dump_issues()
+        finally:
+            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+            self._refactor_table(id_='id', table='issue_assignees', group_by="repo_id, issue_id, assignee_id")
+            self._refactor_table(id_='id', table='issue_labels', group_by='repo_id, issue_id, label_id')
     
         try:
             self._fetch_issue_events()
@@ -149,15 +147,15 @@ class GithubMiner(BaseMiner):
     @timing(name='Commit Stage', is_stage=True)
     def _commit_miner(self):
         self._dump_commits()
-    
+
         self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
-    
+
         try:
             self._dump_commit_comments()
         finally:
             self._refactor_table(id_='id', table='commit_comments', group_by='repo_id, commit_id, commenter_id, '
                                                                              'created_at')
-    
+
         try:
             self._fetch_code_change()
         finally:
@@ -172,13 +170,13 @@ class GithubMiner(BaseMiner):
             self._refactor_table(id_='id', table='pull_request_assignees', group_by="repo_id, pr_id, assignee_id")
             self._refactor_table(id_='id', table='pull_request_labels', group_by='repo_id, pr_id, label_id')
             self._refactor_table(id_='id', table='pull_request_commits', group_by='repo_id, pr_id, commit_id')
-    
+
         try:
             self._fetch_pull_request_events()
         finally:
             self._refactor_table(id_='id', table='pull_request_events',
                                  group_by='repo_id, pr_id, event_type, who, "when"')
-    
+
         try:
             self._fetch_pull_request_comments()
         finally:
@@ -749,7 +747,7 @@ class GithubMiner(BaseMiner):
     @timing(name='issue_events')
     def _fetch_issue_events(self):
         logger.info("Dumping Issue Events...")
-    
+
         for issues in self.__get_issues():
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_issue_events, iss): iss for iss in issues}
@@ -759,7 +757,7 @@ class GithubMiner(BaseMiner):
 
     def _comments_object_list(self, comments, id_, type_):
         obj_list = []
-    
+
         if type_ == "ISSUE":
             for node in comments.process():
                 obj = self.db_schema.issue_comments_object(
@@ -775,9 +773,9 @@ class GithubMiner(BaseMiner):
                     negative_reaction_count=node.negative_reaction_count,
                     ambiguous_reaction_count=node.ambiguous_reaction_count
                 )
-            
+
                 obj_list.append(obj)
-            
+
                 if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                     self._insert(object_=self.db_schema.issue_comments.insert(), param=obj_list)
                     obj_list.clear()
@@ -802,7 +800,7 @@ class GithubMiner(BaseMiner):
                 if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                     self._insert(object_=self.db_schema.pull_request_comments.insert(), param=obj_list)
                     obj_list.clear()
-    
+
         return obj_list
     
     def _dump_issue_comments(self, number):
@@ -823,7 +821,7 @@ class GithubMiner(BaseMiner):
     @timing(name='issue_comments')
     def _fetch_issue_comments(self):
         logger.info("Dumping Issue Comments...")
-    
+
         for issues in self.__get_issues():
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_issue_comments, iss): iss for iss in issues}
@@ -834,7 +832,7 @@ class GithubMiner(BaseMiner):
 
     def _fetch_code_change(self):
         logger.info("Mining Code Change...")
-    
+
         for commits in self.__get_commit_oids():
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_code_change, oid): oid for oid in commits}
@@ -846,10 +844,10 @@ class GithubMiner(BaseMiner):
     def _dump_commits(self, oid=None):
         if not oid:
             commit_ids = []
-        
+
             for branch in self.__get_branches():
                 logger.info(f"Dumping commits for branch {branch}...")
-            
+
                 commits = CommitStructV4(
                     name=self.repo_name,
                     owner=self.repo_owner,
@@ -857,9 +855,9 @@ class GithubMiner(BaseMiner):
                     end_date=self.end_date,
                     branch=branch
                 )
-            
+
                 obj_list = []
-            
+
                 it = 0
                 for node in commits.process():
                     print(f"Ongoing {it} --> {node.commit_id}")
@@ -879,21 +877,21 @@ class GithubMiner(BaseMiner):
                         num_files_changed=node.num_changed_files,
                         is_merge=node.is_merge
                     )
-    
+
                     if node.commit_id in commit_ids:
                         logger.debug("Tree search complete! Changing branch...")
                         break
-    
+
                     if node.commit_id not in commit_ids:
                         commit_ids.append(node.commit_id)
                         obj_list.append(obj)
-    
+
                     if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                         logger.debug(f"Inserting {MAX_INSERT_OBJECTS} commits...")
                         self._insert(object_=self.db_schema.commits.insert(), param=obj_list)
                         obj_list.clear()
                         logger.debug("Success!")
-            
+
                 self._insert(object_=self.db_schema.commits.insert(), param=obj_list)
         else:
             com = CommitStructV4(
@@ -1029,22 +1027,28 @@ class GithubMiner(BaseMiner):
 
             self._insert(self.db_schema.pull_requests.insert(), obj)
         else:
-            logger.info("Dumping Pull Requests...")
-
-            prs = PullRequestSearchStruct(
-                name=self.repo_name,
-                owner=self.repo_owner,
-                start_date=self.start_date,
-                end_date=self.end_date,
-                chunk_size=self.chunk_size
-            )
-
+            if self.full:
+                logger.info("Dumping Pull Requests...")
+                prs = PullRequestStruct(
+                    name=self.repo_name,
+                    owner=self.repo_owner
+                )
+            else:
+                logger.info("Dumping Pull Requests using Search API...")
+                prs = PullRequestSearchStruct(
+                    name=self.repo_name,
+                    owner=self.repo_owner,
+                    start_date=self.start_date,
+                    end_date=self.end_date,
+                    chunk_size=self.chunk_size
+                )
+    
             obj_list = []
             pr_assignees_lst = []
             pr_labels_lst = []
             pr_commits = []
             pr_list = []
-
+    
             for node in prs.process():
                 logger.debug(f"Ongoing PR: {node.number}")
                 obj = self.db_schema.pull_requests_object(
@@ -1074,23 +1078,23 @@ class GithubMiner(BaseMiner):
                     state=node.state,
                     review_decision=node.review_decision
                 )
-
+        
                 pr_assignees_lst.append((node.number, node.assignees))
                 pr_labels_lst.append((node.number, node.labels))
                 pr_commits.append((node.number, node.commits))
                 pr_list.append(node.number)
-
+        
                 obj_list.append(obj)
-
+        
                 if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                     logger.debug(f"Inserting {MAX_INSERT_OBJECTS} pull requests...")
                     self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
                     obj_list.clear()
                     logger.debug("Success!")
-
+    
             logger.info(f"Total Pull Requests: {len(pr_list)}...")
             self._insert(self.db_schema.pull_requests.insert(), obj_list)
-
+    
             self._dump_pull_request_assignees(pr_assignees_lst)
             self._dump_pull_request_labels(pr_labels_lst)
             self._dump_pull_request_commits(pr_commits)
@@ -1180,7 +1184,7 @@ class GithubMiner(BaseMiner):
     @timing(name="pull_request_events")
     def _fetch_pull_request_events(self):
         logger.info("Dumping Pull Request Events...")
-    
+
         for prs in self.__get_pull_requests():
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_issue_events, pr): pr for pr in prs}
@@ -1196,18 +1200,18 @@ class GithubMiner(BaseMiner):
             number=number,
             type_filter="pullRequest"
         )
-    
+
         pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
-    
+
         obj_list = self._comments_object_list(pr_comments, pr_id, "PULL_REQUEST")
-    
+
         logger.debug(f"Dumping Pull Request Comments for Pull Request Number: {number}...")
         self._insert(object_=self.db_schema.pull_request_comments.insert(), param=obj_list)
 
     @timing(name='pull_request_comments')
     def _fetch_pull_request_comments(self):
         logger.info("Dumping Pull Request Comments...")
-    
+
         for prs in self.__get_pull_requests():
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_pull_request_comments, pr): pr for pr in prs}
@@ -1215,54 +1219,6 @@ class GithubMiner(BaseMiner):
                     number = process[future]
                     future.result()
                     logger.debug(f"Inserted comments for PR number: {number}")
-
-    def _refactor_table(self, id_, table, group_by):
-        logger.info(f"Refactoring Table: {table}")
-    
-        deleted = self._conn.execute(
-            f"""
-            DELETE FROM {table}
-            WHERE {id_} NOT IN (
-                SELECT {id_}
-                FROM (
-                         SELECT min({id_})
-                         FROM {table}
-                         GROUP BY {group_by}
-                     ) AS t
-            )
-            """
-        )
-    
-        logger.debug(f"Affected Rows: {deleted.rowcount}")
-        self._reorder_table(id_=id_, table=table)
-    
-    def _reorder_table(self, id_, table):
-        logger.debug(f"Reordering Table: {table}")
-        
-        table_ids = self._conn.execute(f"SELECT DISTINCT {id_} FROM {table}")
-        ids = sorted([x[0] for x in table_ids])
-        
-        num = [x for x in range(1, len(ids) + 1)]
-        
-        update_id = {}
-        for x, y in zip(ids, num):
-            if x != y:
-                update_id[x] = y
-        
-        itm = sorted(update_id.items(), key=lambda x: x[0])
-        
-        for i in itm:
-            self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
-    
-    @locked
-    def _insert(self, object_, param):
-        try:
-            if param:
-                inserted = self._conn.execute(object_, param)
-                logger.debug(f"Affected Rows: {inserted.rowcount}")
-        except IntegrityError as e:
-            logger.debug(f"Caught Integrity Error: {e}")
-            pass
 
     def _set_repo_id(self):
         res = self._conn.execute(
@@ -1374,7 +1330,7 @@ class GithubMiner(BaseMiner):
             FROM issues
             """
         )
-    
+
         while True:
             result_proxy = res.fetchmany(size=MAX_INSERT_OBJECTS)
             for r in range(0, len(result_proxy), THREADS):
@@ -1387,7 +1343,7 @@ class GithubMiner(BaseMiner):
             FROM pull_requests
             """
         )
-    
+
         while True:
             result_proxy = res.fetchmany(size=MAX_INSERT_OBJECTS)
             for r in range(0, len(result_proxy), THREADS):
@@ -1400,7 +1356,7 @@ class GithubMiner(BaseMiner):
             FROM commits
             """
         )
-    
+
         while True:
             result_proxy = res.fetchmany(size=MAX_INSERT_OBJECTS)
             for r in range(0, len(res), THREADS):
@@ -1413,7 +1369,7 @@ class GithubMiner(BaseMiner):
             FROM branches
             """
         ).fetchall()
-    
+
         for branch in res:
             yield branch[0]
     

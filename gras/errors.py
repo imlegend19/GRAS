@@ -51,3 +51,9 @@ class QueryObjectError(GrasError):
     """Exception to be raised by :class:`~gras.github.query_builder.QueryObject`"""
     
     message = "%(msg)s"
+
+
+class BadGatewayError(GrasError):
+    """Exception to be raised by :class:`~gras.github.github.GithubInterface` on ``502 Bad Gateway`` response."""
+    
+    pass

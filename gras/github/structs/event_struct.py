@@ -1,7 +1,6 @@
 from gras.github.entity.api_static import APIStaticV4, EventStatic
 from gras.github.entity.github_models import EventModel
 from gras.github.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class EventDetailStruct(GithubInterface, EventModel):
@@ -251,7 +250,7 @@ class EventDetailStruct(GithubInterface, EventModel):
         super().__init__(
             query=self.QUERY,
             query_params=dict(name=name, owner=owner, type_filter=type_filter, number=number,
-                              since="\"" + since + "\"" if since else "null")
+                              since="\"" + since + "\"" if since else "null", after="null"),
         )
 
         self.type_filter = type_filter
@@ -295,12 +294,3 @@ class EventDetailStruct(GithubInterface, EventModel):
         for lst in self.iterator():
             for node in lst:
                 yield self.object_decoder(node, number=self.issue_number)
-
-
-if __name__ == '__main__':
-    e = EventDetailStruct(owner='tensorflow', name='tensorflow', type_filter='issue', since=None, number=22)
-    
-    it = 1
-    for i in e.process():
-        print(it)
-        it += 1

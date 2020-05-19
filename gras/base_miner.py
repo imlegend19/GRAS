@@ -4,11 +4,11 @@ import signal
 from abc import ABCMeta, abstractmethod
 
 from sqlalchemy import create_engine
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from gras.errors import InvalidTokenError
 from gras.github.structs.rate_limit import RateLimitStruct
-from gras.utils import to_iso_format
+from gras.utils import locked, to_iso_format
 
 logger = logging.getLogger("main")
 
@@ -104,21 +104,69 @@ class BaseMiner(metaclass=ABCMeta):
                     f'{self.db_port}/{self.db_name}', echo=self.db_log)
             else:
                 raise NotImplementedError
-            
+
             return engine, engine.connect()
         except ProgrammingError as e:
             if 'Access denied' in str(e):
                 logger.error(f"Access denied! Please check your password for {self.db_username}.")
             else:
                 logger.error(str(e))
+
+    def _refactor_table(self, id_, table, group_by):
+        logger.info(f"Refactoring Table: {table}")
     
+        deleted = self._conn.execute(
+            f"""
+            DELETE FROM {table}
+            WHERE {id_} NOT IN (
+                SELECT {id_}
+                FROM (
+                         SELECT min({id_})
+                         FROM {table}
+                         GROUP BY {group_by}
+                     ) AS t
+            )
+            """
+        )
+    
+        logger.debug(f"Affected Rows: {deleted.rowcount}")
+        self._reorder_table(id_=id_, table=table)
+
+    def _reorder_table(self, id_, table):
+        logger.debug(f"Reordering Table: {table}")
+    
+        table_ids = self._conn.execute(f"SELECT DISTINCT {id_} FROM {table}")
+        ids = sorted([x[0] for x in table_ids])
+    
+        num = [x for x in range(1, len(ids) + 1)]
+    
+        update_id = {}
+        for x, y in zip(ids, num):
+            if x != y:
+                update_id[x] = y
+    
+        itm = sorted(update_id.items(), key=lambda x: x[0])
+    
+        for i in itm:
+            self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
+
+    @locked
+    def _insert(self, object_, param):
+        try:
+            if param:
+                inserted = self._conn.execute(object_, param)
+                logger.debug(f"Affected Rows: {inserted.rowcount}")
+        except IntegrityError as e:
+            logger.debug(f"Caught Integrity Error: {e}")
+            pass
+
     def _close_the_db(self):
         self._conn.close()
-    
+
     @staticmethod
     def init_worker():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-    
+
     @staticmethod
     def __get_rate_limit(token):
         rate = RateLimitStruct(

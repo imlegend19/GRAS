@@ -5,7 +5,7 @@ from datetime import datetime
 from requests import HTTPError, Session, adapters, exceptions
 
 from gras.base_interface import BaseInterface
-from gras.errors import ObjectDoesNotExistError
+from gras.errors import BadGatewayError, ObjectDoesNotExistError
 from gras.github.entity.api_static import APIStaticV4
 from gras.utils import get_next_token
 
@@ -66,7 +66,10 @@ class GithubInterface(BaseInterface):
         except exceptions.TooManyRedirects as e:
             logger.error(f"Too Many Redirects: {e}")
         except HTTPError:
-            raise ObjectDoesNotExistError(msg=f"Object does not exist! Url: {url}, Payload: {payload}")
+            if response.status_code == 502:
+                raise BadGatewayError
+    
+            raise ObjectDoesNotExistError(msg=f"Object does not exist! Url: {url}")
         except Exception as e:
             # TODO: Raise exception
             logger.error(e)
@@ -100,6 +103,9 @@ class GithubInterface(BaseInterface):
                 except exceptions.ConnectionError:
                     logging.error(f"Connection Error while fetching data from url {self.url}.")
                     break
+            except BadGatewayError:
+                time.sleep(2)
+                req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
             
             if req.status_code == 200:
                 if 'X-RateLimit-Remaining' in req.headers and int(req.headers['X-RateLimit-Remaining']) <= 2:
