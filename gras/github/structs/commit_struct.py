@@ -9,8 +9,7 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
         generates an object using :class:`gras.github.entity.github_models.CodeChangeModel` containing the
         fetched data.
 
-        Please see GitHub's `single-commit documentation`_ for more
-        information.
+        Please see GitHub's `single-commit documentation`_ for more information.
 
         .. _single-commit documentation:
             https://developer.github.com/v3/repos/commits/#get-a-single-commit
@@ -36,8 +35,8 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.commit_struct.CodeChangeStruct`. For more
-            information see
-            :class:`gras.github.github.githubInterface`.
+            information see :class:`gras.github.github.githubInterface`.
+            
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
@@ -47,7 +46,8 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.CodeChangeModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.CodeChangeModel` object representing the fetched data.
+            
             :return: A :class:`gras.github.entity.github_models.CodeChangeModel` object
             :rtype: class
         """
@@ -62,8 +62,7 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
 class CommitStructV3(GithubInterface, CommitModelV3):
     """
         The object models the query to fetch commits in a repository and generates an object using
-        :class:`gras.github.entity.github_models.CommitModelV3` containing the
-        fetched data.
+        :class:`gras.github.entity.github_models.CommitModelV3` containing the fetched data.
 
         Please see GitHub's `commit documentation`_ for more
         information.
@@ -101,6 +100,7 @@ class CommitStructV3(GithubInterface, CommitModelV3):
         """
             Iterator function for :class:`gras.github.structs.commit_struct.CommitStructV3`. For more information see
             :class:`gras.github.github.githubInterface`.
+            
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
@@ -127,13 +127,10 @@ class CommitStructV3(GithubInterface, CommitModelV3):
 class CommitStructV4(GithubInterface, CommitModelV4):
     """
         The object models the query to fetch commits in a branch in a repository and generates an object using
-        :class:`gras.github.entity.github_models.CommitModelV4` containing the
-        fetched data.
+        :class:`gras.github.entity.github_models.CommitModelV4` containing the fetched data.
 
         Please see GitHub's `repository documentation`_ , `gitObject documentation`_ ,
-        `commit-history documentation`_ , `node documentation`_ for
-        more
-        information.
+        `commit-history documentation`_ , `node documentation`_ for more information.
 
         .. _repository documentation:
             https://developer.github.com/v4/object/repository/
@@ -269,6 +266,7 @@ class CommitStructV4(GithubInterface, CommitModelV4):
         """
             Iterator function for :class:`gras.github.structs.commit_struct.CommitStructV4`. For more information see
             :class:`gras.github.github.githubInterface`.
+            
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
@@ -308,7 +306,8 @@ class CommitStructV4(GithubInterface, CommitModelV4):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.CommitModelV4` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.CommitModelV4` object representing the fetched data.
+            
             :return: A :class:`gras.github.entity.github_models.CommitModelV4` object
             :rtype: class
         """
