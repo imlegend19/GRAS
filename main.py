@@ -17,6 +17,7 @@ from tabulate import tabulate
 from gras.errors import GrasArgumentParserError, GrasConfigError
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
+from gras.github.identity_merging import IdentityMerging
 from gras.utils import (
     ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
     to_iso_format
@@ -128,8 +129,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
         try:
             self.args = self.parse_args([
-                '-RN', 'react', '-RO', 'facebook', '--mine', '-PT', '-dbms', 'sqlite',
-                '-dbo', '/home/mahen/PycharmProjects/GRAS/react.db', '-f', '-t',
+                '-RN', 'react', '-RO', 'facebook', '-id', '-PT', '-dbms', 'sqlite',
+                '-dbo', '/home/mahen/PycharmProjects/GRAS/react.db', '-t',
                 "b62c6b609bb8065399d4f09a85d6bad15894f345",
                 "e495439d3cd0a7c7e99d2b42b0fbb59850d0f2c8",
                 "b647ad8aaa1482bd6b090ab8f290b3579ca5b7dc",
@@ -173,6 +174,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-m', '--mine', help="Mine the repository", default=False, type=bool,
                                         const=True, nargs='?')
+        self.gras_commands.add_argument('-id', '--identity-merging', help="Merge the identities of the contributors",
+                                        default=False, type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-B', '--basic', help="Mining Stage 1-A: Basic", const=True, type=bool,
                                         nargs='?', default=False)
         self.gras_commands.add_argument('-BE', '--basic-extra', help="Mining Stage 1-B: Basic Extra", const=True,
@@ -319,15 +322,19 @@ class GrasArgumentParser(argparse.ArgumentParser):
             
             t.join()
             result = queue.get()
-            
+
             print("\n\n", "=" * 100, "\n", json.dumps(result, indent=4, sort_keys=True), "\n", "=" * 100)
-        
+
         if self.args.mine:
             if self.args.interface == "github":
                 gm = GithubMiner(args=self.args)
                 gm.process()
             else:
                 raise NotImplementedError
+
+        if self.args.identity_merging:
+            im = IdentityMerging(args=self.args)
+            im.process()
     
     def _create_config(self):
         cfg = configparser.RawConfigParser()
