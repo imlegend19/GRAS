@@ -59,9 +59,13 @@ def reaction_count(dic, decider) -> int:
     |   heart	|           |            |
 
     :param dic: the `reactionGroup` dict to parse
+    :type dic: dict
     :param decider: 1, 0 or -1 which denotes positive_reaction_count, ambiguous_reaction_count or
                     negative_reaction_count
+    :type decider: int
+    
     :return: corresponding reaction count
+    :rtype int
     """
     
     reaction_decider = {
