@@ -90,7 +90,7 @@ class FileStatsModel(BaseModel):
         :type loc: int
     """
 
-    def __init__(self,file_id, file_name, import_count, imported_by_count, class_count, var_count, func_count, loc):
+    def __init__(self, file_id, file_name, import_count, imported_by_count, class_count, var_count, func_count, loc):
         """Constructor Method"""
         super().__init__()
         self.file_id = file_id

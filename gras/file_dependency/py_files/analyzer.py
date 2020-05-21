@@ -3,7 +3,8 @@ from gras.file_dependency.py_files.py_dependency_models import ProjectStatsModel
 import ast
 import os
 
-#TODO: have one big analyzer module, first implementation is very sloppy
+
+# TODO: have one big analyzer module, first implementation is very sloppy
 class ProjectAnalyzer(ast.NodeVisitor):
     def __init__(self):
         self.import_count = 0
@@ -71,6 +72,7 @@ class ProjectStats(ProjectStatsModel, ProjectAnalyzer):
     def generate(self):
         self.__parse__()
         return self.object_decoder(self.dic)
+
 
 a = ProjectStats('/home/viper/dev/GRAS/').generate()
 print("total lines of code: ", a.total_loc, "file count: ", a.file_count, "class count: ", a.class_count)
