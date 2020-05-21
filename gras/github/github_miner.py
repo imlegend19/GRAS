@@ -29,7 +29,7 @@ from gras.github.structs.watcher_struct import WatcherStruct
 from gras.utils import timing
 
 logger = logging.getLogger("main")
-logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 lock = mp.Lock()
 MAX_INSERT_OBJECTS = 1000
@@ -75,7 +75,8 @@ class GithubMiner(BaseMiner):
             node_ids = self._dump_anon_users()
             self._dump_users(node_ids=node_ids, login=None)
         finally:
-            self._refactor_table(id_='contributor_id', table="contributors", group_by="login, name, email")
+            self._refactor_table(id_='id', table="contributors", group_by="name, email")
+            self._refactor_table(id_='id', table="contributors", group_by="login, name, email")
 
         try:
             self._dump_branches()
@@ -318,13 +319,15 @@ class GithubMiner(BaseMiner):
             raise GithubMinerError(msg="`_dump_users()` exception! Please consider reporting this error to the team.")
 
         return True
-    
+
     def _dump_repository(self):
+        logger.info("Dumping Repository...")
+    
         repo = RepositoryStruct(
             name=self.repo_name,
             owner=self.repo_owner
         ).process()
-        
+    
         obj = self.db_schema.repository_object(
             name=self.repo_name,
             owner=self.repo_owner,
@@ -341,7 +344,6 @@ class GithubMiner(BaseMiner):
             forked_from=repo.forked_from
         )
 
-        logger.info("Dumping Repository...")
         self._insert(self.db_schema.repository.insert(), obj)
         self._set_repo_id()
     
@@ -391,17 +393,21 @@ class GithubMiner(BaseMiner):
         
         logger.info("Dumping Milestones...")
         self._insert(self.db_schema.milestones.insert(), obj_list)
-    
+
     @timing(name='stargazers')
     def _dump_stargazers(self):
+        logger.info("Dumping Stargazers...")
+    
         stargazers = StargazerStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+    
         obj_list = []
-        
+    
+        it = 1
         for node in stargazers.process():
+            print(f"Ongoing stargazer: {it}")
             obj = self.db_schema.stargazers_object(
                 repo_id=self.repo_id,
                 user_id=self._get_user_id(login=None, user_object=node.user),
@@ -409,23 +415,25 @@ class GithubMiner(BaseMiner):
             )
 
             obj_list.append(obj)
+            it += 1
 
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                 self._insert(object_=self.db_schema.stargazers.insert(), param=obj_list)
                 obj_list.clear()
-        
-        logger.info("Dumping Stargazers...")
+
         self._insert(self.db_schema.stargazers.insert(), obj_list)
-    
+
     @timing(name='watchers')
     def _dump_watchers(self):
+        logger.info("Dumping Watchers...")
+    
         watchers = WatcherStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+    
         obj_list = []
-        
+    
         for node in watchers.process():
             obj = self.db_schema.watchers_object(
                 repo_id=self.repo_id,
@@ -438,18 +446,19 @@ class GithubMiner(BaseMiner):
                 self._insert(object_=self.db_schema.watchers.insert(), param=obj_list)
                 obj_list.clear()
         
-        logger.info("Dumping Watchers...")
         self._insert(self.db_schema.watchers.insert(), obj_list)
-    
+
     @timing(name='forks')
     def _dump_forks(self):
+        logger.info("Dumping Forks...")
+    
         forks = ForkStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+    
         obj_list = []
-        
+    
         for node in forks.process():
             obj = self.db_schema.forks_object(
                 repo_id=self.repo_id,
@@ -462,19 +471,20 @@ class GithubMiner(BaseMiner):
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                 self._insert(object_=self.db_schema.forks.insert(), param=obj_list)
                 obj_list.clear()
-        
-        logger.info("Dumping Forks...")
+
         self._insert(self.db_schema.forks.insert(), obj_list)
-    
+
     @timing(name='topics')
     def _dump_topics(self):
+        logger.info("Dumping Topics...")
+    
         topics = TopicStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+    
         obj_list = []
-        
+    
         for node in topics.process():
             obj = self.db_schema.topics_object(
                 repo_id=self.repo_id,
@@ -485,18 +495,19 @@ class GithubMiner(BaseMiner):
             
             obj_list.append(obj)
         
-        logger.info("Dumping Topics...")
         self._insert(self.db_schema.topics.insert(), obj_list)
-    
+
     @timing(name='releases')
     def _dump_releases(self):
+        logger.info("Dumping Releases...")
+    
         releases = ReleaseStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+    
         obj_list = []
-        
+    
         for node in releases.process():
             obj = self.db_schema.releases_object(
                 repo_id=self.repo_id,
@@ -510,19 +521,20 @@ class GithubMiner(BaseMiner):
             )
             
             obj_list.append(obj)
-        
-        logger.info("Dumping Releases...")
+
         self._insert(self.db_schema.releases.insert(), obj_list)
-    
+
     @timing(name='branches')
     def _dump_branches(self):
+        logger.info("Dumping Branches...")
+    
         branches = BranchStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+    
         obj_list = []
-        
+    
         for node in branches.process():
             obj = self.db_schema.branches_object(
                 repo_id=self.repo_id,
@@ -531,20 +543,21 @@ class GithubMiner(BaseMiner):
             )
             
             obj_list.append(obj)
-        
-        logger.info("Dumping Branches...")
+
         self._insert(self.db_schema.branches.insert(), obj_list)
-    
+
     @timing(name='labels')
     def _dump_labels(self):
+        logger.info("Dumping Labels...")
+    
         # TODO: Set label types as per user
         labels = LabelStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+    
         obj_list = []
-        
+    
         for node in labels.process():
             obj = self.db_schema.labels_object(
                 repo_id=self.repo_id,
@@ -556,7 +569,6 @@ class GithubMiner(BaseMiner):
 
             obj_list.append(obj)
 
-        logger.info("Dumping Labels...")
         self._insert(self.db_schema.labels.insert(), obj_list)
 
     @timing(name='issues')
@@ -645,11 +657,13 @@ class GithubMiner(BaseMiner):
 
             self._dump_issue_assignees(issue_assignees_lst)
             self._dump_issue_labels(issue_labels_lst)
-    
+
     @timing(name='issue_assignees')
     def _dump_issue_assignees(self, node_list):
+        logger.info("Dumping Issue Assignees...")
+    
         obj_list = []
-        
+    
         for node in node_list:
             number = node[0]
             for assignee_login in node[1]:
@@ -660,14 +674,15 @@ class GithubMiner(BaseMiner):
                 )
                 
                 obj_list.append(obj)
-        
-        logger.info("Dumping Issue Assignees...")
+
         self._insert(self.db_schema.issue_assignees.insert(), obj_list)
-    
+
     @timing(name='issue_labels')
     def _dump_issue_labels(self, label_list):
+        logger.info("Dumping Issue Labels...")
+    
         obj_list = []
-        
+    
         for node in label_list:
             number = node[0]
             for label_name in node[1]:
@@ -678,8 +693,7 @@ class GithubMiner(BaseMiner):
                 )
                 
                 obj_list.append(obj)
-        
-        logger.info("Dumping Issue Labels...")
+
         self._insert(self.db_schema.issue_labels.insert(), obj_list)
     
     def _events_object_list(self, events, id_, type_):
@@ -802,20 +816,21 @@ class GithubMiner(BaseMiner):
                     obj_list.clear()
 
         return obj_list
-    
+
     def _dump_issue_comments(self, number):
+        logger.debug(f"Dumping Issue Comments for Issue Number: {number}...")
+    
         issue_comments = CommentStruct(
             name=self.repo_name,
             owner=self.repo_owner,
             number=number,
             type_filter="issue"
         )
-
+    
         issue_id = self._get_table_id(table="issues", field="number", value=number)
-
+    
         obj_list = self._comments_object_list(issue_comments, issue_id, "ISSUE")
-
-        logger.debug(f"Dumping Issue Comments for Issue Number: {number}...")
+    
         self._insert(object_=self.db_schema.issue_comments.insert(), param=obj_list)
 
     @timing(name='issue_comments')
@@ -894,14 +909,16 @@ class GithubMiner(BaseMiner):
 
                 self._insert(object_=self.db_schema.commits.insert(), param=obj_list)
         else:
+            logger.debug(f"Dumping commit: {oid}...")
+    
             com = CommitStructV4(
                 name=self.repo_name,
                 owner=self.repo_owner,
                 oid=oid
             )
-
+    
             obj_list = []
-
+    
             for commit in com.process():
                 obj = self.db_schema.commits_object(
                     repo_id=self.repo_id,
@@ -920,21 +937,21 @@ class GithubMiner(BaseMiner):
                 )
 
                 obj_list.append(obj)
-
-            logger.debug(f"Dumping commit: {oid}...")
-            self._insert(object_=self.db_schema.commits.insert(), param=obj_list)
     
-    def _dump_code_change(self, oid):
-        # TODO: Compress the patch and store (GRAS should have various compressor functions)
+            self._insert(object_=self.db_schema.commits.insert(), param=obj_list)
 
+    def _dump_code_change(self, oid):
+        logger.info(f"Inserting code change for oid: {oid}.")
+    
+        # TODO: Compress the patch and store (GRAS should have various compressor functions)
         code_change_node = CodeChangeStruct(
             name=self.repo_name,
             owner=self.repo_owner,
             commit_id=oid
         )
-
+    
         obj_list = []
-
+    
         for node in code_change_node.process():
             commit_id = self._get_table_id(table='commits', field='oid', value=oid)
             logger.debug(f"Dumping for sha: {oid}, commit-id: {commit_id}, filename: {node.filename}")
@@ -951,7 +968,6 @@ class GithubMiner(BaseMiner):
 
             obj_list.append(obj)
 
-        logger.info(f"Inserting code change for oid: {oid}.")
         self._insert(object_=self.db_schema.code_change.insert(), param=obj_list)
     
     @timing(name='commit_comments')
@@ -1098,11 +1114,13 @@ class GithubMiner(BaseMiner):
             self._dump_pull_request_assignees(pr_assignees_lst)
             self._dump_pull_request_labels(pr_labels_lst)
             self._dump_pull_request_commits(pr_commits)
-    
+
     @timing(name='pull_request_assignees')
     def _dump_pull_request_assignees(self, node_list):
+        logger.info("Dumping Pull Request Assignees...")
+    
         obj_list = []
-        
+    
         for node in node_list:
             number = node[0]
             for assignee_login in node[1]:
@@ -1117,14 +1135,15 @@ class GithubMiner(BaseMiner):
                 if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                     self._insert(object_=self.db_schema.pull_request_assignees.insert(), param=obj_list)
                     obj_list.clear()
-        
-        logger.info("Dumping Pull Request Assignees...")
+
         self._insert(self.db_schema.pull_request_assignees.insert(), obj_list)
-    
+
     @timing(name='pull_request_commits')
     def _dump_pull_request_commits(self, commit_list):
+        logger.info("Dumping Pull Request Commits...")
+    
         obj_list = []
-        
+    
         for node in commit_list:
             number = node[0]
             for oid in node[1]:
@@ -1139,14 +1158,15 @@ class GithubMiner(BaseMiner):
                 if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                     self._insert(object_=self.db_schema.pull_request_commits.insert(), param=obj_list)
                     obj_list.clear()
-        
-        logger.info("Dumping Pull Request Commits...")
-        self._insert(self.db_schema.pull_request_commits.insert(), obj_list)
     
+        self._insert(self.db_schema.pull_request_commits.insert(), obj_list)
+
     @timing(name='pull_request_labels')
     def _dump_pull_request_labels(self, label_lst):
+        logger.info("Dumping Pull Request Labels...")
+    
         obj_list = []
-        
+    
         for node in label_lst:
             number = node[0]
             for label_name in node[1]:
@@ -1161,11 +1181,12 @@ class GithubMiner(BaseMiner):
                 if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                     self._insert(object_=self.db_schema.pull_request_labels.insert(), param=obj_list)
                     obj_list.clear()
-        
-        logger.info("Dumping Pull Request Labels...")
-        self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
     
+        self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
+
     def _dump_pull_request_events(self, number):
+        logger.debug(f"Dumping Pull Request Events for Pull Request Number: {number}...")
+    
         pr_event = EventDetailStruct(
             name=self.repo_name,
             owner=self.repo_owner,
@@ -1173,12 +1194,11 @@ class GithubMiner(BaseMiner):
             type_filter="pullRequest",
             number=number
         )
-
+    
         pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
 
         obj_list = self._events_object_list(pr_event, id_=pr_id, type_="PULL_REQUEST")
 
-        logger.debug(f"Dumping Pull Request Events for Pull Request Number: {number}...")
         self._insert(object_=self.db_schema.pull_request_events.insert(), param=obj_list)
 
     @timing(name="pull_request_events")
@@ -1194,18 +1214,19 @@ class GithubMiner(BaseMiner):
                     logger.debug(f"Inserted PR Number: {number}")
 
     def _dump_pull_request_comments(self, number):
+        logger.debug(f"Dumping Pull Request Comments for Pull Request Number: {number}...")
+    
         pr_comments = CommentStruct(
             name=self.repo_name,
             owner=self.repo_owner,
             number=number,
             type_filter="pullRequest"
         )
-
+    
         pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
-
+    
         obj_list = self._comments_object_list(pr_comments, pr_id, "PULL_REQUEST")
 
-        logger.debug(f"Dumping Pull Request Comments for Pull Request Number: {number}...")
         self._insert(object_=self.db_schema.pull_request_comments.insert(), param=obj_list)
 
     @timing(name='pull_request_comments')
@@ -1225,7 +1246,7 @@ class GithubMiner(BaseMiner):
             f"""
             SELECT repo_id
             FROM repository
-            WHERE name='{self.repo_name}' AND owner='{self.repo_owner}'
+            WHERE name="{self.repo_name}" AND owner="{self.repo_owner}"
             """
         ).fetchone()
 
@@ -1235,9 +1256,9 @@ class GithubMiner(BaseMiner):
         if not login and user_object:
             res = self._conn.execute(
                 f"""
-                SELECT contributor_id
+                SELECT id
                 FROM contributors
-                WHERE login='{user_object.login}'
+                WHERE login="{user_object.login}"
                 """
             ).fetchone()
 
@@ -1252,9 +1273,9 @@ class GithubMiner(BaseMiner):
         elif login:
             res = self._conn.execute(
                 f"""
-                SELECT contributor_id
+                SELECT id
                 FROM contributors
-                WHERE login='{login}'
+                WHERE login="{login}"
                 """
             ).fetchone()
 
@@ -1269,7 +1290,7 @@ class GithubMiner(BaseMiner):
         elif name and email:
             res = self._conn.execute(
                 f"""
-                SELECT contributor_id
+                SELECT id
                 FROM contributors
                 WHERE name="{name}" AND email="{email}"
                 """

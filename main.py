@@ -129,8 +129,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
         try:
             self.args = self.parse_args([
-                '-RN', 'react', '-RO', 'facebook', '-id', '-PT', '-dbms', 'sqlite',
-                '-dbo', '/home/mahen/PycharmProjects/GRAS/react.db', '-t',
+                '-RN', 'react', '-RO', 'facebook', '-m', '-B', '-BE', '-dbms', 'sqlite',
+                '-dbo', '/home/mahen/PycharmProjects/GRAS/react.db', '-f', '-t',
                 "b62c6b609bb8065399d4f09a85d6bad15894f345",
                 "e495439d3cd0a7c7e99d2b42b0fbb59850d0f2c8",
                 "b647ad8aaa1482bd6b090ab8f290b3579ca5b7dc",
@@ -274,7 +274,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
                 logger.warning(
                     "Database name not provided! GRAS will create the database with name `gras` if not exists.")
 
-            if not args.basic and not args.issue_tracker and not args.commit and not args.pull_tracker:
+            if not args.basic and not args.basic_extra and not args.issue_tracker and not args.commit and \
+                    not args.pull_tracker:
                 logger.warning("Stage name not specified, using `basic` by default.")
                 args.basic = True
     

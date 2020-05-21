@@ -96,7 +96,7 @@ class DBSchema:
     
     def __set_unicode_variable(self):
         global UNICODE, UNICODE_TEXT
-    
+
         if self.engine == "mysql":
             UNICODE = Unicode(255, collation='utf8mb4_bin')
             UNICODE_TEXT = UnicodeText(collation='utf8m_bin')
@@ -145,42 +145,44 @@ class DBSchema:
     def _create_contributors_table(self):
         """
         CREATE TABLE contributors (
-            contributor_id INTEGER NOT NULL,
+            id INTEGER NOT NULL,
+            contributor_id INTEGER,
             login VARCHAR(255),
             name VARCHAR(255),
             email VARCHAR(255),
             created_at DATETIME,
             updated_at DATETIME,
-            total_followers INTEGER NOT NULL,
+            total_followers INTEGER DEFAULT '0' NOT NULL,
             location VARCHAR(255),
-            is_anonymous BOOLEAN NOT NULL,
+            user_type VARCHAR(255) NOT NULL,
+            is_anonymous BOOLEAN DEFAULT '0' NOT NULL,
             
-            PRIMARY KEY (contributor_id),
+            PRIMARY KEY (id),
             CONSTRAINT login_email_ind UNIQUE (login, email),
             CHECK (is_anonymous IN (0, 1)),
-            CHECK (is_assignee IN (0, 1))
+            CONSTRAINT enum_check CHECK (user_type IN ('USER', 'ORGANIZATION', 'BOT'))
         )
         """
         self.contributors = Table(
             'contributors', self._metadata,
-            Column('contributor_id', INTEGER, autoincrement=True, primary_key=True),
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('contributor_id', INTEGER, server_default=None),
             Column('login', UNICODE),
             Column('name', UNICODE),
             Column('email', UNICODE),
             Column('created_at', self.__get_date_field()),
             Column('updated_at', self.__get_date_field()),
-            Column('total_followers', INTEGER, nullable=False, default=0),
+            Column('total_followers', INTEGER, nullable=False, server_default='0'),
             Column('location', UNICODE),
             Column('user_type', self._user_type_enum[0], nullable=False),
-            Column('is_anonymous', BOOLEAN, nullable=False, default=0),
-            UniqueConstraint('login', 'email', name='login_email_ind'),
-            UniqueConstraint('name', 'email', name='name_email_ind')
+            Column('is_anonymous', BOOLEAN, nullable=False, server_default='0'),
+            UniqueConstraint('login', 'email', name='login_email_ind')
         )
-
+    
         if self._user_type_enum[1]:
             self.contributors.append_constraint(CheckConstraint(f"user_type IN ({self._get_string(UserType)})",
                                                                 name='enum_check'))
-
+    
         self.contributors.create(bind=self.conn, checkfirst=True)
     
     def _create_repository_table(self):
@@ -193,12 +195,12 @@ class DBSchema:
             updated_at DATETIME NOT NULL,
             description TEXT,
             disk_usage INTEGER NOT NULL,
-            fork_count INTEGER NOT NULL,
+            fork_count INTEGER DEFAULT '0' NOT NULL,
             url VARCHAR(255) NOT NULL,
             homepage_url VARCHAR(255) NOT NULL,
             primary_language VARCHAR(255) NOT NULL,
-            total_stargazers INTEGER NOT NULL,
-            total_watchers INTEGER NOT NULL,
+            total_stargazers INTEGER DEFAULT '0' NOT NULL,
+            total_watchers INTEGER DEFAULT '0' NOT NULL,
             forked_from VARCHAR(255),
             
             PRIMARY KEY (repo_id)
@@ -213,26 +215,27 @@ class DBSchema:
             Column('updated_at', self.__get_date_field(), nullable=False),
             Column('description', TEXT),
             Column('disk_usage', INTEGER, nullable=False),
-            Column('fork_count', INTEGER, default=0, nullable=False),
+            Column('fork_count', INTEGER, server_default='0', nullable=False),
             Column('url', UNICODE, nullable=False),
             Column('homepage_url', UNICODE, nullable=False),
             Column('primary_language', UNICODE, nullable=False),
-            Column('total_stargazers', INTEGER, default=0, nullable=False),
-            Column('total_watchers', INTEGER, default=0, nullable=False),
+            Column('total_stargazers', INTEGER, server_default='0', nullable=False),
+            Column('total_watchers', INTEGER, server_default='0', nullable=False),
             Column('forked_from', UNICODE)
         )
-
+    
         self.repository.create(bind=self.conn, checkfirst=True)
     
     def _create_repository_stats_tables(self):
         """
         CREATE TABLE languages (
+            id INTEGER NOT NULL,
             repo_id INTEGER,
             name VARCHAR(255) NOT NULL,
-            size INTEGER NOT NULL,
+            size INTEGER DEFAULT '0' NOT NULL,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE milestones (
@@ -250,9 +253,29 @@ class DBSchema:
             
             PRIMARY KEY (id),
             CONSTRAINT num_repo_ind UNIQUE (number, repo_id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(creator_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
-            CONSTRAINT enum_check CHECK (milestones.state IN ('OPEN', 'CLOSED'))
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(creator_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            CONSTRAINT enum_check CHECK (state IN ('OPEN', 'CLOSED'))
+        )
+        
+        CREATE TABLE stargazers (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            user_id INTEGER,
+            starred_at DATETIME,
+            
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(user_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE
+        )
+        
+        CREATE TABLE watchers (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            user_id INTEGER,
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(user_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE topics (
@@ -260,10 +283,9 @@ class DBSchema:
             repo_id INTEGER,
             url VARCHAR(255) NOT NULL,
             name VARCHAR(255) NOT NULL,
-            total_stargazers INTEGER NOT NULL,
-            
+            total_stargazers INTEGER DEFAULT '0' NOT NULL,
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE releases (
@@ -274,12 +296,22 @@ class DBSchema:
             description TEXT,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
-            is_prerelease BOOLEAN,
+            is_prerelease BOOLEAN DEFAULT '0' NOT NULL,
             tag VARCHAR(255),
-            
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(creator_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(creator_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            CHECK (is_prerelease IN (0, 1))
+        )
+        
+        CREATE TABLE forks (
+            id INTEGER NOT NULL,
+            repo_id INTEGER,
+            user_id INTEGER,
+            forked_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(user_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE branches (
@@ -287,9 +319,8 @@ class DBSchema:
             repo_id INTEGER,
             name VARCHAR(255) NOT NULL,
             target_commit_id VARCHAR(255) NOT NULL,
-            
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE labels (
@@ -298,27 +329,26 @@ class DBSchema:
             name VARCHAR(255) NOT NULL,
             color VARCHAR(255) NOT NULL,
             created_at DATETIME NOT NULL,
-            label_type VARCHAR(255),
-            
+            label_type VARCHAR(255) NOT NULL,
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            CONSTRAINT enum_check CHECK (type IN ('GENERAL', 'PRIORITY', 'SEVERITY', 'COMPONENT'))
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            CONSTRAINT enum_check CHECK (label_type IN ('GENERAL', 'PRIORITY', 'SEVERITY', 'COMPONENT'))
         )
         """
         self.languages = Table(
             'languages', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('name', UNICODE, nullable=False),
-            Column('size', INTEGER, default=0, nullable=False)
+            Column('size', INTEGER, server_default='0', nullable=False)
         )
-
+    
         self.milestones = Table(
             'milestones', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('number', INTEGER),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('creator_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('creator_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('title', TEXT),
             Column('description', TEXT),
             Column('due_on', self.__get_date_field()),
@@ -328,78 +358,78 @@ class DBSchema:
             Column('state', self._state_enum[0], nullable=False),
             UniqueConstraint('number', 'repo_id', name='num_repo_ind')
         )
-
+    
         if self._state_enum[1]:
             self.milestones.append_constraint(CheckConstraint(f"state IN ({self._get_string(State)})",
                                                               name='enum_check'))
-
+    
         self.stargazers = Table(
             'stargazers', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('user_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('user_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('starred_at', self.__get_date_field())
         )
-
+    
         self.watchers = Table(
             'watchers', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('user_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('user_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE"))
         )
-
+    
         self.topics = Table(
             'topics', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('url', UNICODE, nullable=False),
             Column('name', UNICODE, nullable=False),
-            Column('total_stargazers', INTEGER, default=0, nullable=False)
+            Column('total_stargazers', INTEGER, server_default='0', nullable=False)
         )
-
+    
         self.releases = Table(
             'releases', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('creator_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('creator_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('name', UNICODE, nullable=False),
             Column('description', TEXT),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('updated_at', self.__get_date_field(), nullable=False),
-            Column('is_prerelease', BOOLEAN, default=0, nullable=False),
+            Column('is_prerelease', BOOLEAN, server_default='0', nullable=False),
             Column('tag', UNICODE)
         )
-
+    
         self.forks = Table(
             'forks', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('user_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('user_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('forked_at', self.__get_date_field(), nullable=False),
         )
-
+    
         self.branches = Table(
             'branches', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('name', UNICODE, nullable=False),
             Column('target_commit_id', UNICODE, nullable=False)
         )
-
+    
         self.labels = Table(
             'labels', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('name', UNICODE, nullable=False),
             Column('color', UNICODE, nullable=False),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('label_type', self._label_enum[0], nullable=False)
         )
-
+    
         if self._label_enum[1]:
             self.labels.append_constraint(CheckConstraint(f"label_type IN ({self._get_string(LabelType)})",
                                                           name='enum_check'))
-
+    
         self.languages.create(bind=self.conn, checkfirst=True)
         self.milestones.create(bind=self.conn, checkfirst=True)
         self.stargazers.create(bind=self.conn, checkfirst=True)
@@ -423,16 +453,16 @@ class DBSchema:
             body TEXT,
             reporter_id INTEGER,
             milestone_id INTEGER,
-            positive_reaction_count INTEGER NOT NULL,
-            negative_reaction_count INTEGER NOT NULL,
-            ambiguous_reaction_count INTEGER NOT NULL,
+            positive_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            negative_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            ambiguous_reaction_count INTEGER DEFAULT '0' NOT NULL,
             state VARCHAR(255) NOT NULL,
             
             PRIMARY KEY (id),
-            CONSTRAINT num_repo_ind UNIQUE (number, repo_id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(reporter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
-            FOREIGN KEY(milestone_id) REFERENCES milestones (id) ON DELETE CASCADE,
+            UNIQUE (number, repo_id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(reporter_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(milestone_id) REFERENCES milestones (id) ON DELETE CASCADE ON UPDATE CASCADE,
             CONSTRAINT enum_check CHECK (state IN ('OPEN', 'CLOSED'))
         )
         """
@@ -440,17 +470,17 @@ class DBSchema:
             'issues', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('number', INTEGER),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('updated_at', self.__get_date_field(), nullable=False),
             Column('closed_at', self.__get_date_field()),
             Column('title', TEXT),
             Column('body', self.__get_large_text_type()),
-            Column('reporter_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
-            Column('milestone_id', None, ForeignKey('milestones.id', ondelete="CASCADE")),
-            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
-            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
-            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False),
+            Column('reporter_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('milestone_id', None, ForeignKey('milestones.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('positive_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('negative_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, server_default='0', nullable=False),
             Column('state', self._state_enum[0], nullable=False),
             UniqueConstraint('number', 'repo_id')
         )
@@ -471,16 +501,17 @@ class DBSchema:
             body TEXT NOT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
-            is_minimized BOOLEAN,
+            is_minimized BOOLEAN DEFAULT '0',
             minimized_reason VARCHAR(255),
-            positive_reaction_count INTEGER NOT NULL,
-            negative_reaction_count INTEGER NOT NULL,
-            ambiguous_reaction_count INTEGER NOT NULL,
+            positive_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            negative_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            ambiguous_reaction_count INTEGER DEFAULT '0' NOT NULL,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
-            FOREIGN KEY(commenter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(commenter_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            CHECK (is_minimized IN (0, 1))
         )
         
         CREATE TABLE issue_assignees (
@@ -490,9 +521,9 @@ class DBSchema:
             assignee_id INTEGER,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
-            FOREIGN KEY(assignee_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(assignee_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE issue_labels (
@@ -502,9 +533,9 @@ class DBSchema:
             label_id INTEGER,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
-            FOREIGN KEY(label_id) REFERENCES labels (id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(label_id) REFERENCES labels (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE issue_events (
@@ -514,16 +545,16 @@ class DBSchema:
             event_type VARCHAR(255) NOT NULL,
             who INTEGER,
             "when" DATETIME NOT NULL,
-            added VARCHAR(255),
+            added TEXT,
             added_type VARCHAR(255),
-            removed VARCHAR(255),
+            removed TEXT,
             removed_type VARCHAR(255),
-            is_cross_repository BOOLEAN NOT NULL,
+            is_cross_repository BOOLEAN DEFAULT '0' NOT NULL,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE,
-            FOREIGN KEY(who) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(issue_id) REFERENCES issues (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(who) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
             CHECK (is_cross_repository IN (0, 1)),
             CONSTRAINT event_enum_check CHECK (event_type IN ('ASSIGNED_EVENT', 'CROSS_REFERENCED_EVENT',
                 'DEMILESTONED_EVENT', 'LABELED_EVENT', 'MARKED_AS_DUPLICATE_EVENT', 'MENTIONED_EVENT',
@@ -531,62 +562,62 @@ class DBSchema:
                 'TRANSFERRED_EVENT', 'UNASSIGNED_EVENT', 'UNLABELED_EVENT', 'UNMARKED_AS_DUPLICATE_EVENT',
                 'UNPINNED_EVENT')),
             CONSTRAINT added_enum_check CHECK (added_type IN ('USER', 'MILESTONE', 'LABEL', 'COMMIT_ID', 'TITLE',
-                'REPOSITORY')),
+                'REPOSITORY', 'ISSUE', 'PULL_REQUEST')),
             CONSTRAINT removed_enum_check CHECK (removed_type IN ('USER', 'MILESTONE', 'LABEL', 'COMMIT_ID', 'TITLE',
-                'REPOSITORY'))
+                'REPOSITORY', 'ISSUE', 'PULL_REQUEST'))
         )
         """
         self.issue_comments = Table(
             'issue_comments', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
-            Column('commenter_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('commenter_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('body', self.__get_large_text_type(), nullable=False),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('updated_at', self.__get_date_field(), nullable=False),
-            Column('is_minimized', BOOLEAN, default=False),
+            Column('is_minimized', BOOLEAN, server_default='0'),
             Column('minimized_reason', UNICODE),
-            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
-            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
-            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
+            Column('positive_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('negative_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, server_default='0', nullable=False)
         )
-
+    
         self.issue_assignees = Table(
             'issue_assignees', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
-            Column('assignee_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('assignee_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE"))
         )
-
+    
         self.issue_labels = Table(
             'issue_labels', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
-            Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE", onupdate="CASCADE")),
         )
-
+    
         self.issue_events = Table(
             'issue_events', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('event_type', self._event_type_enum[0], nullable=False),
-            Column('who', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('who', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('when', self.__get_date_field(), nullable=False),
             Column('added', self.__get_large_text_type()),
             Column('added_type', self._added_or_removed_type[0]),
             Column('removed', self.__get_large_text_type()),
             Column('removed_type', self._added_or_removed_type[0]),
-            Column('is_cross_repository', BOOLEAN, default=0, nullable=False)
+            Column('is_cross_repository', BOOLEAN, server_default='0', nullable=False)
         )
-
+    
         if self._event_type_enum[1]:
             self.issue_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
                                                                 name='event_enum_check'))
-
+    
         if self._added_or_removed_type[1]:
             self.issue_events.append_constraint(
                 CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
@@ -595,7 +626,7 @@ class DBSchema:
             self.issue_events.append_constraint(
                 CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
             )
-
+    
         self.issue_comments.create(bind=self.conn, checkfirst=True)
         self.issue_assignees.create(bind=self.conn, checkfirst=True)
         self.issue_labels.create(bind=self.conn, checkfirst=True)
@@ -607,20 +638,20 @@ class DBSchema:
             id INTEGER NOT NULL,
             repo_id INTEGER,
             oid VARCHAR(255) NOT NULL,
-            additions INTEGER NOT NULL,
-            deletions INTEGER NOT NULL,
+            additions INTEGER DEFAULT '0' NOT NULL,
+            deletions INTEGER DEFAULT '0' NOT NULL,
             author_id INTEGER,
             authored_date DATETIME NOT NULL,
             committer_id INTEGER,
             committer_date DATETIME NOT NULL,
             message TEXT,
-            num_files_changed INTEGER,
-            is_merge BOOLEAN NOT NULL,
+            num_files_changed INTEGER DEFAULT '0',
+            is_merge BOOLEAN DEFAULT '0' NOT NULL,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(author_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
-            FOREIGN KEY(committer_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(author_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(committer_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
             CHECK (is_merge IN (0, 1))
         )
         
@@ -634,14 +665,14 @@ class DBSchema:
             updated_at DATETIME NOT NULL,
             path VARCHAR(255),
             position INTEGER,
-            positive_reaction_count INTEGER NOT NULL,
-            negative_reaction_count INTEGER NOT NULL,
-            ambiguous_reaction_count INTEGER NOT NULL,
+            positive_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            negative_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            ambiguous_reaction_count INTEGER DEFAULT '0' NOT NULL,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(commenter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
-            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(commenter_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE code_change (
@@ -649,42 +680,42 @@ class DBSchema:
             repo_id INTEGER,
             commit_id INTEGER NOT NULL,
             filename VARCHAR(255) NOT NULL,
-            additions INTEGER,
-            deletions INTEGER,
-            changes INTEGER,
+            additions INTEGER DEFAULT '0',
+            deletions INTEGER DEFAULT '0',
+            changes INTEGER DEFAULT '0',
             change_type VARCHAR(255),
             patch TEXT,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         """
         self.commits = Table(
             'commits', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('oid', UNICODE, nullable=False),
-            Column('additions', INTEGER, default=0, nullable=False),
-            Column('deletions', INTEGER, default=0, nullable=False),
-            Column('author_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('additions', INTEGER, server_default='0', nullable=False),
+            Column('deletions', INTEGER, server_default='0', nullable=False),
+            Column('author_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('authored_date', self.__get_date_field(), nullable=False),
-            Column('committer_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('committer_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('committer_date', self.__get_date_field(), nullable=False),
             Column('message', self.__get_large_text_type()),
-            Column('num_files_changed', INTEGER, default=0),
-            Column('is_merge', BOOLEAN, nullable=False, default=False)
+            Column('num_files_changed', INTEGER, server_default='0'),
+            Column('is_merge', BOOLEAN, nullable=False, server_default='0')
         )
         
         self.code_change = Table(
             'code_change', self._metadata,
             Column('id', INTEGER, primary_key=True, autoincrement=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE"), nullable=False),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE", onupdate="CASCADE"), nullable=False),
             Column('filename', UNICODE, nullable=False),
-            Column('additions', INTEGER, default=0),
-            Column('deletions', INTEGER, default=0),
-            Column('changes', INTEGER, default=0),
+            Column('additions', INTEGER, server_default='0'),
+            Column('deletions', INTEGER, server_default='0'),
+            Column('changes', INTEGER, server_default='0'),
             Column('change_type', VARCHAR(255)),
             Column('patch', self.__get_large_text_type())
         )
@@ -692,19 +723,19 @@ class DBSchema:
         self.commit_comments = Table(
             'commit_comments', self._metadata,
             Column('id', INTEGER, primary_key=True, autoincrement=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('commenter_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('commenter_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('body', self.__get_large_text_type()),
-            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
+            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('updated_at', self.__get_date_field(), nullable=False),
             Column('path', UNICODE),
             Column('position', INTEGER),
-            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
-            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
-            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
+            Column('positive_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('negative_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, server_default='0', nullable=False)
         )
-
+    
         self.commits.create(bind=self.conn, checkfirst=True)
         self.commit_comments.create(bind=self.conn, checkfirst=True)
         self.code_change.create(bind=self.conn, checkfirst=True)
@@ -715,14 +746,14 @@ class DBSchema:
             id INTEGER NOT NULL,
             repo_id INTEGER,
             number INTEGER NOT NULL,
-            title VARCHAR(255),
+            title TEXT,
             body TEXT,
             author_id INTEGER,
-            num_files_changed INTEGER,
+            num_files_changed INTEGER DEFAULT '0',
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
-            additions INTEGER NOT NULL,
-            deletions INTEGER NOT NULL,
+            additions INTEGER DEFAULT '0' NOT NULL,
+            deletions INTEGER DEFAULT '0' NOT NULL,
             base_ref_name VARCHAR(255),
             base_ref_commit_id INTEGER,
             head_ref_name VARCHAR(255),
@@ -733,66 +764,66 @@ class DBSchema:
             merged_at DATETIME,
             merged_by INTEGER,
             milestone_id INTEGER,
-            positive_reaction_count INTEGER NOT NULL,
-            negative_reaction_count INTEGER NOT NULL,
-            ambiguous_reaction_count INTEGER NOT NULL,
+            positive_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            negative_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            ambiguous_reaction_count INTEGER DEFAULT '0' NOT NULL,
             state VARCHAR(255) NOT NULL,
             review_decision VARCHAR(255),
             
             PRIMARY KEY (id),
-            CONSTRAINT num_repo_ind UNIQUE (number, repo_id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(author_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
-            FOREIGN KEY(base_ref_commit_id) REFERENCES commits (id) ON DELETE CASCADE,
-            FOREIGN KEY(head_ref_commit_id) REFERENCES commits (id) ON DELETE CASCADE,
+            UNIQUE (number, repo_id),
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(author_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(base_ref_commit_id) REFERENCES commits (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(head_ref_commit_id) REFERENCES commits (id) ON DELETE CASCADE ON UPDATE CASCADE,
             CHECK (closed IN (0, 1)),
             CHECK (merged IN (0, 1)),
-            FOREIGN KEY(merged_by) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
-            FOREIGN KEY(milestone_id) REFERENCES milestones (id) ON DELETE CASCADE,
-            CONSTRAINT enum_check CHECK (state IN ('OPEN', 'CLOSED')),
+            FOREIGN KEY(merged_by) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(milestone_id) REFERENCES milestones (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            CONSTRAINT enum_check CHECK (state IN ('OPEN', 'CLOSED', 'MERGED')),
             CONSTRAINT rd_enum_check CHECK (review_decision IN ('CHANGES_REQUESTED', 'APPROVED', 'REVIEW_REQUIRED'))
         )
         """
         self.pull_requests = Table(
             'pull_requests', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('number', INTEGER, nullable=False),
             Column('title', TEXT),
             Column('body', self.__get_large_text_type()),
-            Column('author_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
-            Column('num_files_changed', INTEGER, default=0),
+            Column('author_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('num_files_changed', INTEGER, server_default='0'),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('updated_at', self.__get_date_field(), nullable=False),
-            Column('additions', INTEGER, default=0, nullable=False),
-            Column('deletions', INTEGER, default=0, nullable=False),
+            Column('additions', INTEGER, server_default='0', nullable=False),
+            Column('deletions', INTEGER, server_default='0', nullable=False),
             Column('base_ref_name', UNICODE),
-            Column('base_ref_commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
+            Column('base_ref_commit_id', None, ForeignKey('commits.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('head_ref_name', UNICODE),
-            Column('head_ref_commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
+            Column('head_ref_commit_id', None, ForeignKey('commits.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('closed', BOOLEAN, nullable=False),
             Column('closed_at', self.__get_date_field()),
             Column('merged', BOOLEAN, nullable=False),
             Column('merged_at', self.__get_date_field()),
-            Column('merged_by', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
-            Column('milestone_id', None, ForeignKey('milestones.id', ondelete="CASCADE")),
-            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
-            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
-            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False),
+            Column('merged_by', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('milestone_id', None, ForeignKey('milestones.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('positive_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('negative_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, server_default='0', nullable=False),
             Column('state', self._state_enum[0], nullable=False),
             Column('review_decision', self._review_decision_enum[0]),
             UniqueConstraint('number', 'repo_id')
         )
-
+    
         if self._state_enum[1]:
             self.pull_requests.append_constraint(CheckConstraint(f"state IN ({self._get_string(PullRequestState)})",
                                                                  name='enum_check'))
-
+    
         if self._review_decision_enum[1]:
             self.pull_requests.append_constraint(CheckConstraint(f"review_decision IN ("
                                                                  f"{self._get_string(ReviewDecision)})",
                                                                  name="rd_enum_check"))
-
+    
         self.pull_requests.create(bind=self.conn, checkfirst=True)
     
     def _create_pr_tracker_tables(self):
@@ -805,16 +836,16 @@ class DBSchema:
             body TEXT NOT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
-            is_minimized BOOLEAN,
+            is_minimized BOOLEAN DEFAULT '0',
             minimized_reason VARCHAR(255),
-            positive_reaction_count INTEGER NOT NULL,
-            negative_reaction_count INTEGER NOT NULL,
-            ambiguous_reaction_count INTEGER NOT NULL,
+            positive_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            negative_reaction_count INTEGER DEFAULT '0' NOT NULL,
+            ambiguous_reaction_count INTEGER DEFAULT '0' NOT NULL,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
-            FOREIGN KEY(commenter_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(commenter_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
             CHECK (is_minimized IN (0, 1))
         )
         
@@ -825,9 +856,9 @@ class DBSchema:
             commit_id INTEGER,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
-            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(commit_id) REFERENCES commits (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE pull_request_assignees (
@@ -837,9 +868,9 @@ class DBSchema:
             assignee_id INTEGER,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
-            FOREIGN KEY(assignee_id) REFERENCES contributors (contributor_id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(assignee_id) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE pull_request_labels (
@@ -849,9 +880,9 @@ class DBSchema:
             label_id INTEGER,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
-            FOREIGN KEY(label_id) REFERENCES labels (id) ON DELETE CASCADE
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(label_id) REFERENCES labels (id) ON DELETE CASCADE ON UPDATE CASCADE
         )
         
         CREATE TABLE pull_request_events (
@@ -861,16 +892,16 @@ class DBSchema:
             event_type VARCHAR(255) NOT NULL,
             who INTEGER,
             "when" DATETIME NOT NULL,
-            added VARCHAR(255),
+            added TEXT,
             added_type VARCHAR(255),
-            removed VARCHAR(255),
+            removed TEXT,
             removed_type VARCHAR(255),
-            is_cross_repository BOOLEAN NOT NULL,
+            is_cross_repository BOOLEAN DEFAULT '0' NOT NULL,
             
             PRIMARY KEY (id),
-            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE,
-            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE,
-            FOREIGN KEY(who) REFERENCES contributors (contributor_id) ON DELETE CASCADE,
+            FOREIGN KEY(repo_id) REFERENCES repository (repo_id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(pr_id) REFERENCES pull_requests (id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(who) REFERENCES contributors (id) ON DELETE CASCADE ON UPDATE CASCADE,
             CHECK (is_cross_repository IN (0, 1)),
             CONSTRAINT event_enum_check CHECK (event_type IN ('ASSIGNED_EVENT', 'CROSS_REFERENCED_EVENT',
                 'DEMILESTONED_EVENT', 'LABELED_EVENT', 'MARKED_AS_DUPLICATE_EVENT', 'MENTIONED_EVENT',
@@ -886,62 +917,62 @@ class DBSchema:
         self.pull_request_comments = Table(
             'pull_request_comments', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
-            Column('commenter_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('commenter_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('body', self.__get_large_text_type(), nullable=False),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('updated_at', self.__get_date_field(), nullable=False),
-            Column('is_minimized', BOOLEAN, default=False),
+            Column('is_minimized', BOOLEAN, server_default='0'),
             Column('minimized_reason', UNICODE),
-            Column('positive_reaction_count', INTEGER, default=0, nullable=False),
-            Column('negative_reaction_count', INTEGER, default=0, nullable=False),
-            Column('ambiguous_reaction_count', INTEGER, default=0, nullable=False)
+            Column('positive_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('negative_reaction_count', INTEGER, server_default='0', nullable=False),
+            Column('ambiguous_reaction_count', INTEGER, server_default='0', nullable=False)
         )
         
         self.pull_request_assignees = Table(
             'pull_request_assignees', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
-            Column('assignee_id', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE"))
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('assignee_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE"))
         )
         
         self.pull_request_labels = Table(
             'pull_request_labels', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
-            Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE", onupdate="CASCADE")),
         )
         
         self.pull_request_commits = Table(
             'pull_request_commits', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
-            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('commit_id', None, ForeignKey('commits.id', ondelete="CASCADE", onupdate="CASCADE")),
         )
         
         self.pull_request_events = Table(
             'pull_request_events', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE")),
-            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE")),
+            Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
+            Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('event_type', self._event_type_enum[0], nullable=False),
-            Column('who', None, ForeignKey('contributors.contributor_id', ondelete="CASCADE")),
+            Column('who', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('when', self.__get_date_field(), nullable=False),
             Column('added', self.__get_large_text_type()),
             Column('added_type', self._added_or_removed_type[0]),
             Column('removed', self.__get_large_text_type()),
             Column('removed_type', self._added_or_removed_type[0]),
-            Column('is_cross_repository', BOOLEAN, default=0, nullable=False)
+            Column('is_cross_repository', BOOLEAN, server_default='0', nullable=False)
         )
         
         if self._event_type_enum[1]:
             self.pull_request_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
                                                                        name='event_enum_check'))
-
+    
         if self._added_or_removed_type[1]:
             self.pull_request_events.append_constraint(
                 CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
@@ -950,17 +981,18 @@ class DBSchema:
             self.pull_request_events.append_constraint(
                 CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
             )
-
+    
         self.pull_request_comments.create(bind=self.conn, checkfirst=True)
         self.pull_request_commits.create(bind=self.conn, checkfirst=True)
         self.pull_request_assignees.create(bind=self.conn, checkfirst=True)
         self.pull_request_labels.create(bind=self.conn, checkfirst=True)
         self.pull_request_events.create(bind=self.conn, checkfirst=True)
-    
+
     @staticmethod
     def contributors_object(user_type, login, name, email, created_at, updated_at, location, total_followers=0,
-                            is_anonymous=0):
+                            is_anonymous=0, contributor_id=None):
         obj = {
+            'contributor_id' : contributor_id,
             'login'          : get_value(login),
             'name'           : get_value(name),
             'email'          : get_value(email),

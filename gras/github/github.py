@@ -67,6 +67,7 @@ class GithubInterface(BaseInterface):
             logger.error(f"Too Many Redirects: {e}")
         except HTTPError:
             if response.status_code == 502:
+                logger.debug("Bad Gateway Error! Retrying...")
                 raise BadGatewayError
     
             raise ObjectDoesNotExistError(msg=f"Object does not exist! Url: {url}")

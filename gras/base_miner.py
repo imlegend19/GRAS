@@ -112,19 +112,27 @@ class BaseMiner(metaclass=ABCMeta):
             else:
                 logger.error(str(e))
 
+    @staticmethod
+    def __get_not_null_clause(clause):
+        clause_list = []
+    
+        for field in clause.split(','):
+            clause_list.append(f"{field} IS NOT NULL")
+    
+        return " AND".join(clause_list)
+
     def _refactor_table(self, id_, table, group_by):
         logger.info(f"Refactoring Table: {table}")
     
         deleted = self._conn.execute(
             f"""
             DELETE FROM {table}
-            WHERE {id_} NOT IN (
-                SELECT {id_}
-                FROM (
-                         SELECT min({id_})
-                         FROM {table}
-                         GROUP BY {group_by}
-                     ) AS t
+            WHERE {id_} IN (
+                SELECT max({id_})
+                FROM {table}
+                WHERE {self.__get_not_null_clause(group_by)}
+                GROUP BY {group_by}
+                HAVING COUNT(*) > 1
             )
             """
         )
