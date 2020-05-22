@@ -133,3 +133,5 @@ logs/
 
 comments
 time-log/
+
+custom_miners/*/data

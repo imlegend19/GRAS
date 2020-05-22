@@ -57,3 +57,9 @@ class BadGatewayError(GrasError):
     """Exception to be raised by :class:`~gras.github.github.GithubInterface` on ``502 Bad Gateway`` response."""
     
     pass
+
+
+class DownloaderError(GrasError):
+    """Exception to be thrown by :class:`~gras.pipermail.downloader.Downloader`"""
+    
+    message = "%(msg)s"

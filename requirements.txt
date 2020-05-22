@@ -41,3 +41,4 @@ tabulate==0.8.7
 urllib3==1.25.9
 wcwidth==0.1.9
 zipp==3.1.0
+beautifulsoup4~=4.9.0
