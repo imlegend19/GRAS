@@ -2,13 +2,22 @@ MAX_BYTES = 200
 
 
 def is_python_file(path: str):
+    """
+    Function to determine whether a file is python file or not.
+    
+    :param path: path of the file
+    :type path: str
+    
+    :return: whether the file is a valid python file or not
+    :rtype: bool
+    """
     if path.endswith(".py"):
         try:
             with open(path, 'rb') as fp:
                 content = fp.read(MAX_BYTES)
                 if not content:
                     return False
-
+            
             return True
         except IOError:
             return False
