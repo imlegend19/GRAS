@@ -1,48 +1,7 @@
 import ast
-import os
+from ast import Attribute, Call, Name
 
-from gras.file_dependency.utils import is_python_file, lines_of_code_counter
-
-"""
-Test Cases:
-
-def x():
-    def u(_):
-         pass
-    return u(None)
-
-# Decorated FunctionDef
-@deco1
-@deco2()
-@deco3(1)
-def f():
-    pass
-
-# Decorated AsyncFunctionDef
-@deco1
-@deco2()
-@deco3(1)
-async def f():
-    pass
-
-# Decorated ClassDef
-@deco1
-@deco2()
-@deco3(1)
-class C:
-    pass
-
-# Decorator with generator argument
-@deco(a for a in b)
-def f():
-    pass
-
-# Decorator with attribute
-@a.b.c
-def f():
-    pass
-
-"""
+from gras.file_dependency.python.node_types import AttributeTree, CallTree, Class, Decorator, Function
 
 
 class FileAnalyzer(ast.NodeVisitor):
@@ -70,15 +29,17 @@ class FileAnalyzer(ast.NodeVisitor):
     def visit_ClassDef(self, node):
         if node.name not in self.stats["classes"]:
             self.stats["classes"].append({
+                "type"      : Class,
                 "name"      : node.name,
                 "docstring" : ast.get_docstring(node),
                 "methods"   : [],
-                "decorators": list(decorator.id for decorator in node.decorator_list)
+                "decorators": self.__parse_decorators(node.decorator_list)
             })
             
             for body in node.body:
                 if isinstance(body, ast.FunctionDef) and body.name != "__init__":
                     self.stats["classes"][self.stats["class_count"]]["methods"].append({
+                        "type"      : Function,
                         "name"      : body.name,
                         "docstring" : ast.get_docstring(body),
                         "decorators": list(decorator.id for decorator in body.decorator_list)
@@ -91,10 +52,10 @@ class FileAnalyzer(ast.NodeVisitor):
         if node.name != "__init__" and node.name not in self.stats["functions"]:
             self.stats["functions"].append({
                 "name"      : node.name,
-                "decorators": list(decorator.id for decorator in node.decorator_list),
+                "decorators": self.__parse_decorators(node.decorator_list),
                 "docstring" : ast.get_docstring(node)
             })
-    
+
             self.stats["function_count"] += 1
     
     def visit_Import(self, node):
@@ -128,55 +89,55 @@ class FileAnalyzer(ast.NodeVisitor):
             elif alias.id not in self.stats["global_variables"]:
                 self.stats["global_variables"].append(alias.id)
                 self.stats["global_variable_count"] += 1
-    
+
     def gen(self):
         return self.stats
 
-
-def parse_file(root, file):
-    with open(os.path.join(root, file), "r") as fp:
-        analyzer = FileAnalyzer()
-        file_dict = {
-            "name"         : f"{os.path.basename(file)}",
-            "effective_loc": lines_of_code_counter(os.path.join(root, file))
-        }
+    @staticmethod
+    def __parse_decorators(lst):
+        objects = []
+    
+        for decorator in lst:
+            if isinstance(decorator, Name):
+                dic = {
+                    "type": Decorator(subtype=Name),
+                    "name": decorator.id,
+                    "line": decorator.lineno
+                }
+            elif isinstance(decorator, Call):
+                # @deco()-> Call
+                # @a.deco() -> CallTree
+                if isinstance(decorator.func, Attribute):
+                    dic = {
+                        "type" : Decorator(subtype=CallTree),
+                        "value": CallTree(node=decorator),
+                        "line" : decorator.lineno
+                    }
+                else:
+                    dic = {
+                        "type"        : Decorator(subtype=Call),
+                        "name"        : decorator.func.id,
+                        "line"        : decorator.lineno,
+                        "total_args"  : decorator.args.__len__(),
+                        "total_kwargs": decorator.keywords.__len__()
+                    }
+            elif isinstance(decorator, Attribute):
+                dic = {
+                    "type" : Decorator(subtype=AttributeTree),
+                    "value": AttributeTree(node=decorator),
+                    "line" : decorator.lineno
+                }
+            else:
+                raise NotImplementedError
         
-        tree = ast.parse(fp.read())
-        analyzer.visit(tree)
-        file_dict["file_data"] = analyzer.gen()
-        del analyzer
-        fp.close()
+            objects.append(dic)
     
-    return file_dict
+        return objects
 
-
-def parse_dir(project_dir):
-    """
-    Function to parse the project directory to generate a file dependency dictionary.
-
-    :param project_dir: directory of the project to be parsed
-    :type project_dir: str
-    :return: dictionary of file dependency data
-    :rtype: dict
-    """
-    dependency_dict = {}
-    for root, dirname, files in os.walk(project_dir):
-        if os.path.basename(root) != "__pycache__":
-            files_in_dir = []
-            for file in files:
-                if is_python_file(os.path.join(root, file)) and file != "__init__.py":
-                    file_dict = parse_file(root=root, file=file)
-                    files_in_dir.append(file_dict)
-    
-            dependency_dict[f"DIR {os.path.basename(root)}"] = files_in_dir
-    
-    return dependency_dict
-
-
-if __name__ == '__main__':
-    # dic = parse_file("/home/mahen/PycharmProjects/GRAS/gras/github/", "github_miner.py")
-    dic = parse_file("dir-name", "filename")
-    
-    import json
-    
-    print(json.dumps(dic, indent=4))
+# if __name__ == '__main__':
+#     # dic = parse_file("/home/mahen/PycharmProjects/GRAS/gras/github/", "github_miner.py")
+#     dic = parse_file("/home/mahen/.config/JetBrains/PyCharm2020.1/scratches/", "scratch_8.py")
+#
+#     import json
+#
+#     print(json.dumps(dic, indent=4))

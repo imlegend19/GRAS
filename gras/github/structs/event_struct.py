@@ -250,7 +250,7 @@ class EventDetailStruct(GithubInterface, EventModel):
         super().__init__(
             query=self.QUERY,
             query_params=dict(name=name, owner=owner, type_filter=type_filter, number=number,
-                              since="\"" + since + "\"" if since else "null", after="null"),
+                              since="\"" + since + "\"" if since else "null", after="null")
         )
 
         self.type_filter = type_filter
