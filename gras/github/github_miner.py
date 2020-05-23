@@ -51,7 +51,6 @@ class GithubMiner(BaseMiner):
     
     def process(self):
         self.db_schema.create_tables()
-
         self._dump_repository()
 
         if self.basic:
@@ -110,20 +109,9 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Basic Extra Stage', is_stage=True)
     def _basic_extra_miner(self):
-        try:
-            self._dump_stargazers()
-        finally:
-            self._refactor_table(id_='id', table='stargazers', group_by="repo_id, user_id")
-
-        try:
-            self._dump_watchers()
-        finally:
-            self._refactor_table(id_='id', table='watchers', group_by="repo_id, user_id")
-
-        try:
-            self._dump_forks()
-        finally:
-            self._refactor_table(id_='id', table='forks', group_by="repo_id, user_id")
+        self._dump_stargazers()
+        self._dump_watchers()
+        self._dump_forks()
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
@@ -131,36 +119,19 @@ class GithubMiner(BaseMiner):
             self._dump_issues()
         finally:
             self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
-            self._refactor_table(id_='id', table='issue_assignees', group_by="repo_id, issue_id, assignee_id")
-            self._refactor_table(id_='id', table='issue_labels', group_by='repo_id, issue_id, label_id')
     
-        try:
-            self._fetch_issue_events()
-        finally:
-            self._refactor_table(id_='id', table='issue_events', group_by='repo_id, issue_id, event_type, who, "when"')
-    
-        try:
-            self._fetch_issue_comments()
-        finally:
-            self._refactor_table(id_='id', table='issue_comments', group_by='repo_id, issue_id, commenter_id, '
-                                                                            'created_at')
+        self._fetch_issue_events()
+        self._fetch_issue_comments()
 
     @timing(name='Commit Stage', is_stage=True)
     def _commit_miner(self):
-        self._dump_commits()
-
-        self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
-
         try:
-            self._dump_commit_comments()
+            self._dump_commits()
         finally:
-            self._refactor_table(id_='id', table='commit_comments', group_by='repo_id, commit_id, commenter_id, '
-                                                                             'created_at')
-
-        try:
-            self._fetch_code_change()
-        finally:
-            self._refactor_table(id_='id', table='code_change', group_by='repo_id, commit_id, filename')
+            self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
+    
+        self._dump_commit_comments()
+        self._fetch_code_change()
 
     @timing(name='Pull Tracker Stage', is_stage=True)
     def _pull_tracker_miner(self):
@@ -168,26 +139,14 @@ class GithubMiner(BaseMiner):
             self._dump_pull_requests()
         finally:
             self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
-            self._refactor_table(id_='id', table='pull_request_assignees', group_by="repo_id, pr_id, assignee_id")
-            self._refactor_table(id_='id', table='pull_request_labels', group_by='repo_id, pr_id, label_id')
-            self._refactor_table(id_='id', table='pull_request_commits', group_by='repo_id, pr_id, commit_id')
-
-        try:
-            self._fetch_pull_request_events()
-        finally:
-            self._refactor_table(id_='id', table='pull_request_events',
-                                 group_by='repo_id, pr_id, event_type, who, "when"')
-
-        try:
-            self._fetch_pull_request_comments()
-        finally:
-            self._refactor_table(id_='id', table='pull_request_comments',
-                                 group_by='repo_id, pr_id, commenter_id, created_at')
     
+        self._fetch_pull_request_events()
+        self._fetch_pull_request_comments()
+
     def _dump_anon_users(self, name=None, email=None):
         if name or email:
             logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")
-
+        
             obj = self.db_schema.contributors_object(
                 user_type="USER",
                 login=None,
