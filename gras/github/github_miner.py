@@ -1309,12 +1309,10 @@ class GithubMiner(BaseMiner):
             SELECT DISTINCT number
             FROM issues
             """
-        )
+        ).fetchall()
 
-        while True:
-            result_proxy = res.fetchmany(size=MAX_INSERT_OBJECTS)
-            for r in range(0, len(result_proxy), THREADS):
-                yield [x[0] for x in result_proxy[r:r + THREADS]]
+        for r in range(0, len(res), THREADS):
+            yield [x[0] for x in res[r:r + THREADS]]
 
     def __get_pull_requests(self):
         res = self._conn.execute(
@@ -1322,12 +1320,10 @@ class GithubMiner(BaseMiner):
             SELECT DISTINCT number
             FROM pull_requests
             """
-        )
-
-        while True:
-            result_proxy = res.fetchmany(size=MAX_INSERT_OBJECTS)
-            for r in range(0, len(result_proxy), THREADS):
-                yield [x[0] for x in result_proxy[r:r + THREADS]]
+        ).fetchall()
+    
+        for r in range(0, len(res), THREADS):
+            yield [x[0] for x in res[r:r + THREADS]]
 
     def __get_commit_oids(self):
         res = self._conn.execute(
@@ -1335,12 +1331,10 @@ class GithubMiner(BaseMiner):
             SELECT DISTINCT oid
             FROM commits
             """
-        )
-
-        while True:
-            result_proxy = res.fetchmany(size=MAX_INSERT_OBJECTS)
-            for r in range(0, len(res), THREADS):
-                yield [x[0] for x in result_proxy[r:r + THREADS]]
+        ).fetchall()
+    
+        for r in range(0, len(res), THREADS):
+            yield [x[0] for x in res[r:r + THREADS]]
 
     def __get_branches(self):
         res = self._conn.execute(

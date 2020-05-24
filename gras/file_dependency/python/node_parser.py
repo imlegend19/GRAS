@@ -133,11 +133,3 @@ class FileAnalyzer(ast.NodeVisitor):
             objects.append(dic)
     
         return objects
-
-# if __name__ == '__main__':
-#     # dic = parse_file("/home/mahen/PycharmProjects/GRAS/gras/github/", "github_miner.py")
-#     dic = parse_file("/home/mahen/.config/JetBrains/PyCharm2020.1/scratches/", "scratch_8.py")
-#
-#     import json
-#
-#     print(json.dumps(dic, indent=4))

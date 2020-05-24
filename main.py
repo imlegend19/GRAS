@@ -17,14 +17,14 @@ from tabulate import tabulate
 from gras.errors import GrasArgumentParserError, GrasConfigError
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
-from gras.github.identity_merging import IdentityMerging
+from gras.identity_merging.identity_merging import IdentityMerging
 from gras.utils import (
     ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
     to_iso_format
 )
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
-    'gras', datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z'))
+    'gras', datetime.now().strftime('%Y-%m-%d %H-%M-%S %Z'))
 
 DEFAULT_LOGGING = {
     'version'                 : 1,
