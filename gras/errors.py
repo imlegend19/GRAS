@@ -63,3 +63,18 @@ class DownloaderError(GrasError):
     """Exception to be thrown by :class:`~gras.pipermail.downloader.Downloader`"""
     
     message = "%(msg)s"
+
+
+class YandexKeyError(GrasError):
+    """
+    Exception to be thrown by :class:`~gras.identity_merging.IdentityMerging` on
+    :class:`yandex.Translater.TranslaterError`
+    """
+    
+    message = "Invalid Yandex Key: %(msg)s"
+
+
+class YandexError(GrasError):
+    """Exception to be thrown by :class:`~gras.identity_merging.IdentityMerging`"""
+    
+    message = "Yandex Error! %(msg)s"

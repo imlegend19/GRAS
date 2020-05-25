@@ -1,108 +1,191 @@
-import numpy as np
-
-
-def normalised_levenshtein(s1, s2):
+def wfi_levenshtein(string_1, string_2):
     """
-    Calculate the Levenshtein distance (or Edit distance) of 2 strings. This is an efficient iterative
-    implementation of the algorithm.
+    Calculates the Levenshtein distance between two strings. This version uses an iterative version of the
+    Wagner-Fischer algorithm.
     
-    :param s1: s1 string
-    :type s1: str
+    :param string_1: String 1
+    :type string_1: str
     
-    :param s2: s2 string
-    :type s2: str
+    :param string_2: String 2
+    :type string_2: str
     
-    :return: 1 - distance(s1, s2) / max(len(s1), len(s2))
+    :return Levenshtein distance between two string_1 & string_2
     :rtype: float
-    """
     
-    if s1 == s2:
+    Usage::
+        >>> wfi_levenshtein('kitten', 'sitting')
+        0.57
+        >>> wfi_levenshtein('kitten', 'kitten')
+        1
+        >>> wfi_levenshtein('', '')
+        0
+    """
+    if string_1 == string_2:
         return 1
     
-    if len(s1) == 0 or len(s2) == 0:
+    len_1 = len(string_1)
+    len_2 = len(string_2)
+    
+    if len_1 == 0:
+        return len_2
+    
+    if len_2 == 0:
+        return len_1
+    
+    if len_1 > len_2:
+        string_2, string_1 = string_1, string_2
+        len_2, len_1 = len_1, len_2
+    
+    d0 = [i for i in range(len_2 + 1)]
+    d1 = [j for j in range(len_2 + 1)]
+    
+    for i in range(len_1):
+        d1[0] = i + 1
+        for j in range(len_2):
+            cost = d0[j]
+            
+            if string_1[i] != string_2[j]:
+                # substitution
+                cost += 1
+                
+                # insertion
+                x_cost = d1[j] + 1
+                if x_cost < cost:
+                    cost = x_cost
+                
+                # deletion
+                y_cost = d0[j + 1] + 1
+                if y_cost < cost:
+                    cost = y_cost
+            
+            d1[j + 1] = cost
+        
+        d0, d1 = d1, d0
+    
+    return round(1 - d0[-1] / max(len_1, len_2), 2)
+
+
+def damerau_levenshtein(string_1, string_2):
+    """
+    Calculates the Damerau-Levenshtein distance between two strings. In addition to insertions, deletions and
+    substitutions, Damerau-Levenshtein considers adjacent transpositions. This version is based on an iterative
+    version of the Wagner-Fischer algorithm.
+    
+    Usage::
+        >>> damerau_levenshtein('kitten', 'sitting')
+        0.57
+        >>> damerau_levenshtein('kitten', 'kittne')
+        0.83
+        >>> damerau_levenshtein('', '')
+        0
+    """
+    if string_1 is None or string_2 is None:
         return 0
     
-    m, n = len(s1), len(s2)
+    if string_1 == string_2:
+        return 1
     
-    v1 = np.zeros(n + 1)
-    v2 = np.zeros(n + 1)
+    len_1 = len(string_1)
+    len_2 = len(string_2)
     
-    for i in range(n + 1):
-        v1[i] = i
+    if len_1 == 0:
+        return len_2
     
-    for i in range(m):
-        v2[0] = i + 1
-        for j in range(n):
-            deletion_cost = v1[j + 1] + 1
-            insertion_cost = v2[j] + 1
+    if len_2 == 0:
+        return len_1
+    
+    if len_1 > len_2:
+        string_2, string_1 = string_1, string_2
+        len_2, len_1 = len_1, len_2
+    
+    d0 = [i for i in range(len_2 + 1)]
+    d1 = [j for j in range(len_2 + 1)]
+    prev = d0[:]
+    
+    s1 = string_1
+    s2 = string_2
+    
+    for i in range(len_1):
+        d1[0] = i + 1
+        for j in range(len_2):
+            cost = d0[j]
             
-            if s1[i] == s2[j]:
-                substitution_cost = v1[j]
-            else:
-                substitution_cost = v1[j] + 1
-            
-            v2[j + 1] = min(deletion_cost, insertion_cost, substitution_cost)
+            if s1[i] != s2[j]:
+                # substitution
+                cost += 1
+                
+                # insertion
+                x_cost = d1[j] + 1
+                if x_cost < cost:
+                    cost = x_cost
+                
+                # deletion
+                y_cost = d0[j + 1] + 1
+                if y_cost < cost:
+                    cost = y_cost
+                
+                # transposition
+                if i > 0 and j > 0 and s1[i] == s2[j - 1] and s1[i - 1] == s2[j]:
+                    transposition_cost = prev[j - 1] + 1
+                    if transposition_cost < cost:
+                        cost = transposition_cost
+            d1[j + 1] = cost
         
-        v1, v2 = v2, v1
+        prev, d0, d1 = d0, d1, prev
     
-    return 1 - v1[n] / max(n, m)
+    return round(1 - d0[-1] / max(len_1, len_2), 2)
 
 
-def jaro_winkler(s1, s2, scaling=0.1):
-    m, n = len(s1), len(s2)
-    shorter, longer = s1, s2
+def monge_elkan(string_1, string_2, method=damerau_levenshtein):
+    """
+    Calculates the Monge-Elkan distance for 2 strings.
+    :param string_1:
+    :param string_2:
+    :param method:
+    :return:
+    """
+    if string_1 is None or string_2 is None:
+        return 0
     
-    if m > n:
-        shorter, longer = longer, shorter
+    if string_1 == string_2:
+        return 1
     
-    mc1 = _get_matching_characters(shorter, longer)
-    mc2 = _get_matching_characters(longer, shorter)
+    distance = 0
+    for w1 in string_1.split():
+        max_score = 0
+        for w2 in string_2.split():
+            max_score = max(max_score, method(w1, w2))
+        distance += max_score
     
-    if len(mc1) == 0 or len(mc2) == 0:
-        score = 0
-    else:
-        score = (float(len(mc1)) / len(shorter) + float(len(mc2)) / len(longer) +
-                 float(len(mc1) - _transpositions(mc1, mc2)) / len(mc1)) / 3.0
-    
-    index_ = None
-    
-    if s1 == s2:
-        index_ = -1
-    elif not s1 or not s2:
-        index_ = 0
-    else:
-        max_len = min(m, n)
-        for i in range(max_len):
-            if not s1[i] == s2[i]:
-                index_ = i
-                break
-        
-        if not index_:
-            index_ = max_len
-    
-    if index_ == -1:
-        cl = s1
-    elif index_ == 0:
-        cl = ''
-    else:
-        cl = s1[:index_]
-    
-    cl = min(len(cl), 4)
-    return round((score + (scaling * cl * (1 - score))) * 100) / 100
+    return distance / len(string_1.split())
 
 
-def _transpositions(s1, s2):
-    return np.floor(len([(f, s) for f, s in zip(s1, s2) if not f == s]) / 2.0)
+def dice_coefficient(a, b):
+    """dice coefficient 2nt / (na + nb)."""
+    if not len(a) or not len(b):
+        return 0.0
+    
+    if len(a) == 1:
+        a = a + u'.'
+    
+    if len(b) == 1:
+        b = b + u'.'
+    
+    a_bigram_list = []
+    for i in range(len(a) - 1):
+        a_bigram_list.append(a[i:i + 2])
+    
+    b_bigram_list = []
+    for i in range(len(b) - 1):
+        b_bigram_list.append(b[i:i + 2])
+    
+    a_bigrams = set(a_bigram_list)
+    b_bigrams = set(b_bigram_list)
+    overlap = len(a_bigrams & b_bigrams)
+    
+    dice_coeff = overlap * 2.0 / (len(a_bigrams) + len(b_bigrams))
+    return dice_coeff
 
 
-def _get_matching_characters(s1, s2):
-    common = []
-    limit = np.floor(min(len(s1), len(s2)) / 2)
-    
-    for i, l in enumerate(s1):
-        left, right = int(max(0, i - limit)), int(min(i + limit + 1, len(s2)))
-        if l in s2[left:right]:
-            common.append(l)
-            s2 = s2[:s2.index(l)] + '*' + s2[s2.index(l) + 1:]
-    
-    return ''.join(common)
+if __name__ == '__main__':
+    print(dice_coefficient('mahen', 'mahendra'))

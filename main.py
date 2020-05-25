@@ -22,6 +22,7 @@ from gras.utils import (
     ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
     to_iso_format
 )
+from local_settings import YANDEX_KEY
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
     'gras', datetime.now().strftime('%Y-%m-%d %H-%M-%S %Z'))
@@ -128,12 +129,16 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_other_arguments()
 
         try:
-            self.args = self.parse_args()
+            self.args = self.parse_args([
+                '-RO', 'facebook', '-RN', 'react', '-id', '-dbms', 'sqlite',
+                '-dbo', '/home/mahen/PycharmProjects/GRAS/react.db'
+            ])
         except Exception as e:
             logger.error(e)
             sys.exit(1)
 
-        set_up_token_queue(self.args.tokens)
+        if self.args.tokens is not None:
+            set_up_token_queue(self.args.tokens)
 
         if self.args.db_password:
             self.args.db_password = input('Enter Password: ')
@@ -182,6 +187,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
     def _add_gras_settings(self):
         self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",
                                         nargs='+')
+        self.gras_settings.add_argument('-y', '--yandex-key', help="Yandex Translator API Key ("
+                                                                   "https://translate.yandex.com/developers/keys)")
         self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',
                                         choices=['github'], required=False)
         self.gras_settings.add_argument('-RO', '--repo-owner', help="Owner of the repository")
@@ -322,7 +329,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                 raise NotImplementedError
 
         if self.args.identity_merging:
-            im = IdentityMerging(args=self.args)
+            im = IdentityMerging(args=self.args, yandex_key=YANDEX_KEY)
             im.process()
     
     def _create_config(self):

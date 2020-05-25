@@ -259,14 +259,20 @@ def timing(func=None, *, name=None, is_stage=None):
     return wrapper
 
 
-def exception_handler(func, retries=3, exceptions_to_catch=Exception, exception_to_raise=Exception):
+def exception_handler(func=None, *, retries=3, exceptions_to_catch=Exception, exception_to_raise=Exception, msg=None):
     """
     A decorator to handle exception and recall the function `retries` number of times.
-    
+
     :param func: Function
+    :type func: function
     :param retries: Number of times the function should be recalled
+    :type retries: int
     :param exceptions_to_catch: The exception to catch, ex. `BadGatewayError`
+    :type exceptions_to_catch: Exception or GrasError
     :param exception_to_raise: The exception to raise
+    :type exception_to_raise: Exception or GrasError or type
+    :param msg: Message for exception_to_raise
+    :type msg: str
     
     Examples:
     
@@ -277,6 +283,9 @@ def exception_handler(func, retries=3, exceptions_to_catch=Exception, exception_
         >>>
     """
     
+    if func is None:
+        return partial(exception_handler)
+    
     @wraps(func)
     def wrapper(*args, **kwargs):
         for _ in range(retries):
@@ -285,7 +294,10 @@ def exception_handler(func, retries=3, exceptions_to_catch=Exception, exception_
             except exceptions_to_catch:
                 pass
         
-        raise exception_to_raise
+        if msg is None or not issubclass(exception_to_raise, GrasError):
+            raise exception_to_raise
+        else:
+            raise exception_to_raise(msg=msg)
     
     return wrapper
 
