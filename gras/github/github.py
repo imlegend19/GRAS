@@ -23,7 +23,7 @@ class GithubInterface(BaseInterface):
     def __init__(self, query_params=None, url=APIStaticV4.BASE_URL, query=None,
                  additional_headers=None, github_token=None):
         super().__init__()
-    
+
         self.query = query
         self.url = url
         self.query_params = query_params
@@ -69,7 +69,7 @@ class GithubInterface(BaseInterface):
             if response.status_code == 502:
                 logger.debug("Bad Gateway Error! Retrying...")
                 raise BadGatewayError
-    
+
             raise ObjectDoesNotExistError(msg=f"Object does not exist! Url: {url}")
         except Exception as e:
             # TODO: Raise exception
@@ -85,10 +85,10 @@ class GithubInterface(BaseInterface):
     
     def _send_request(self, param=None, only_json=True, method=POST):
         self._create_http_session()
-    
+
         if not self.token:
             self.token = get_next_token()
-    
+
         tries = 1
         while tries <= 3:
             # logger.debug(f"Sending request to url {self.url}. (Try: {tries})")
@@ -116,10 +116,10 @@ class GithubInterface(BaseInterface):
                 if 'X-RateLimit-Remaining' in req.headers and int(req.headers['X-RateLimit-Remaining']) <= 2:
                     reset_time = datetime.fromtimestamp(float(req.headers['X-RateLimit-Reset']))
                     wait_time = (reset_time - datetime.now()).total_seconds() + 5
-    
+
                     logger.info(f"Github API maximum rate limit reached. Waiting for {wait_time} sec...")
                     time.sleep(wait_time)
-    
+
                     req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
 
                 self._close_session()
@@ -144,7 +144,7 @@ class GithubInterface(BaseInterface):
     def _generator(self):
         if self.url is None:
             self.url = APIStaticV4.BASE_URL
-    
+
         while True:
             try:
                 if self.query is not None:
@@ -158,7 +158,7 @@ class GithubInterface(BaseInterface):
                         )
                 else:
                     yield self._send_request(only_json=False, method=self.GET)
-        
+
             except exceptions.HTTPError as http_err:
                 raise http_err
             except Exception as err:

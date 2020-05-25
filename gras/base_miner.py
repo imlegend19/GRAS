@@ -115,15 +115,15 @@ class BaseMiner(metaclass=ABCMeta):
     @staticmethod
     def __get_not_null_clause(clause):
         clause_list = []
-    
+
         for field in clause.split(','):
             clause_list.append(f"{field} IS NOT NULL")
-    
+
         return " AND".join(clause_list)
 
     def _refactor_table(self, id_, table, group_by):
         logger.info(f"Refactoring Table: {table}")
-    
+
         deleted = self._conn.execute(
             f"""
             DELETE FROM {table}
@@ -136,25 +136,25 @@ class BaseMiner(metaclass=ABCMeta):
             )
             """
         )
-    
+
         logger.debug(f"Affected Rows: {deleted.rowcount}")
         self._reorder_table(id_=id_, table=table)
 
     def _reorder_table(self, id_, table):
         logger.debug(f"Reordering Table: {table}")
-    
+
         table_ids = self._conn.execute(f"SELECT DISTINCT {id_} FROM {table}")
         ids = sorted([x[0] for x in table_ids])
-    
+
         num = [x for x in range(1, len(ids) + 1)]
-    
+
         update_id = {}
         for x, y in zip(ids, num):
             if x != y:
                 update_id[x] = y
-    
+
         itm = sorted(update_id.items(), key=lambda x: x[0])
-    
+
         for i in itm:
             self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
 

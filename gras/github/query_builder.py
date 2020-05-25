@@ -77,7 +77,7 @@ class QueryObject:
             final_query = "{{\n"
 
         final_query += self.__formatted_string(self) + "\n}}"
-    
+
         return final_query
 
 

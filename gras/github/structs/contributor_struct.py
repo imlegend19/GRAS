@@ -162,7 +162,7 @@ class UserNodesStruct(GithubInterface, UserModel):
         super().__init__(
             query=self.QUERY,
             query_params=dict(node_ids=node_ids)
-            )
+        )
 
     def iterator(self):
         """
@@ -172,7 +172,7 @@ class UserNodesStruct(GithubInterface, UserModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.NODES]
 
@@ -211,7 +211,7 @@ class ContributorList(GithubInterface, AnonContributorModel):
             query=None,
             url=f"https://api.github.com/repos/{owner}/{name}/contributors?per_page=100&page=1&anon={anon}",
             query_params=None
-            )
+        )
 
     def iterator(self):
         """
@@ -220,10 +220,10 @@ class ContributorList(GithubInterface, AnonContributorModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         hasNextPage = True
-
+    
         while hasNextPage:
             response = next(generator)  # Response object (not json)
 
@@ -274,7 +274,7 @@ class UserStructV3(GithubInterface, UserModel):
             query=None,
             url=f"https://api.github.com/users/{login}",
             query_params=None
-            )
+        )
 
     def iterator(self):
         """
@@ -283,9 +283,9 @@ class UserStructV3(GithubInterface, UserModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
-
+    
         try:
             return next(generator).json()
         except ObjectDoesNotExistError:

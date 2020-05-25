@@ -54,7 +54,7 @@ class RepositoryStruct(GithubInterface, RepositoryModel):
         super().__init__(
             query=self.QUERY,
             query_params=dict(name=name, owner=owner)
-            )
+        )
 
     def iterator(self):
         """
@@ -64,7 +64,7 @@ class RepositoryStruct(GithubInterface, RepositoryModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY]
 

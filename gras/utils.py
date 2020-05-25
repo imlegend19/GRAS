@@ -244,7 +244,7 @@ def timing(func=None, *, name=None, is_stage=None):
         start = timer()
         result = func(*args, **kwargs)
         end = timer()
-    
+
         total_time = end - start
 
         logger.info(f"Time taken to execute `{name}`: {total_time} sec")

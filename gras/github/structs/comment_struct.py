@@ -61,7 +61,7 @@ class CommentStruct(GithubInterface, CommentModel):
             query=self.COMMENT_QUERY,
             query_params=dict(owner=owner, name=name, number=number, type_filter=type_filter, after="null")
         )
-    
+
         self.type_filter = type_filter
     
     def iterator(self):

@@ -59,12 +59,13 @@ class MilestoneStruct(GithubInterface, MilestoneModel):
     
     def iterator(self):
         """
-            Iterator function for :class:`gras.github.structs.milestone_struct.MilestoneStruct`. For more information see
+            Iterator function for :class:`gras.github.structs.milestone_struct.MilestoneStruct`. For more information
+            see
             :class:`gras.github.github.githubInterface`.
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         hasNextPage = True
         

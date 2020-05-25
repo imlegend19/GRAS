@@ -189,7 +189,7 @@ class IssueModel(BaseModel):
                  milestone_number, labels, state, positive_reaction_count, negative_reaction_count,
                  ambiguous_reaction_count):
         super().__init__()
-    
+
         self.ambiguous_reaction_count = ambiguous_reaction_count
         self.negative_reaction_count = negative_reaction_count
         self.positive_reaction_count = positive_reaction_count
@@ -216,7 +216,7 @@ class IssueModel(BaseModel):
                 location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
                 total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
             )
-    
+
         obj = IssueModel(
             created_at=dic[APIStaticV4.CREATED_AT],
             updated_at=dic[APIStaticV4.UPDATED_AT],

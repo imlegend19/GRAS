@@ -48,8 +48,8 @@ class BranchStruct(GithubInterface, BranchModel):
         super().__init__(
             query=self.BRANCH_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
-            )
-
+        )
+    
         self.name = name
         self.owner = owner
 

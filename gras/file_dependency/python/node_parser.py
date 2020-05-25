@@ -96,7 +96,7 @@ class FileAnalyzer(ast.NodeVisitor):
     @staticmethod
     def __parse_decorators(lst):
         objects = []
-    
+
         for decorator in lst:
             if isinstance(decorator, Name):
                 dic = {
@@ -129,7 +129,7 @@ class FileAnalyzer(ast.NodeVisitor):
                 }
             else:
                 raise NotImplementedError
-        
+
             objects.append(dic)
-    
+
         return objects

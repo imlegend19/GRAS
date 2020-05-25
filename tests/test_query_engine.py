@@ -51,7 +51,7 @@ class TestQueryObject(unittest.TestCase):
             }}
         }}
         """
-    
+
         query = QueryObject(
             object_type="repository",
             object_fields=dict(name="\"{name}\"", owner="\"{owner}\""),
@@ -82,8 +82,8 @@ class TestQueryObject(unittest.TestCase):
                 )
             ]
         ).aggregate()
-    
+
         test = [x.strip() for x in remove_alias(query=query, alias="languages").strip().splitlines()]
         result = [x.strip() for x in result.strip().splitlines()]
-    
+
         self.assertEqual(test, result)

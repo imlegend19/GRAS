@@ -55,19 +55,20 @@ class StargazerStruct(GithubInterface, StargazerModel):
         super().__init__(
             query=self.STARGAZER_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
-            )
+        )
 
     def iterator(self):
         """
-            Iterator function for :class:`gras.github.structs.stargazer_struct.StargazerStruct`. For more information see
+            Iterator function for :class:`gras.github.structs.stargazer_struct.StargazerStruct`. For more information
+            see
             :class:`gras.github.github.githubInterface`.
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         hasNextPage = True
-
+    
         while hasNextPage:
             try:
                 response = next(generator)

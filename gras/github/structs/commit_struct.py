@@ -30,7 +30,7 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
             query=None,
             url=f"https://api.github.com/repos/{owner}/{name}/commits/{commit_id}",
             query_params=None
-            )
+        )
 
     def iterator(self):
         """
@@ -40,7 +40,7 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         return next(generator).json()[CommitStatic.FILES]
 
@@ -94,7 +94,7 @@ class CommitStructV3(GithubInterface, CommitModelV3):
                 f"committer-date:{start_date}..{end_date}+sort:committer-date-asc&per_page=100&page=1",
             query_params=None,
             additional_headers=dict(Accept="application/vnd.github.cloak-preview+json")
-            )
+        )
 
     def iterator(self):
         """
@@ -104,10 +104,10 @@ class CommitStructV3(GithubInterface, CommitModelV3):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         hasNextPage = True
-
+    
         while hasNextPage:
             response = next(generator)  # Response object (not json)
 
@@ -258,8 +258,8 @@ class CommitStructV4(GithubInterface, CommitModelV4):
             query_params=dict(name=name, owner=owner, oid=oid) if oid else dict(name=name, owner=owner, after=after,
                                                                                 start_date=start_date,
                                                                                 end_date=end_date, branch=branch)
-            )
-
+        )
+    
         self.oid = oid
 
     def iterator(self):

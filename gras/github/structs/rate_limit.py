@@ -30,7 +30,7 @@ class RateLimitStruct(GithubInterface, RateLimitModel):
             query=self.QUERY,
             github_token=github_token
         )
-        
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.rate_limit.RateLimitStruct`. For more information see
@@ -48,5 +48,5 @@ class RateLimitStruct(GithubInterface, RateLimitModel):
             :return: A :class:`gras.github.entity.github_models.RateLimitModel` object
             :rtype: class
         """
-    
+
         return self.object_decoder(self.iterator())

@@ -116,7 +116,7 @@ class PullRequestDetailStruct(GithubInterface, PullRequestModel):
         super().__init__(
             query=self.QUERY,
             query_params=dict(owner=owner, name=name, number=number)
-            )
+        )
 
     def iterator(self):
         """
@@ -125,7 +125,7 @@ class PullRequestDetailStruct(GithubInterface, PullRequestModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUEST]
 
@@ -267,8 +267,8 @@ class PullRequestSearchStruct(GithubInterface, PullRequestModel):
             query_params=dict(owner=owner, name=name, after="null",
                               start_date="*" if start_date is None else start_date,
                               end_date="*" if end_date is None else end_date)
-            )
-
+        )
+    
         self.chunk_size = chunk_size
 
     def iterator(self):
@@ -436,7 +436,7 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
         super().__init__(
             query=self.QUERY,
             query_params=dict(owner=owner, name=name, after="null")
-            )
+        )
 
     def iterator(self):
         """
@@ -445,10 +445,10 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-
+    
         generator = self._generator()
         hasNextPage = True
-
+    
         while hasNextPage:
             try:
                 response = next(generator)

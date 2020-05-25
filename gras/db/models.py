@@ -178,11 +178,11 @@ class DBSchema:
             Column('is_anonymous', BOOLEAN, nullable=False, server_default='0'),
             UniqueConstraint('login', 'email', name='login_email_ind')
         )
-    
+
         if self._user_type_enum[1]:
             self.contributors.append_constraint(CheckConstraint(f"user_type IN ({self._get_string(UserType)})",
                                                                 name='enum_check'))
-    
+
         self.contributors.create(bind=self.conn, checkfirst=True)
     
     def _create_repository_table(self):
@@ -223,7 +223,7 @@ class DBSchema:
             Column('total_watchers', INTEGER, server_default='0', nullable=False),
             Column('forked_from', UNICODE)
         )
-    
+
         self.repository.create(bind=self.conn, checkfirst=True)
     
     def _create_repository_stats_tables(self):
@@ -342,7 +342,7 @@ class DBSchema:
             Column('name', UNICODE, nullable=False),
             Column('size', INTEGER, server_default='0', nullable=False)
         )
-    
+
         self.milestones = Table(
             'milestones', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -358,11 +358,11 @@ class DBSchema:
             Column('state', self._state_enum[0], nullable=False),
             UniqueConstraint('number', 'repo_id', name='num_repo_ind')
         )
-    
+
         if self._state_enum[1]:
             self.milestones.append_constraint(CheckConstraint(f"state IN ({self._get_string(State)})",
                                                               name='enum_check'))
-    
+
         self.stargazers = Table(
             'stargazers', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -370,14 +370,14 @@ class DBSchema:
             Column('user_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('starred_at', self.__get_date_field())
         )
-    
+
         self.watchers = Table(
             'watchers', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('user_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE"))
         )
-    
+
         self.topics = Table(
             'topics', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -386,7 +386,7 @@ class DBSchema:
             Column('name', UNICODE, nullable=False),
             Column('total_stargazers', INTEGER, server_default='0', nullable=False)
         )
-    
+
         self.releases = Table(
             'releases', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -399,7 +399,7 @@ class DBSchema:
             Column('is_prerelease', BOOLEAN, server_default='0', nullable=False),
             Column('tag', UNICODE)
         )
-    
+
         self.forks = Table(
             'forks', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -407,7 +407,7 @@ class DBSchema:
             Column('user_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('forked_at', self.__get_date_field(), nullable=False),
         )
-    
+
         self.branches = Table(
             'branches', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -415,7 +415,7 @@ class DBSchema:
             Column('name', UNICODE, nullable=False),
             Column('target_commit_id', UNICODE, nullable=False)
         )
-    
+
         self.labels = Table(
             'labels', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -425,11 +425,11 @@ class DBSchema:
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('label_type', self._label_enum[0], nullable=False)
         )
-    
+
         if self._label_enum[1]:
             self.labels.append_constraint(CheckConstraint(f"label_type IN ({self._get_string(LabelType)})",
                                                           name='enum_check'))
-    
+
         self.languages.create(bind=self.conn, checkfirst=True)
         self.milestones.create(bind=self.conn, checkfirst=True)
         self.stargazers.create(bind=self.conn, checkfirst=True)
@@ -582,7 +582,7 @@ class DBSchema:
             Column('negative_reaction_count', INTEGER, server_default='0', nullable=False),
             Column('ambiguous_reaction_count', INTEGER, server_default='0', nullable=False)
         )
-    
+
         self.issue_assignees = Table(
             'issue_assignees', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -590,7 +590,7 @@ class DBSchema:
             Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('assignee_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE"))
         )
-    
+
         self.issue_labels = Table(
             'issue_labels', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -598,7 +598,7 @@ class DBSchema:
             Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('label_id', None, ForeignKey('labels.id', ondelete="CASCADE", onupdate="CASCADE")),
         )
-    
+
         self.issue_events = Table(
             'issue_events', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -613,11 +613,11 @@ class DBSchema:
             Column('removed_type', self._added_or_removed_type[0]),
             Column('is_cross_repository', BOOLEAN, server_default='0', nullable=False)
         )
-    
+
         if self._event_type_enum[1]:
             self.issue_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
                                                                 name='event_enum_check'))
-    
+
         if self._added_or_removed_type[1]:
             self.issue_events.append_constraint(
                 CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
@@ -626,7 +626,7 @@ class DBSchema:
             self.issue_events.append_constraint(
                 CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
             )
-    
+
         self.issue_comments.create(bind=self.conn, checkfirst=True)
         self.issue_assignees.create(bind=self.conn, checkfirst=True)
         self.issue_labels.create(bind=self.conn, checkfirst=True)
@@ -735,7 +735,7 @@ class DBSchema:
             Column('negative_reaction_count', INTEGER, server_default='0', nullable=False),
             Column('ambiguous_reaction_count', INTEGER, server_default='0', nullable=False)
         )
-    
+
         self.commits.create(bind=self.conn, checkfirst=True)
         self.commit_comments.create(bind=self.conn, checkfirst=True)
         self.code_change.create(bind=self.conn, checkfirst=True)
@@ -814,16 +814,16 @@ class DBSchema:
             Column('review_decision', self._review_decision_enum[0]),
             UniqueConstraint('number', 'repo_id')
         )
-    
+
         if self._state_enum[1]:
             self.pull_requests.append_constraint(CheckConstraint(f"state IN ({self._get_string(PullRequestState)})",
                                                                  name='enum_check'))
-    
+
         if self._review_decision_enum[1]:
             self.pull_requests.append_constraint(CheckConstraint(f"review_decision IN ("
                                                                  f"{self._get_string(ReviewDecision)})",
                                                                  name="rd_enum_check"))
-    
+
         self.pull_requests.create(bind=self.conn, checkfirst=True)
     
     def _create_pr_tracker_tables(self):
@@ -972,7 +972,7 @@ class DBSchema:
         if self._event_type_enum[1]:
             self.pull_request_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
                                                                        name='event_enum_check'))
-    
+
         if self._added_or_removed_type[1]:
             self.pull_request_events.append_constraint(
                 CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
@@ -981,7 +981,7 @@ class DBSchema:
             self.pull_request_events.append_constraint(
                 CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
             )
-    
+
         self.pull_request_comments.create(bind=self.conn, checkfirst=True)
         self.pull_request_commits.create(bind=self.conn, checkfirst=True)
         self.pull_request_assignees.create(bind=self.conn, checkfirst=True)
@@ -1000,7 +1000,7 @@ class DBSchema:
             'updated_at'     : to_datetime(updated_at),
             'total_followers': total_followers,
             'location'       : get_value(location),
-            'user_type'      : get_value(user_type),
+            'user_type'      : get_value(user_type).upper(),
             'is_anonymous'   : is_anonymous
         }
         
