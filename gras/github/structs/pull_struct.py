@@ -1,6 +1,7 @@
 from gras.github.entity.api_static import APIStaticV4, IssueStatic
-from gras.github.entity.github_models import PullRequestModel, time_period_chunks
+from gras.github.entity.github_models import PullRequestCommitModel, PullRequestModel, time_period_chunks
 from gras.github.github import GithubInterface
+from local_settings import AUTH_KEY
 
 
 class PullRequestDetailStruct(GithubInterface, PullRequestModel):
@@ -167,6 +168,9 @@ class PullRequestSearchStruct(GithubInterface, PullRequestModel):
 
         :param end_date: fetch data till this date
         :type end_date: :class:`datetime.datetime` object
+        
+        :param limit: Number of results to be fetched in 1 request, default=100
+        :type limit: int
 
         :param chunk_size: required to divide search space into `chunk_size` days
         :type chunk_size: int
@@ -175,7 +179,7 @@ class PullRequestSearchStruct(GithubInterface, PullRequestModel):
     PR_QUERY = """
         {{
             search(query: "repo:{owner}/{name} is:pr created:{start_date}..{end_date} sort:created-asc", 
-                   type: ISSUE, first: 100, after: {after}) {{
+                   type: ISSUE, first: {limit}, after: {after}) {{
                 pageInfo {{
                     hasNextPage
                     endCursor
@@ -214,13 +218,6 @@ class PullRequestSearchStruct(GithubInterface, PullRequestModel):
                         baseRefOid
                         headRefName
                         headRefOid
-                        commits(first: 100) {{
-                            nodes {{
-                                commit {{
-                                    oid
-                                }}
-                            }}
-                        }}
                         labels(first: 50, orderBy: {{ field: CREATED_AT, direction: ASC }}) {{
                             nodes {{
                                 name
@@ -260,11 +257,11 @@ class PullRequestSearchStruct(GithubInterface, PullRequestModel):
         }}
     """
 
-    def __init__(self, name, owner, start_date, end_date, chunk_size=200):
+    def __init__(self, name, owner, start_date, end_date, limit=100, chunk_size=200):
         """Constructor Method"""
         super().__init__(
             query=self.PR_QUERY,
-            query_params=dict(owner=owner, name=name, after="null",
+            query_params=dict(owner=owner, name=name, after="null", limit=limit,
                               start_date="*" if start_date is None else start_date,
                               end_date="*" if end_date is None else end_date)
         )
@@ -341,13 +338,15 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
 
         :param owner: owner of the repository
         :type owner: str
-
+        
+        :param limit: Number of results to be fetched in 1 request, default=100
+        :type limit: int
     """
 
     QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
-                pullRequests(first: 100, orderBy: {{ field: CREATED_AT, direction: ASC }}, after: {after}) {{
+                pullRequests(first: {limit}, orderBy: {{ field: CREATED_AT, direction: ASC }}, after: {after}) {{
                     pageInfo {{
                         hasNextPage
                         endCursor
@@ -385,13 +384,6 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
                         baseRefOid
                         headRefName
                         headRefOid
-                        commits(first: 100) {{
-                            nodes {{
-                                commit {{
-                                    oid
-                                }}
-                            }}
-                        }}
                         labels(first: 50, orderBy: {{ field: CREATED_AT, direction: ASC }}) {{
                             nodes {{
                                 name
@@ -431,11 +423,11 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
         }}
     """
 
-    def __init__(self, name, owner):
+    def __init__(self, name, owner, limit=100):
         """Constructor Method"""
         super().__init__(
             query=self.QUERY,
-            query_params=dict(owner=owner, name=name, after="null")
+            query_params=dict(owner=owner, name=name, limit=limit, after="null")
         )
 
     def iterator(self):
@@ -471,7 +463,81 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
             :return: A :class:`gras.github.entity.github_models.PullRequestModel` object
             :rtype: class
         """
-
+    
         for lst in self.iterator():
             for issue in lst:
                 yield self.object_decoder(issue)
+
+
+class PullRequestCommitsStruct(GithubInterface, PullRequestCommitModel):
+    QUERY = """
+        {{
+            repository(name: "{name}", owner: "{owner}") {{
+                pullRequest(number: {number}) {{
+                    number
+                    commits(first: 100, after: {after}) {{
+                        pageInfo {{
+                            hasNextPage
+                            endCursor
+                        }}
+                        nodes {{
+                            commit {{
+                                oid
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    """
+    
+    def __init__(self, name, owner, number):
+        """Constructor Method"""
+        super().__init__(
+            query=self.QUERY,
+            query_params=dict(owner=owner, name=name, number=number, after="null"),
+            github_token=AUTH_KEY
+        )
+        
+        self.number = number
+    
+    def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.pull_struct.PullRequestCommitsStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+        
+        generator = self._generator()
+        hasNextPage = True
+        
+        while hasNextPage:
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
+            
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUEST][
+                IssueStatic.COMMITS][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
+            
+            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
+            
+            yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUEST][IssueStatic.COMMITS][
+                APIStaticV4.NODES]
+            
+            hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUEST][
+                IssueStatic.COMMITS][APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
+    
+    def process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.PullRequestCommitModel` object representing the
+            fetched data.
+            :return: A :class:`gras.github.entity.github_models.PullRequestCommitModel` object
+            :rtype: class
+        """
+        
+        for lst in self.iterator():
+            for pr in lst:
+                yield self.object_decoder(num=self.number, dic=pr)

@@ -91,17 +91,25 @@ class BaseMiner(metaclass=ABCMeta):
         
         try:
             if self.dbms == "sqlite":
-                engine = create_engine(f'sqlite:///{self.db_output}', echo=self.db_log, connect_args={
-                    'check_same_thread': False
-                })
+                engine = create_engine(
+                    f'sqlite:///{self.db_output}', echo=self.db_log, pool_pre_ping=True,
+                    connect_args={
+                        'check_same_thread': False
+                    })
             elif self.dbms == 'mysql':
                 engine = create_engine(
                     f'mysql+pymysql://{self.db_username}:{self.db_password}@{self.db_host}:'
-                    f'{self.db_port}/{self.db_name}?charset=utf8mb4', echo=self.db_log)
+                    f'{self.db_port}/{self.db_name}?charset=utf8mb4', echo=self.db_log, pool_pre_ping=True,
+                    connect_args={
+                        'check_same_thread': False
+                    })
             elif self.dbms == 'postgresql':
                 engine = create_engine(
                     f'postgresql+psycopg2://{self.db_username}:{self.db_password}@{self.db_host}:'
-                    f'{self.db_port}/{self.db_name}', echo=self.db_log)
+                    f'{self.db_port}/{self.db_name}', echo=self.db_log, pool_pre_ping=True,
+                    connect_args={
+                        'check_same_thread': False
+                    })
             else:
                 raise NotImplementedError
 

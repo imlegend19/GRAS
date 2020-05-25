@@ -2,8 +2,6 @@ import concurrent.futures
 import logging
 import multiprocessing as mp
 
-from sqlalchemy.exc import InterfaceError
-
 from gras.base_miner import BaseMiner
 from gras.db.models import DBSchema
 from gras.errors import GithubMinerError
@@ -22,7 +20,10 @@ from gras.github.structs.issue_struct import IssueDetailStruct, IssueSearchStruc
 from gras.github.structs.label_struct import LabelStruct
 from gras.github.structs.language_struct import LanguageStruct
 from gras.github.structs.milestone_struct import MilestoneStruct
-from gras.github.structs.pull_struct import PullRequestDetailStruct, PullRequestSearchStruct, PullRequestStruct
+from gras.github.structs.pull_struct import (
+    PullRequestCommitsStruct, PullRequestDetailStruct, PullRequestSearchStruct,
+    PullRequestStruct
+)
 from gras.github.structs.release_struct import ReleaseStruct
 from gras.github.structs.repository_struct import RepositoryStruct
 from gras.github.structs.stargazer_struct import StargazerStruct
@@ -41,7 +42,7 @@ THREADS = mp.cpu_count()
 class GithubMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args=args)
-    
+
         self._engine, self._conn = self._connect_to_db()
         self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
 
@@ -51,26 +52,22 @@ class GithubMiner(BaseMiner):
     def dump_to_file(self, path):
         pass
 
-    def __reconnect(self):
-        self._engine, self._conn = self._connect_to_db()
-        self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
-
     def process(self):
         self.db_schema.create_tables()
         self._dump_repository()
-    
+
         if self.basic:
             self._basic_miner()
-    
+
         if self.basic_extra:
             self._basic_extra_miner()
-    
+
         if self.issue_tracker:
             self._issue_tracker_miner()
-    
+
         if self.commit:
             self._commit_miner()
-    
+
         if self.pull_tracker:
             self._pull_tracker_miner()
 
@@ -145,7 +142,8 @@ class GithubMiner(BaseMiner):
             self._dump_pull_requests()
         finally:
             self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
-
+    
+        self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
         self._fetch_pull_request_comments()
 
@@ -726,7 +724,7 @@ class GithubMiner(BaseMiner):
     @timing(name='issue_events')
     def _fetch_issue_events(self):
         logger.info("Dumping Issue Events...")
-    
+
         for issues in self.__get_issues('issue_events'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_issue_events, iss): iss for iss in issues}
@@ -801,7 +799,7 @@ class GithubMiner(BaseMiner):
     @timing(name='issue_comments')
     def _fetch_issue_comments(self):
         logger.info("Dumping Issue Comments...")
-    
+
         for issues in self.__get_issues('issue_comments'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_issue_comments, iss): iss for iss in issues}
@@ -1012,7 +1010,8 @@ class GithubMiner(BaseMiner):
                 logger.info("Dumping Pull Requests...")
                 prs = PullRequestStruct(
                     name=self.repo_name,
-                    owner=self.repo_owner
+                    owner=self.repo_owner,
+                    limit=50
                 )
             else:
                 logger.info("Dumping Pull Requests using Search API...")
@@ -1021,13 +1020,13 @@ class GithubMiner(BaseMiner):
                     owner=self.repo_owner,
                     start_date=self.start_date,
                     end_date=self.end_date,
-                    chunk_size=self.chunk_size
+                    chunk_size=self.chunk_size,
+                    limit=50
                 )
 
             obj_list = []
             pr_assignees_lst = []
             pr_labels_lst = []
-            pr_commits = []
             pr_list = []
 
             for node in prs.process():
@@ -1062,7 +1061,6 @@ class GithubMiner(BaseMiner):
 
                 pr_assignees_lst.append((node.number, node.assignees))
                 pr_labels_lst.append((node.number, node.labels))
-                pr_commits.append((node.number, node.commits))
                 pr_list.append(node.number)
 
                 obj_list.append(obj)
@@ -1078,7 +1076,6 @@ class GithubMiner(BaseMiner):
 
             self._dump_pull_request_assignees(pr_assignees_lst)
             self._dump_pull_request_labels(pr_labels_lst)
-            self._dump_pull_request_commits(pr_commits)
 
     @timing(name='pull_request_assignees')
     def _dump_pull_request_assignees(self, node_list):
@@ -1103,29 +1100,6 @@ class GithubMiner(BaseMiner):
 
         self._insert(self.db_schema.pull_request_assignees.insert(), obj_list)
 
-    @timing(name='pull_request_commits')
-    def _dump_pull_request_commits(self, commit_list):
-        logger.info("Dumping Pull Request Commits...")
-
-        obj_list = []
-
-        for node in commit_list:
-            number = node[0]
-            for oid in node[1]:
-                obj = self.db_schema.pull_request_commits_object(
-                    repo_id=self.repo_id,
-                    pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
-                    commit_id=self._get_table_id('commits', 'oid', oid)
-                )
-                
-                obj_list.append(obj)
-                
-                if len(obj_list) % MAX_INSERT_OBJECTS == 0:
-                    self._insert(object_=self.db_schema.pull_request_commits.insert(), param=obj_list)
-                    obj_list.clear()
-
-        self._insert(self.db_schema.pull_request_commits.insert(), obj_list)
-
     @timing(name='pull_request_labels')
     def _dump_pull_request_labels(self, label_lst):
         logger.info("Dumping Pull Request Labels...")
@@ -1140,18 +1114,51 @@ class GithubMiner(BaseMiner):
                     pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
                     label_id=self._get_table_id('labels', 'name', label_name)
                 )
-                
+
                 obj_list.append(obj)
-                
+
                 if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                     self._insert(object_=self.db_schema.pull_request_labels.insert(), param=obj_list)
                     obj_list.clear()
 
         self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
 
+    def _dump_pull_request_commits(self, number):
+        logger.debug(f"Dumping Pull Request Commits for Pull Request Number: {number}...")
+    
+        pr_commit = PullRequestCommitsStruct(
+            name=self.repo_name,
+            owner=self.repo_owner,
+            number=number
+        )
+    
+        obj_list = []
+        for node in pr_commit.process():
+            obj = self.db_schema.pull_request_commits_object(
+                repo_id=self.repo_id,
+                pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
+                commit_id=self._get_table_id('commits', 'oid', node.oid)
+            )
+        
+            obj_list.append(obj)
+    
+        self._insert(self.db_schema.pull_request_commits.insert(), obj_list)
+
+    @timing(name="pull_request_commits")
+    def _fetch_pull_request_commits(self):
+        logger.info("Dumping Pull Request Commits...")
+    
+        for pr_commits in self.__get_pull_requests(table="pull_request_commits"):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+                process = {executor.submit(self._dump_pull_request_commits, pr): pr for pr in pr_commits}
+                for future in concurrent.futures.as_completed(process):
+                    number = process[future]
+                    future.result()
+                    logger.debug(f"Inserted Commits for PR Number: {number}")
+
     def _dump_pull_request_events(self, number):
         logger.debug(f"Dumping Pull Request Events for Pull Request Number: {number}...")
-
+    
         pr_event = EventDetailStruct(
             name=self.repo_name,
             owner=self.repo_owner,
@@ -1159,11 +1166,11 @@ class GithubMiner(BaseMiner):
             type_filter="pullRequest",
             number=number
         )
-
+    
         pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
 
         obj_list = self._events_object_list(pr_event, id_=pr_id, type_="PULL_REQUEST")
-
+    
         self._insert(object_=self.db_schema.pull_request_events.insert(), param=obj_list)
 
     @timing(name="pull_request_events")
@@ -1176,22 +1183,22 @@ class GithubMiner(BaseMiner):
                 for future in concurrent.futures.as_completed(process):
                     number = process[future]
                     future.result()
-                    logger.debug(f"Inserted PR Number: {number}")
+                    logger.debug(f"Inserted Events for PR Number: {number}")
 
     def _dump_pull_request_comments(self, number):
         logger.debug(f"Dumping Pull Request Comments for Pull Request Number: {number}...")
-
+    
         pr_comments = CommentStruct(
             name=self.repo_name,
             owner=self.repo_owner,
             number=number,
             type_filter="pullRequest"
         )
-
+    
         pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
-
+    
         obj_list = self._comments_object_list(pr_comments, pr_id, "PULL_REQUEST")
-
+    
         self._insert(object_=self.db_schema.pull_request_comments.insert(), param=obj_list)
 
     @timing(name='pull_request_comments')
@@ -1204,7 +1211,7 @@ class GithubMiner(BaseMiner):
                 for future in concurrent.futures.as_completed(process):
                     number = process[future]
                     future.result()
-                    logger.debug(f"Inserted comments for PR number: {number}")
+                    logger.debug(f"Inserted Comments for PR number: {number}")
 
     def _set_repo_id(self):
         res = self._conn.execute(
@@ -1214,29 +1221,18 @@ class GithubMiner(BaseMiner):
             WHERE name="{self.repo_name}" AND owner="{self.repo_owner}"
             """
         ).fetchone()
-
+    
         self.repo_id = res[0]
     
     def _get_user_id(self, login, user_object=None, name=None, email=None):
         if not login and user_object:
-            try:
-                res = self._conn.execute(
-                    f"""
-                    SELECT id
-                    FROM contributors
-                    WHERE login="{user_object.login}"
-                    """
-                ).fetchone()
-            except InterfaceError:
-                self.__reconnect()
-            
-                res = self._conn.execute(
-                    f"""
-                    SELECT id
-                    FROM contributors
-                    WHERE login="{user_object.login}"
-                    """
-                ).fetchone()
+            res = self._conn.execute(
+                f"""
+                SELECT id
+                FROM contributors
+                WHERE login="{user_object.login}"
+                """
+            ).fetchone()
         
             if not res:
                 has_dumped = self._dump_users(login=None, user_object=user_object)
@@ -1247,24 +1243,13 @@ class GithubMiner(BaseMiner):
             else:
                 return res[0]
         elif login:
-            try:
-                res = self._conn.execute(
-                    f"""
-                    SELECT id
-                    FROM contributors
-                    WHERE login="{login}"
-                    """
-                ).fetchone()
-            except InterfaceError:
-                self.__reconnect()
-            
-                res = self._conn.execute(
-                    f"""
-                    SELECT id
-                    FROM contributors
-                    WHERE login="{login}"
-                    """
-                ).fetchone()
+            res = self._conn.execute(
+                f"""
+                SELECT id
+                FROM contributors
+                WHERE login="{login}"
+                """
+            ).fetchone()
         
             if not res:
                 has_dumped = self._dump_users(login=login)
@@ -1275,24 +1260,13 @@ class GithubMiner(BaseMiner):
             else:
                 return res[0]
         elif name and email:
-            try:
-                res = self._conn.execute(
-                    f"""
-                    SELECT id
-                    FROM contributors
-                    WHERE name="{name}" AND email="{email}"
-                    """
-                ).fetchone()
-            except InterfaceError:
-                self.__reconnect()
-            
-                res = self._conn.execute(
-                    f"""
-                    SELECT id
-                    FROM contributors
-                    WHERE name="{name}" AND email="{email}"
-                    """
-                ).fetchone()
+            res = self._conn.execute(
+                f"""
+                SELECT id
+                FROM contributors
+                WHERE name="{name}" AND email="{email}"
+                """
+            ).fetchone()
         
             if not res:
                 has_dumped = self._dump_anon_users(name=name, email=email)
@@ -1309,24 +1283,13 @@ class GithubMiner(BaseMiner):
         if value is None:
             return None
     
-        try:
-            res = self._conn.execute(
-                f"""
-                SELECT {pk}
-                FROM {table}
-                WHERE {field}="{value}" AND repo_id={self.repo_id}
-                """
-            ).fetchone()
-        except InterfaceError:
-            self.__reconnect()
-        
-            res = self._conn.execute(
-                f"""
-                SELECT {pk}
-                FROM {table}
-                WHERE {field}="{value}" AND repo_id={self.repo_id}
-                """
-            ).fetchone()
+        res = self._conn.execute(
+            f"""
+            SELECT {pk}
+            FROM {table}
+            WHERE {field}="{value}" AND repo_id={self.repo_id}
+            """
+        ).fetchone()
     
         if not res:
             if table == "commits":
@@ -1364,7 +1327,7 @@ class GithubMiner(BaseMiner):
             )
             """
         ).fetchall()
-    
+
         for r in range(0, len(res), THREADS):
             yield [x[0] for x in res[r:r + THREADS]]
 
@@ -1379,7 +1342,7 @@ class GithubMiner(BaseMiner):
             )
             """
         ).fetchall()
-    
+
         for r in range(0, len(res), THREADS):
             yield [x[0] for x in res[r:r + THREADS]]
 

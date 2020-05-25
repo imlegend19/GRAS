@@ -290,7 +290,7 @@ class FileModel(BaseModel):
 class PullRequestModel(BaseModel):
     def __init__(self, number, title, body, author, assignees, num_files_changed, closed, closed_at, created_at,
                  updated_at, additions, deletions, base_ref_name, base_ref_oid, head_ref_name, head_ref_oid, labels,
-                 merged, merged_at, merged_by, commits, milestone_number, positive_reaction_count,
+                 merged, merged_at, merged_by, milestone_number, positive_reaction_count,
                  negative_reaction_count, ambiguous_reaction_count, state, review_decision):
         super().__init__()
         
@@ -310,7 +310,6 @@ class PullRequestModel(BaseModel):
         self.base_ref_oid = base_ref_oid
         self.head_ref_name = head_ref_name
         self.head_ref_oid = head_ref_oid
-        self.commits = commits
         self.labels = labels
         self.merged = merged
         self.merged_at = merged_at
@@ -363,8 +362,6 @@ class PullRequestModel(BaseModel):
             base_ref_oid=dic[IssueStatic.BASE_REF_OID],
             head_ref_name=dic[IssueStatic.HEAD_REF_NAME],
             head_ref_oid=dic[IssueStatic.HEAD_REF_OID],
-            commits=list(node[CommitStatic.COMMIT][APIStaticV4.OID] for node in dic[IssueStatic.COMMITS][
-                APIStaticV4.NODES]),
             labels=list(node[UserStatic.NAME] for node in dic[IssueStatic.LABELS][APIStaticV4.NODES]),
             merged=dic[IssueStatic.MERGED],
             merged_at=dic[IssueStatic.MERGED_AT],
@@ -376,6 +373,22 @@ class PullRequestModel(BaseModel):
             ambiguous_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
             state=dic[IssueStatic.STATE],
             review_decision=dic[IssueStatic.REVIEW_DECISION]
+        )
+
+        return obj
+
+
+class PullRequestCommitModel(BaseModel):
+    def __init__(self, num, oid):
+        super().__init__()
+        
+        self.num = num
+        self.oid = oid
+    
+    def object_decoder(self, num, dic):
+        obj = PullRequestCommitModel(
+            num=num,
+            oid=dic[CommitStatic.COMMIT][APIStaticV4.OID]
         )
         
         return obj
