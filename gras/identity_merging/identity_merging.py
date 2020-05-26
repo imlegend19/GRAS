@@ -46,18 +46,30 @@ class Alias:
     def __init__(self, id_, login, name, email, location=None, is_anonymous=0):
         self.id_ = id_
         self.contributor_id = None
-        
+
         self.original_login = login.strip() if login is not None else None
         self.original_name = name.strip() if name is not None else None
         self.original_email = email.strip() if email is not None else None
-        
+
         self.login = self.normalize_unicode_to_ascii(login) if login is not None else None
         self.name = self.normalize_unicode_to_ascii(name) if name is not None else None
         self.location = self.normalize_unicode_to_ascii(location) if location is not None else None
         self.is_anonymous = is_anonymous
-        
+
+        if self.login is not None:
+            if not self.login.strip():
+                self.login = None
+
+        if self.name is not None:
+            if not self.name.strip():
+                self.name = None
+
+        if self.location is not None:
+            if not self.location.strip():
+                self.location = None
+
         email = self.__get_email(email) if email is not None else None
-        
+
         if email:
             if re.search(EMAIL_REGEX, email):
                 if email.endswith("example.com") or email.endswith(".(none)"):
@@ -242,7 +254,7 @@ class IdentityMerging(BaseMiner):
             if score > 1:
                 print(c1.login, c1.prefix, c2.login, c2.prefix, score)
             writer.writerow([c1.id_, c1.login, f"{c1.name} <{c1.email}>", c2.id_, c2.login,
-                             f"{c2.name} <{c2.email}", score])
+                             f"{c2.name} <{c2.email}>", score])
     
     @staticmethod
     def __get_score(c1, c2, inverse=True):

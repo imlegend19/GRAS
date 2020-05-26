@@ -81,16 +81,19 @@ def damerau_levenshtein(string_1, string_2):
     """
     if string_1 is None or string_2 is None:
         return 0
-    
+
+    if not string_1.strip() or not string_2.strip():
+        return 0
+
     if string_1 == string_2:
         return 1
-    
+
     len_1 = len(string_1)
     len_2 = len(string_2)
-    
+
     if len_1 == 0:
         return len_2
-    
+
     if len_2 == 0:
         return len_1
     
@@ -189,4 +192,4 @@ def dice_coefficient(a, b):
 
 
 if __name__ == '__main__':
-    print(dice_coefficient('mahen', 'imlegend19'))
+    print(damerau_levenshtein('mahen', ''))
