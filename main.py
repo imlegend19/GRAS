@@ -22,6 +22,7 @@ from gras.utils import (
     ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
     to_iso_format
 )
+from local_settings import YANDEX_KEY
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
     'gras', datetime.now().strftime('%Y-%m-%d %H-%M-%S %Z'))
@@ -129,7 +130,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
         try:
             self.args = self.parse_args([
-                '-RO', 'facebook', '-RN', 'react', '-id', '-dbms', 'sqlite',
+                '-RO', 'facebook', '-RN', 'react', '-id', '-yk', YANDEX_KEY, '-dbms', 'sqlite',
                 '-dbo', '/home/mahen/PycharmProjects/GRAS/react.db'
             ])
         except Exception as e:
@@ -186,8 +187,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
     def _add_gras_settings(self):
         self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",
                                         nargs='+')
-        self.gras_settings.add_argument('-y', '--yandex-key', help="Yandex Translator API Key ("
-                                                                   "https://translate.yandex.com/developers/keys)")
+        self.gras_settings.add_argument('-yk', '--yandex-key', help="Yandex Translator API Key ("
+                                                                    "https://translate.yandex.com/developers/keys)")
         self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',
                                         choices=['github'], required=False)
         self.gras_settings.add_argument('-RO', '--repo-owner', help="Owner of the repository")
