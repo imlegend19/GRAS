@@ -1,7 +1,6 @@
 from gras.github.entity.api_static import APIStaticV4, IssueStatic
 from gras.github.entity.github_models import PullRequestCommitModel, PullRequestModel, time_period_chunks
 from gras.github.github import GithubInterface
-from local_settings import AUTH_KEY
 
 
 class PullRequestDetailStruct(GithubInterface, PullRequestModel):
@@ -495,8 +494,7 @@ class PullRequestCommitsStruct(GithubInterface, PullRequestCommitModel):
         """Constructor Method"""
         super().__init__(
             query=self.QUERY,
-            query_params=dict(owner=owner, name=name, number=number, after="null"),
-            github_token=AUTH_KEY
+            query_params=dict(owner=owner, name=name, number=number, after="null")
         )
         
         self.number = number

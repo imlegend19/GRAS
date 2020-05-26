@@ -144,7 +144,7 @@ def monge_elkan(string_1, string_2, method=damerau_levenshtein):
     :param method:
     :return:
     """
-    if string_1 is None or string_2 is None:
+    if string_1 is None or string_2 is None or len(string_1.split()) == 0:
         return 0
     
     if string_1 == string_2:
@@ -184,8 +184,5 @@ def dice_coefficient(a, b):
     overlap = len(a_bigrams & b_bigrams)
     
     dice_coeff = overlap * 2.0 / (len(a_bigrams) + len(b_bigrams))
+
     return dice_coeff
-
-
-if __name__ == '__main__':
-    print(dice_coefficient('mahen', 'mahendra'))

@@ -22,7 +22,6 @@ from gras.utils import (
     ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
     to_iso_format
 )
-from local_settings import YANDEX_KEY
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
     'gras', datetime.now().strftime('%Y-%m-%d %H-%M-%S %Z'))
@@ -329,7 +328,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                 raise NotImplementedError
 
         if self.args.identity_merging:
-            im = IdentityMerging(args=self.args, yandex_key=YANDEX_KEY)
+            im = IdentityMerging(args=self.args)
             im.process()
     
     def _create_config(self):

@@ -68,16 +68,20 @@ class Alias:
                     self.email = self.__get_email(email)
                     self.prefix = self.normalize_unicode_to_ascii(self.email.split("@")[0]).strip()
                     self.domain = self.normalize_unicode_to_ascii(self.email.split("@")[1].strip())
-                    
+
                     if self.domain.strip() == '':
                         self.domain = None
-                    
+
                     if self.prefix.strip() == '':
                         self.prefix = None
             else:
                 self.email = None
                 self.prefix = None
                 self.domain = None
+        else:
+            self.email = None
+            self.prefix = None
+            self.domain = None
     
     @staticmethod
     def __is_english(s):
@@ -160,11 +164,11 @@ class Alias:
 
 
 class IdentityMerging(BaseMiner):
-    def __init__(self, args, yandex_key=None):
+    def __init__(self, args):
         super().__init__(args=args)
         
         self._engine, self._conn = self._connect_to_db()
-        self.yandex_key = yandex_key
+        self.yandex_key = args.yandex_key
         self.anon_contributors = []
         self.non_anon_contributors = []
         
@@ -213,24 +217,35 @@ class IdentityMerging(BaseMiner):
                 location=r[4],
                 is_anonymous=0
             ))
-        
+
         print(TOTAL_TRANSLATED)
-        
+
         file = open("react-result.csv", "a")
-        
+
         writer = csv.writer(file)
         writer.writerow(['id-1', 'login', 'name-email', 'id-2', 'login', 'name-email', 'score'])
-        for pair in self.__generate_pairs():
-            c1: Alias = pair[0]
-            c2: Alias = pair[1]
-            score = self.__get_score(c1, c2)
-            writer.writerow([c1.id_, c1.login, f"{c1.name} <{c1.email}>", c2.id_, c2.login, f"{c2.name} <{c2.email}",
-                             score])
-        
+
+        it = 1
+        for pair in self.__generate_pairs(self.non_anon_contributors, self.non_anon_contributors):
+            print(f"Ongoing Pair: {it}")
+            self._dump_pair(writer=writer, pair=pair)
+            it += 1
+
         file.close()
     
+    def _dump_pair(self, writer, pair):
+        c1: Alias = pair[0]
+        c2: Alias = pair[1]
+        score = self.__get_score(c1, c2)
+        
+        if score > 0.4:
+            if score > 1:
+                print(c1.login, c1.prefix, c2.login, c2.prefix, score)
+            writer.writerow([c1.id_, c1.login, f"{c1.name} <{c1.email}>", c2.id_, c2.login,
+                             f"{c2.name} <{c2.email}", score])
+    
     @staticmethod
-    def __score(c1, c2, inverse=True):
+    def __get_score(c1, c2, inverse=True):
         """
         Calculates the aggregate score for 2 strings.
         
@@ -245,11 +260,9 @@ class IdentityMerging(BaseMiner):
         :rtype: int
         """
         name_name = max(damerau_levenshtein(c1.name, c2.name), monge_elkan(c1.name, c2.name))
-        name_prefix = max(damerau_levenshtein(c1.name, c1.prefix), damerau_levenshtein(c1.prefix, c2.name),
-                          monge_elkan(c1.name, c2.prefix), monge_elkan(c1.prefix, c2.name))
+        name_prefix = max(damerau_levenshtein(c1.name, c1.prefix), damerau_levenshtein(c1.prefix, c2.name))
         prefix_prefix = damerau_levenshtein(c1.prefix, c2.prefix)
-        login_name = max(damerau_levenshtein(c1.login, c2.name), damerau_levenshtein(c1.name, c2.login),
-                         monge_elkan(c1.login, c2.name), monge_elkan(c1.name, c2.login))
+        login_name = max(damerau_levenshtein(c1.login, c2.name), damerau_levenshtein(c1.name, c2.login))
         login_prefix = max(damerau_levenshtein(c1.login, c2.prefix), damerau_levenshtein(c1.prefix, c2.login))
         
         if inverse:
@@ -258,10 +271,9 @@ class IdentityMerging(BaseMiner):
         else:
             return sum([name_name, name_prefix, prefix_prefix, login_name, login_prefix]) / 5
     
-    def __generate_pairs(self):
-        it = 1
-        for ele in self.non_anon_contributors:
-            for pair in list(itertools.product([ele], self.anon_contributors)):
-                logger.info(f"Ongoing pair {it}...")
-                it += 1
+    @staticmethod
+    def __generate_pairs(lst1, lst2):
+        for ele in lst1:
+            temp = list(itertools.product([ele], lst2))
+            for pair in temp:
                 yield pair
