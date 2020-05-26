@@ -178,11 +178,15 @@ def dice_coefficient(a, b):
     b_bigram_list = []
     for i in range(len(b) - 1):
         b_bigram_list.append(b[i:i + 2])
-    
+
     a_bigrams = set(a_bigram_list)
     b_bigrams = set(b_bigram_list)
     overlap = len(a_bigrams & b_bigrams)
-    
+
     dice_coeff = overlap * 2.0 / (len(a_bigrams) + len(b_bigrams))
 
     return dice_coeff
+
+
+if __name__ == '__main__':
+    print(dice_coefficient('mahen', 'imlegend19'))

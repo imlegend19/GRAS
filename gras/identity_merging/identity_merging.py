@@ -276,4 +276,5 @@ class IdentityMerging(BaseMiner):
         for ele in lst1:
             temp = list(itertools.product([ele], lst2))
             for pair in temp:
-                yield pair
+                if pair[0].id_ != pair[1].id_:
+                    yield pair
