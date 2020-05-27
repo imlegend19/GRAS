@@ -4,15 +4,13 @@ import multiprocessing as mp
 
 from gras.base_miner import BaseMiner
 from gras.db.models import DBSchema
-from gras.errors import GithubMinerError
 from gras.github.entity.github_models import AnonContributorModel
 from gras.github.structs.branch_struct import BranchStruct
 from gras.github.structs.comment_struct import CommentStruct
 from gras.github.structs.commit_comment_struct import CommitCommentStruct
 from gras.github.structs.commit_struct import CodeChangeStruct, CommitStructV4
 from gras.github.structs.contributor_struct import (
-    ContributorList, UserNodesStruct, UserStruct,
-    UserStructV3
+    ContributorList, UserNodesStruct
 )
 from gras.github.structs.event_struct import EventDetailStruct
 from gras.github.structs.fork_struct import ForkStruct
@@ -36,7 +34,7 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 lock = mp.Lock()
 MAX_INSERT_OBJECTS = 1000
-THREADS = mp.cpu_count()
+THREADS = min(32, mp.cpu_count() + 4)
 
 
 class GithubMiner(BaseMiner):
@@ -75,7 +73,7 @@ class GithubMiner(BaseMiner):
     def _basic_miner(self):
         try:
             node_ids = self._dump_anon_users()
-            self._dump_users(node_ids=node_ids, login=None)
+            self._dump_users(node_ids=node_ids)
         finally:
             self._refactor_table(id_='id', table="contributors", group_by="name, email")
             self._refactor_table(id_='id', table="contributors", group_by="login, name, email")
@@ -147,150 +145,73 @@ class GithubMiner(BaseMiner):
         self._fetch_pull_request_events()
         self._fetch_pull_request_comments()
 
-    def _dump_anon_users(self, name=None, email=None):
-        if name or email:
-            logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")
-
-            obj = self.db_schema.contributors_object(
-                user_type="USER",
-                login=None,
-                name=name,
-                email=email,
-                created_at=None,
-                updated_at=None,
-                total_followers=0,
-                location=None,
-                is_anonymous=1
-            )
-
-            self._insert(self.db_schema.contributors.insert(), obj)
-        else:
-            cont_list = ContributorList(
-                name=self.repo_name,
-                owner=self.repo_owner
-            )
-
-            node_ids = []
-            obj_list = []
-
-            for cont in cont_list.process():
-                if isinstance(cont, AnonContributorModel):
-                    obj = self.db_schema.contributors_object(
-                        user_type="USER",
-                        login=None,
-                        name=cont.name,
-                        email=cont.email,
-                        created_at=None,
-                        updated_at=None,
-                        total_followers=0,
-                        location=None,
-                        is_anonymous=1
-                    )
-
-                    obj_list.append(obj)
-                else:
-                    node_ids.append("\"" + cont + "\"")
-
-            logger.info("Dumping Anonymous Contributors...")
-            self._insert(self.db_schema.contributors.insert(), obj_list)
-
-            return node_ids
+    def _dump_anon_users(self):
+        cont_list = ContributorList(
+            name=self.repo_name,
+            owner=self.repo_owner
+        )
     
-    def _dump_users(self, login, node_ids=None, user_object=None):
-        if node_ids:
-            assert isinstance(node_ids, list)
-
-            for i in range(0, len(node_ids), 100):
-                ids_str = ",".join(node_ids[i:i + 100])
-                users = UserNodesStruct(
-                    node_ids=ids_str
+        node_ids = []
+        obj_list = []
+    
+        for cont in cont_list.process():
+            if isinstance(cont, AnonContributorModel):
+                obj = self.db_schema.contributors_object(
+                    user_type="USER",
+                    login=None,
+                    name=cont.name,
+                    email=cont.email,
+                    created_at=None,
+                    updated_at=None,
+                    total_followers=0,
+                    location=None,
+                    is_anonymous=1
                 )
-                
-                obj_list = []
-                for node in users.process():
-                    obj = self.db_schema.contributors_object(
-                        user_type=node.user_type,
-                        login=node.login,
-                        name=node.name,
-                        email=node.email,
-                        created_at=node.created_at,
-                        updated_at=node.updated_at,
-                        total_followers=node.total_followers,
-                        location=node.location
-                    )
-
-                    obj_list.append(obj)
-                
-                logger.info("Dumping Other Contributors...")
-                self._insert(self.db_schema.contributors.insert(), obj_list)
-
-        elif login:
-            try:
-                user = UserStruct(
-                    login=login
-                ).process()
-            except Exception:
-                try:
-                    user = UserStructV3(
-                        login=login
-                    ).process()
-                except Exception as e:
-                    logger.error(e)
-                    return False
-
-                if not user:
-                    return False
             
-            if not user:
-                user = UserStructV3(
-                    login=login
-                ).process()
+                obj_list.append(obj)
+            else:
+                node_ids.append("\"" + cont + "\"")
+    
+        logger.info("Dumping Anonymous Contributors...")
+        self._insert(self.db_schema.contributors.insert(), obj_list)
+    
+        return node_ids
 
-                if not user:
-                    return False
+    def _dump_users(self, node_ids):
+        assert isinstance(node_ids, list)
+    
+        for i in range(0, len(node_ids), 100):
+            ids_str = ",".join(node_ids[i:i + 100])
+            users = UserNodesStruct(
+                node_ids=ids_str
+            )
+        
+            obj_list = []
+            for node in users.process():
+                obj = self.db_schema.contributors_object(
+                    user_type=node.user_type,
+                    login=node.login,
+                    name=node.name,
+                    email=node.email,
+                    created_at=node.created_at,
+                    updated_at=node.updated_at,
+                    total_followers=node.total_followers,
+                    location=node.location
+                )
             
-            obj = self.db_schema.contributors_object(
-                user_type=user.user_type,
-                login=login,
-                name=user.name,
-                email=user.email,
-                created_at=user.created_at,
-                updated_at=user.updated_at,
-                total_followers=user.total_followers,
-                location=user.location,
-                is_anonymous=0
-            )
-
-            # logger.debug(f"Dumping User with login: {login}")
-            self._insert(self.db_schema.contributors.insert(), obj)
-        elif user_object:
-            obj = self.db_schema.contributors_object(
-                user_type=user_object.user_type,
-                login=user_object.login,
-                name=user_object.name,
-                email=user_object.email,
-                created_at=user_object.created_at,
-                updated_at=user_object.updated_at,
-                total_followers=user_object.total_followers,
-                location=user_object.location,
-                is_anonymous=0
-            )
-
-            logger.debug(f"Dumping User with login: {user_object.login}")
-            self._insert(self.db_schema.contributors.insert(), obj)
-        else:
-            raise GithubMinerError(msg="`_dump_users()` exception! Please consider reporting this error to the team.")
-
-        return True
+                obj_list.append(obj)
+        
+            logger.info("Dumping Other Contributors...")
+            self._insert(self.db_schema.contributors.insert(), obj_list)
 
     def _dump_repository(self):
         logger.info("Dumping Repository...")
-
+    
         repo = RepositoryStruct(
             name=self.repo_name,
             owner=self.repo_owner
         ).process()
-
+    
         obj = self.db_schema.repository_object(
             name=self.repo_name,
             owner=self.repo_owner,
@@ -306,7 +227,7 @@ class GithubMiner(BaseMiner):
             total_watchers=repo.watcher_count,
             forked_from=repo.forked_from
         )
-
+    
         self._insert(self.db_schema.repository.insert(), obj)
         self._set_repo_id()
     
@@ -1125,13 +1046,13 @@ class GithubMiner(BaseMiner):
 
     def _dump_pull_request_commits(self, number):
         logger.debug(f"Dumping Pull Request Commits for Pull Request Number: {number}...")
-    
+
         pr_commit = PullRequestCommitsStruct(
             name=self.repo_name,
             owner=self.repo_owner,
             number=number
         )
-    
+
         obj_list = []
         for node in pr_commit.process():
             obj = self.db_schema.pull_request_commits_object(
@@ -1139,15 +1060,15 @@ class GithubMiner(BaseMiner):
                 pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
                 commit_id=self._get_table_id('commits', 'oid', node.oid)
             )
-        
+
             obj_list.append(obj)
-    
+
         self._insert(self.db_schema.pull_request_commits.insert(), obj_list)
 
     @timing(name="pull_request_commits")
     def _fetch_pull_request_commits(self):
         logger.info("Dumping Pull Request Commits...")
-    
+
         for pr_commits in self.__get_pull_requests(table="pull_request_commits"):
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_pull_request_commits, pr): pr for pr in pr_commits}
@@ -1158,7 +1079,7 @@ class GithubMiner(BaseMiner):
 
     def _dump_pull_request_events(self, number):
         logger.debug(f"Dumping Pull Request Events for Pull Request Number: {number}...")
-    
+
         pr_event = EventDetailStruct(
             name=self.repo_name,
             owner=self.repo_owner,
@@ -1166,17 +1087,17 @@ class GithubMiner(BaseMiner):
             type_filter="pullRequest",
             number=number
         )
-    
+
         pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
 
         obj_list = self._events_object_list(pr_event, id_=pr_id, type_="PULL_REQUEST")
-    
+
         self._insert(object_=self.db_schema.pull_request_events.insert(), param=obj_list)
 
     @timing(name="pull_request_events")
     def _fetch_pull_request_events(self):
         logger.info("Dumping Pull Request Events...")
-    
+
         for prs in self.__get_pull_requests('pull_request_events'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_issue_events, pr): pr for pr in prs}
@@ -1187,24 +1108,24 @@ class GithubMiner(BaseMiner):
 
     def _dump_pull_request_comments(self, number):
         logger.debug(f"Dumping Pull Request Comments for Pull Request Number: {number}...")
-    
+
         pr_comments = CommentStruct(
             name=self.repo_name,
             owner=self.repo_owner,
             number=number,
             type_filter="pullRequest"
         )
-    
+
         pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
-    
+
         obj_list = self._comments_object_list(pr_comments, pr_id, "PULL_REQUEST")
-    
+
         self._insert(object_=self.db_schema.pull_request_comments.insert(), param=obj_list)
 
     @timing(name='pull_request_comments')
     def _fetch_pull_request_comments(self):
         logger.info("Dumping Pull Request Comments...")
-    
+
         for prs in self.__get_pull_requests('pull_request_comments'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
                 process = {executor.submit(self._dump_pull_request_comments, pr): pr for pr in prs}
@@ -1212,17 +1133,6 @@ class GithubMiner(BaseMiner):
                     number = process[future]
                     future.result()
                     logger.debug(f"Inserted Comments for PR number: {number}")
-
-    def _set_repo_id(self):
-        res = self._conn.execute(
-            f"""
-            SELECT repo_id
-            FROM repository
-            WHERE name="{self.repo_name}" AND owner="{self.repo_owner}"
-            """
-        ).fetchone()
-    
-        self.repo_id = res[0]
     
     def _get_user_id(self, login, user_object=None, name=None, email=None):
         if not login and user_object:
@@ -1233,9 +1143,10 @@ class GithubMiner(BaseMiner):
                 WHERE login="{user_object.login}"
                 """
             ).fetchone()
-        
+
             if not res:
-                has_dumped = self._dump_users(login=None, user_object=user_object)
+                has_dumped = self._dump_user_object(login=None, user_object=user_object,
+                                                    object_=self.db_schema.contributors.insert())
                 if has_dumped:
                     return self._get_user_id(user_object.login)
                 else:
@@ -1250,9 +1161,9 @@ class GithubMiner(BaseMiner):
                 WHERE login="{login}"
                 """
             ).fetchone()
-        
+
             if not res:
-                has_dumped = self._dump_users(login=login)
+                has_dumped = self._dump_user_object(login=login, object_=self.db_schema.contributors.insert())
                 if has_dumped:
                     return self._get_user_id(login)
                 else:
@@ -1267,9 +1178,10 @@ class GithubMiner(BaseMiner):
                 WHERE name="{name}" AND email="{email}"
                 """
             ).fetchone()
-        
+
             if not res:
-                has_dumped = self._dump_anon_users(name=name, email=email)
+                has_dumped = self._dump_anon_user_object(name=name, email=email,
+                                                         object_=self.db_schema.contributors.insert())
                 if has_dumped:
                     return self._get_user_id(login=None, name=name, email=email)
                 else:
@@ -1282,7 +1194,7 @@ class GithubMiner(BaseMiner):
     def _get_table_id(self, table, field, value, pk='id', toggle=False):
         if value is None:
             return None
-    
+
         res = self._conn.execute(
             f"""
             SELECT {pk}
@@ -1290,7 +1202,7 @@ class GithubMiner(BaseMiner):
             WHERE {field}="{value}" AND repo_id={self.repo_id}
             """
         ).fetchone()
-    
+
         if not res:
             if table == "commits":
                 if not toggle:

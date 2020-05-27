@@ -1,22 +1,32 @@
+import concurrent.futures
 import logging
 import multiprocessing as mp
-from timeit import default_timer
+from datetime import datetime
 
 from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository
 
 from gras.base_miner import BaseMiner
+from gras.db.models import DBSchema
+from gras.github.structs.contributor_struct import CommitUserStruct
+from gras.utils import timing
 
 logger = logging.getLogger("main")
+THREADS = min(32, mp.cpu_count() + 4)
+MAX_INSERT_OBJECTS = 1000
 
 
 class GitMiner(BaseMiner):
     def __init__(self, args):
-        if args is not None:
-            super().__init__(args)
+        super().__init__(args)
         
-        self.repo = Repository("/home/mahen/flutter/.git")
+        self._engine, self._conn = self._connect_to_db()
+        self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
+        self._set_repo_id()
+        
+        self.db_schema.create_tables()
+        
+        self.repo = Repository(args.path)
         self._fetch_references()
-        self.queue = mp.JoinableQueue()
         self.process()
     
     def _load_from_file(self, file):
@@ -33,55 +43,212 @@ class GitMiner(BaseMiner):
             else:
                 self.branches[reference] = self.repo.lookup_reference(reference).peel().oid
     
-    def _parse_commit(self, oid):
-        pass
+    @staticmethod
+    def __get_status(status):
+        if status == 1:
+            return 'ADDED'
+        elif status == 2:
+            return 'DELETED'
+        elif status == 3:
+            return 'MODIFIED'
+        elif status == 4:
+            return 'RENAMED'
+        elif status == 5:
+            return 'COPIED'
+        elif status == 6:
+            return 'IGNORED'
+        elif status == 7:
+            return 'UNTRACKED'
+        elif status == 8:
+            return 'TYPECHANGED'
+        else:
+            return None
+    
+    def __get_commit_id(self, oid):
+        res = self._conn.execute(
+            f"""
+            SELECT id
+            FROM commits
+            WHERE oid="{oid}" AND repo_id={self.repo_id}
+            """
+        ).fetchone()
+        
+        return res[0]
+    
+    def __get_user_id(self, name, email, oid):
+        res = self._conn.execute(
+            f"""
+            SELECT id, login, name
+            FROM contributors
+            WHERE email="{email}"
+            """
+        ).fetchone()
+        
+        if not res:
+            user = CommitUserStruct(
+                oid=oid,
+                repo_name=self.repo_name,
+                repo_owner=self.repo_owner,
+                name=name,
+                email=email
+            ).process()
+            
+            if user is None:
+                self._dump_anon_user_object(name=name, email=email, object_=self.db_schema.contributors.insert())
+            else:
+                self._dump_user_object(login=None, user_object=user, object_=self.db_schema.contributors.insert())
+            
+            return self.__get_user_id(name=name, email=email, oid=oid)
+        else:
+            if name == res[2]:
+                return res[0]
+            elif name == res[1]:
+                return res[0]
+            else:
+                self._conn.execute(
+                    f"""
+                    UPDATE contributors
+                    SET name="{name}"
+                    WHERE id={res[0]}
+                    """
+                )
+                
+                return res[0]
+    
+    def _dump_code_change(self, oid):
+        commit = self.repo.get(oid)
+        commit_id = self.__get_commit_id(oid)
+        
+        logger.debug(f"Dumping Code Change for commit_id -> {commit_id}...")
+        
+        code_change = []
+        
+        if not commit.parents:
+            diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
+        else:
+            diffs = [self.repo.diff(commit.parents[i], commit) for i in commit.parents]
+        
+        for diff in diffs:
+            for patch in diff:
+                obj = self.db_schema.code_change_object(
+                    repo_id=self.repo_id,
+                    commit_id=commit_id,
+                    filename=patch.delta.new_file.path,
+                    additions=patch.line_stats[1],
+                    deletions=patch.line_stats[2],
+                    changes=patch.line_stats[1] + patch.line_stats[2],
+                    change_type=self.__get_status(patch.status),
+                    patch=patch.patch
+                )
+                
+                code_change.append(obj)
+        
+        return code_change
+    
+    def _dump_commit(self, oid):
+        commit = self.repo.get(oid)
+        
+        diff = self.repo.diff(commit.parents[0], commit)
+        num_files_changed = diff.stats.files_changed
+        additions = diff.stats.insertions
+        deletions = diff.stats.deletions
+        
+        author_name = commit.author.name
+        author_email = commit.author.email
+        author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid)
+        authored_date = datetime.fromtimestamp(commit.author.time)
+        
+        committer_name = commit.committer.name
+        committer_email = commit.committer.email
+        
+        if committer_email == "noreply@github.com":
+            committer_id = author_id
+        else:
+            committer_id = self.__get_user_id(name=committer_name, email=committer_email, oid=oid)
+        
+        committed_date = datetime.fromtimestamp(commit.commit_time)
+        
+        message = commit.message
+        
+        if len(commit.parents) > 1:
+            is_merge = 1
+        else:
+            is_merge = 0
+        
+        obj = self.db_schema.commits_object(
+            repo_id=self.repo_id,
+            oid=str(oid),
+            additions=additions,
+            deletions=deletions,
+            author_id=author_id,
+            authored_date=authored_date,
+            committer_id=committer_id,
+            committer_date=committed_date,
+            message=message,
+            num_files_changed=num_files_changed,
+            is_merge=is_merge
+        )
+        
+        return obj
     
     def _fetch_commit_ids(self):
-        commits = set()
+        commits = list()
         for branch, target in self.branches.items():
             logger.info(f"Ongoing Branch {branch}...")
             
             for commit in self.repo.walk(target, GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME):
                 if commit.oid not in commits:
-                    commits.add(commit.oid)
-                    self.queue.put(commit.oid)
+                    commits.append(commit.oid)
                 else:
                     break
-                
-                # print(datetime.utcfromtimestamp(commit.commit_time).strftime('%Y-%m-%d %H:%M:%S'))
         
         return commits
     
+    @timing(name="commits", is_stage=True)
+    def _dump_commits(self, commits):
+        commit_objects = []
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+            process = {executor.submit(self._dump_commit, oid): oid for oid in commits}
+            for future in concurrent.futures.as_completed(process):
+                oid = process[future]
+                commit_objects.append(future.result())
+                logger.info(f"Fetched commit: {oid}")
+            
+            if len(commit_objects) == MAX_INSERT_OBJECTS:
+                logger.info("Inserting 1000 objects...")
+                self._insert(object_=self.db_schema.commits.insert(), param=commit_objects)
+                commit_objects.clear()
+                logger.info("Success!")
+        
+        self._insert(object_=self.db_schema.commits.insert(), param=commit_objects)
+        del commit_objects
+    
+    @timing(name="code change", is_stage=True)
+    def _dump_code_change(self, commits):
+        code_change_objects = []
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+            process = {executor.submit(self._dump_code_change, oid): oid for oid in commits}
+            for future in concurrent.futures.as_completed(process):
+                oid = process[future]
+                code_change_objects.extend(future.result())
+                logger.info(f"Fetched Code Change for commit: {oid}")
+            
+            if len(code_change_objects) >= MAX_INSERT_OBJECTS:
+                logger.info("Inserting 1000 objects...")
+                self._insert(object_=self.db_schema.code_change.insert(), param=code_change_objects)
+                code_change_objects.clear()
+                logger.info("Success!")
+        
+        self._insert(object_=self.db_schema.code_change.insert(), param=code_change_objects)
+        del code_change_objects
+    
     def process(self):
         commits = self._fetch_commit_ids()
-        GitParser(queue=self.queue)
         
-        processes = [
-            mp.Process(target=self._parse_commit, args=(oid,)) for oid in commits
-        ]
+        for oid in commits:
+            self._dump_commit(oid)
         
-        del commits
-        
-        start_time = default_timer()
-        print('starting processes...')
-        for process in processes:
-            process.start()
-        
-        print(default_timer() - start_time)
-
-
-class GitParser(mp.Process):
-    def __init__(self, queue):
-        super(GitParser, self).__init__()
-        
-        self.queue = queue
-    
-    def run(self):
-        print('run')
-    
-    def fetch_commits(self):
-        pass
-
-
-if __name__ == '__main__':
-    GitMiner(None)
+        self._dump_commits(commits)
+        self._dump_code_change(commits)

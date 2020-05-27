@@ -251,13 +251,15 @@ class CommitStructV4(GithubInterface, CommitModelV4):
         }}
     """
 
-    def __init__(self, name, owner, start_date=None, end_date=None, branch=None, after="null", oid=None):
+    def __init__(self, name, owner, start_date=None, end_date=None, branch=None, after="null", oid=None,
+                 github_token=None):
         """Constructor Method"""
         super().__init__(
             query=self.SINGLE_COMMIT_QUERY if oid else self.COMMIT_QUERY,
             query_params=dict(name=name, owner=owner, oid=oid) if oid else dict(name=name, owner=owner, after=after,
                                                                                 start_date=start_date,
-                                                                                end_date=end_date, branch=branch)
+                                                                                end_date=end_date, branch=branch),
+            github_token=github_token
         )
     
         self.oid = oid

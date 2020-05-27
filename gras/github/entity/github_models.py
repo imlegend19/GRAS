@@ -603,7 +603,7 @@ class UserModel(BaseModel):
         except KeyError:
             created_at = dic[APIStaticV3.CREATED_AT]
             updated_at = dic[APIStaticV3.UPDATED_AT]
-        
+
         obj = UserModel(
             user_type=dic[APIStaticV4.TYPE].upper(),
             login=dic[UserStatic.LOGIN],
@@ -615,6 +615,37 @@ class UserModel(BaseModel):
             updated_at=updated_at
         )
 
+        return obj
+
+
+class CommitUserModel(BaseModel):
+    def __init__(self, login, name, email, created_at, total_followers, location, updated_at, user_type):
+        super().__init__()
+        
+        self.login = login
+        self.name = name
+        self.email = email
+        self.created_at = created_at
+        self.total_followers = total_followers
+        self.location = location
+        self.updated_at = updated_at
+        self.user_type = user_type
+    
+    def object_decoder(self, dic, name, email):
+        if dic is None:
+            return None
+        
+        obj = CommitUserModel(
+            login=dic[UserStatic.LOGIN],
+            name=name,
+            email=email,
+            created_at=dic[APIStaticV4.CREATED_AT],
+            updated_at=dic[APIStaticV4.UPDATED_AT],
+            total_followers=dic[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT],
+            location=dic[UserStatic.LOCATION],
+            user_type="USER"
+        )
+        
         return obj
 
 
