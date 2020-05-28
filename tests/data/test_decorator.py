@@ -1,10 +1,3 @@
-def x():
-    def u(_):
-        pass
-    
-    return u(None)
-
-
 # noinspection PyUnresolvedReferences
 @deco1
 @deco2()
@@ -47,7 +40,7 @@ def f():
 
 
 # noinspection PyUnresolvedReferences
-@a.deco(1)
+@a.b.deco(1)
 def f():
     """Decorator with attribute and function call"""
     pass

@@ -6,7 +6,7 @@ from datetime import datetime
 from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository
 
 from gras.base_miner import BaseMiner
-from gras.db.models import DBSchema
+from gras.db.db_models import DBSchema
 from gras.github.structs.contributor_struct import CommitUserStruct
 from gras.utils import timing
 

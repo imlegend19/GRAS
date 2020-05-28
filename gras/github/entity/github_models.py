@@ -1,17 +1,8 @@
 import re
-from abc import ABCMeta, abstractmethod
 
+from gras.base_model import BaseModel
 from gras.github.entity.api_static import *
 from gras.utils import *
-
-
-class BaseModel(metaclass=ABCMeta):
-    def __init__(self):
-        pass
-    
-    @abstractmethod
-    def object_decoder(self, **kwargs):
-        pass
 
 
 class RepositoryModel(BaseModel):

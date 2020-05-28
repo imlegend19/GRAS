@@ -3,7 +3,7 @@ import logging
 import multiprocessing as mp
 
 from gras.base_miner import BaseMiner
-from gras.db.models import DBSchema
+from gras.db.db_models import DBSchema
 from gras.github.entity.github_models import AnonContributorModel
 from gras.github.structs.branch_struct import BranchStruct
 from gras.github.structs.comment_struct import CommentStruct

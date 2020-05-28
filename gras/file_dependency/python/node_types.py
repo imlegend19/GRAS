@@ -26,10 +26,6 @@ class GlobalVariable(BaseType):
     __name__ = "Global Variable"
 
 
-class Decorator(BaseType):
-    __name__ = "Decorator"
-
-
 class CallTree:
     def __init__(self, node):
         self.__set_values(node)
@@ -42,16 +38,16 @@ class CallTree:
     def __set_values(self, node):
         if isinstance(node, Attribute):
             self.name = node.attr
-            self.type = Decorator(subtype=Attribute)
+            self.type = Attribute
         elif isinstance(node, Name):
             self.name = node.id
-            self.type = Decorator(subtype=Name)
+            self.type = Name
         elif isinstance(node, Call):
             if isinstance(node.func, Name):
                 self.name = node.func.id
             else:
                 self.name = node.func.attr
-            self.type = Decorator(subtype=Call)
+            self.type = Call
             self.args = node.args.__len__()
             self.kwargs = node.keywords.__len__()
         else:
@@ -70,13 +66,13 @@ class AttributeTree:
     def __set_values(self, node):
         if isinstance(node, Attribute):
             self.name = node.attr
-            self.type = Decorator(subtype=Attribute)
+            self.type = Attribute
         elif isinstance(node, Name):
             self.name = node.id
-            self.type = Decorator(subtype=Name)
+            self.type = Name
         elif isinstance(node, Call):
             self.name = node.func.id
-            self.type = Decorator(subtype=Call)
+            self.type = Call
             self.args = node.args.__len__()
             self.kwargs = node.keywords.__len__()
         else:

@@ -25,25 +25,30 @@ class FileMiner(BaseMiner):
             
             from pprint import pprint
             
-            pprint(dic, width=300)
+            pprint(dic)
     
     def _load_from_file(self, file):
         pass
     
     def dump_to_file(self, path):
         pass
-    
+
     @staticmethod
     def parse_file(content, path):
+        # file = FileModel(
+        #     name=os.path.basename(path),
+        #     loc=lines_of_code_counter(content.split("\n")),
+        # )
+    
         analyzer = FileAnalyzer()
         file_dict = {
             "name"         : f"{os.path.basename(path)}",
             "effective_loc": lines_of_code_counter(content.split("\n"))
         }
-        
+    
         tree = ast.parse(content)
         analyzer.visit(tree)
-        file_dict["file_data"] = analyzer.gen()
+        file_dict["file_data"] = analyzer.process()
         del analyzer
         
         return file_dict
@@ -63,13 +68,17 @@ class FileMiner(BaseMiner):
                     if is_python_file(os.path.join(root, file)) and file != "__init__.py":
                         with open(os.path.join(root, file), "r") as fp:
                             content = fp.read()
-                        
+
                         file_dict = self.parse_file(content=content, path=fp.name)
                         files_in_dir.append(file_dict)
-                
+
                 dependency_dict[f"DIR {os.path.basename(root)}"] = files_in_dir
-        
+
         return dependency_dict
-    
+
     def process(self):
         pass
+
+
+if __name__ == '__main__':
+    FileMiner(args=None, project_dir=None, file_path="/home/mahen/PycharmProjects/GRAS/tests/data/test_decorator.py")
