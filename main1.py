@@ -114,29 +114,30 @@ def get_logging_level(level):
     return choices[level]
 
 
-class GrasArgumentParser(argparse.ArgumentParser):
-    def __init__(self):
-        super().__init__(
-            description='GRAS - GIT REPOSITORIES ARCHIVING SERVICE',
-            add_help=True,
-            #TODO: complete usage and add custom help argument
-            usage='''main.py [-v, --version] [-v, --version]......
-                <interface> [<args>]
-                  '''
-            )
+class GrasArgumentParser():
+    """
+    Docs: https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.add_subparsers
+    """
 
-        self.gras_command_groups = argparse.ArgumentParser(add_help=False)
-        self.gras_setting_groups = argparse.ArgumentParser(add_help=False)
-        self.database_groups = argparse.ArgumentParser(add_help=False)
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(description='GRAS - GIT REPOSITORIES ARCHIVING SERVICE',
+                                              add_help=True)
+        self.parent_parser = argparse.ArgumentParser(add_help=False)
+        self.c = self.parent_parser.add_argument_group('GRAS-COMMANDS')
+        self.c.add_argument('-w')
+        self.subparsers = self.parser.add_subparsers(title='interfaces', dest="interface",
+                                                     parser_class=argparse.ArgumentParser)
+
+        self.github_parser = self.subparsers.add_parser("github", parents=[self.parent_parser])
+        self.github_parser.add_argument('--susu')
         self._init_groups()
         self._add_gras_commands()
         self._add_gras_settings()
         self._add_database_settings()
         self._add_other_arguments()
-        self._init_subparsers()
-        self._init_git_parser()
+
         try:
-            self.args = self.parse_args()
+            self.args = self.parser.parse_args()
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -156,38 +157,15 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
     @property
     def action_groups(self):
-        return self._action_groups
-
-    def _init_subparsers(self):
-        self.subparsers = self.add_subparsers(title='interfaces', dest="interface",
-                                              parser_class=argparse.ArgumentParser)
-        self.github_parser = self.subparsers.add_parser("github", parents=[self.gras_setting_groups,
-                                                                           self.gras_command_groups,
-                                                                           self.database_groups])
-        self.gitlab_parser = self.subparsers.add_parser("gitlab", parents=[self.gras_setting_groups,
-                                                                           self.gras_command_groups,
-                                                                           self.database_groups])
-        self.git_parser = self.subparsers.add_parser("git", parents=[self.gras_command_groups, self.database_groups])
-
-    def _init_github_parser(self):
-        # TODO: maybe add specific arguments
-        pass
-
-    def _init_gitlab_parser(self):
-        # TODO: maybe add specific arguments
-        pass
-
-    def _init_git_parser(self):
-        self.git_parser.add_argument('-gp', '--gitpath', help="Path to the .git file")
+        return self.parent_parser._action_groups
 
     def _init_groups(self):
-        self.gras_commands = self.gras_command_groups.add_argument_group('GRAS-COMMANDS')
-        self.gras_settings = self.gras_setting_groups.add_argument_group('GRAS-SETTINGS')
-        self.database_settings = self.database_groups.add_argument_group('DATABASE-SETTINGS')
-        self.other = self.add_argument_group('OTHER')
+        self.gras_commands = self.parent_parser.add_argument_group('GRAS-COMMANDS')
+        self.gras_settings = self.parent_parser.add_argument_group('GRAS-SETTINGS')
+        self.database_settings = self.parent_parser.add_argument_group('DATABASE-SETTINGS')
+        self.other = self.parent_parser.add_argument_group('OTHER')
 
     def _add_gras_commands(self):
-
         self.gras_commands.add_argument('-s', '--stats', help="View the stats of the repository", default=False,
                                         type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-g', '--generate', help="Generate a config file template", default=False,
@@ -248,6 +226,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                             default=False, type=bool, nargs='?', required=False, const=True)
 
     def _add_other_arguments(self):
+        self.other.add_argument("-h", "--help", action="help", help="show this help message and exit")
         self.other.add_argument('-a', '--animator', help="Loading animator", default='bar',
                                 choices=list(ANIMATORS.keys()), required=False)
         self.other.add_argument('-OP', '--operation',
@@ -257,8 +236,6 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                 nargs='?', default=False)
         self.other.add_argument('-o', '--output', help="The output path where the config file is to be generated",
                                 default=f"{os.getcwd()}/gras.ini")
-        self.other.add_argument('-v', '--version', help="The version of GRAS installed", const=True, type=bool,
-                                nargs='?', default=False)
 
     def _validate(self):
         args = self.args
