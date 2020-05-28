@@ -36,6 +36,7 @@ class FileAnalyzer(ast.NodeVisitor):
             if isinstance(base, Name):
                 arguments.append(node.name)
             else:
+                # TODO: Implement Call and Attribute types
                 raise NotImplementedError
         
         functions, classes, imports = [], [], []
