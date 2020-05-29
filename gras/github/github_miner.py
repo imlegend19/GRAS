@@ -747,13 +747,20 @@ class GithubMiner(BaseMiner):
             for branch in self.__get_branches():
                 logger.info(f"Dumping commits for branch {branch}...")
 
-                commits = CommitStructV4(
-                    name=self.repo_name,
-                    owner=self.repo_owner,
-                    start_date=self.start_date,
-                    end_date=self.end_date,
-                    branch=branch
-                )
+                if self.full:
+                    commits = CommitStructV4(
+                        name=self.repo_name,
+                        owner=self.repo_owner,
+                        branch=branch
+                    )
+                else:
+                    commits = CommitStructV4(
+                        name=self.repo_name,
+                        owner=self.repo_owner,
+                        start_date=self.start_date,
+                        end_date=self.end_date,
+                        branch=branch
+                    )
 
                 obj_list = []
 

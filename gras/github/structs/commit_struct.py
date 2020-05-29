@@ -40,7 +40,7 @@ class CodeChangeStruct(GithubInterface, CodeChangeModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-    
+
         generator = self._generator()
         return next(generator).json()[CommitStatic.FILES]
 
@@ -104,10 +104,10 @@ class CommitStructV3(GithubInterface, CommitModelV3):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-    
+
         generator = self._generator()
         hasNextPage = True
-    
+
         while hasNextPage:
             response = next(generator)  # Response object (not json)
 
@@ -171,7 +171,7 @@ class CommitStructV4(GithubInterface, CommitModelV4):
             repository(owner: "{owner}", name: "{name}") {{
                 object(expression: "{branch}") {{
                     ... on Commit {{
-                        history(since: "{start_date}", until: "{end_date}", first: 100, after: {after}) {{
+                        history(since: {start_date}, until: {end_date}, first: 100, after: {after}) {{
                             totalCount
                             pageInfo {{
                                 hasNextPage
@@ -256,12 +256,13 @@ class CommitStructV4(GithubInterface, CommitModelV4):
         """Constructor Method"""
         super().__init__(
             query=self.SINGLE_COMMIT_QUERY if oid else self.COMMIT_QUERY,
-            query_params=dict(name=name, owner=owner, oid=oid) if oid else dict(name=name, owner=owner, after=after,
-                                                                                start_date=start_date,
-                                                                                end_date=end_date, branch=branch),
+            query_params=dict(name=name, owner=owner, after=after,
+                              start_date=f"\"{start_date}\"" if start_date is not None else "null",
+                              end_date=f"\"{end_date}\"" if end_date is not None else "null",
+                              branch=branch) if not oid else dict(name=name, owner=owner, oid=oid),
             github_token=github_token
         )
-    
+
         self.oid = oid
 
     def iterator(self):
