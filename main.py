@@ -15,6 +15,7 @@ import pandas as pd
 from tabulate import tabulate
 
 from gras.errors import GrasArgumentParserError, GrasConfigError
+from gras.git.git_miner import GitMiner
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
 from gras.identity_merging.identity_merging import IdentityMerging
@@ -128,6 +129,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self.gras_command_groups = argparse.ArgumentParser(add_help=False)
         self.gras_setting_groups = argparse.ArgumentParser(add_help=False)
         self.database_groups = argparse.ArgumentParser(add_help=False)
+        
         self._init_groups()
         self._add_gras_commands()
         self._add_gras_settings()
@@ -135,6 +137,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_other_arguments()
         self._init_subparsers()
         self._init_git_parser()
+        
         try:
             self.args = self.parse_args()
         except Exception as e:
@@ -210,14 +213,15 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         default=20)
         self.gras_commands.add_argument('-f', '--full', help="Mine the complete repository", const=True, nargs='?',
                                         type=bool)
+        self.gras_settings.add_argument('--path', help="Path to the directory to mine")
 
     def _add_gras_settings(self):
         self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",
                                         nargs='+')
-        self.gras_settings.add_argument('-y', '--yandex-key', help="Yandex Translator API Key ("
-                                                                   "https://translate.yandex.com/developers/keys)")
+        self.gras_settings.add_argument('-yk', '--yandex-key', help="Yandex Translator API Key ("
+                                                                    "https://translate.yandex.com/developers/keys)")
         self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',
-                                        choices=['github'], required=False)
+                                        choices=['github', 'git', 'identity-merging'], required=False)
         self.gras_settings.add_argument('-RO', '--repo-owner', help="Owner of the repository")
         self.gras_settings.add_argument('-RN', '--repo-name', help="Name of the repository")
         self.gras_settings.add_argument('-SD', '--start-date',
@@ -348,13 +352,6 @@ class GrasArgumentParser(argparse.ArgumentParser):
             result = queue.get()
 
             print("\n\n", "=" * 100, "\n", json.dumps(result, indent=4, sort_keys=True), "\n", "=" * 100)
-
-        if self.args.mine:
-            if self.args.interface == "github":
-                gm = GithubMiner(args=self.args)
-                gm.process()
-            else:
-                raise NotImplementedError
 
         if self.args.identity_merging:
             im = IdentityMerging(args=self.args)

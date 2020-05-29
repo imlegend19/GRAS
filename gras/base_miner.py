@@ -6,7 +6,8 @@ from abc import ABCMeta, abstractmethod
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
-from gras.errors import InvalidTokenError
+from gras.errors import GithubMinerError, InvalidTokenError
+from gras.github.structs.contributor_struct import UserStruct, UserStructV3
 from gras.github.structs.rate_limit import RateLimitStruct
 from gras.utils import locked, to_iso_format
 
@@ -165,7 +166,7 @@ class BaseMiner(metaclass=ABCMeta):
 
         for i in itm:
             self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
-
+    
     @locked
     def _insert(self, object_, param):
         try:
@@ -175,14 +176,104 @@ class BaseMiner(metaclass=ABCMeta):
         except IntegrityError as e:
             logger.debug(f"Caught Integrity Error: {e}")
             pass
-
+    
+    def _set_repo_id(self):
+        res = self._conn.execute(
+            f"""
+            SELECT repo_id
+            FROM repository
+            WHERE name="{self.repo_name}" AND owner="{self.repo_owner}"
+            """
+        ).fetchone()
+        
+        self.repo_id = res[0]
+    
     def _close_the_db(self):
         self._conn.close()
-
+    
     @staticmethod
     def init_worker():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-
+    
+    def _dump_anon_user_object(self, name, email, object_):
+        logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")
+        
+        obj = self.db_schema.contributors_object(
+            user_type="USER",
+            login=None,
+            name=name,
+            email=email,
+            created_at=None,
+            updated_at=None,
+            total_followers=0,
+            location=None,
+            is_anonymous=1
+        )
+        
+        self._insert(object_, obj)
+        
+        return True
+    
+    def _dump_user_object(self, login, object_, user_object=None):
+        if login:
+            try:
+                user = UserStruct(
+                    login=login
+                ).process()
+            except Exception:
+                try:
+                    user = UserStructV3(
+                        login=login
+                    ).process()
+                except Exception as e:
+                    logger.error(e)
+                    return False
+                
+                if not user:
+                    return False
+            
+            if not user:
+                user = UserStructV3(
+                    login=login
+                ).process()
+                
+                if not user:
+                    return False
+            
+            obj = self.db_schema.contributors_object(
+                user_type=user.user_type,
+                login=login,
+                name=user.name,
+                email=user.email,
+                created_at=user.created_at,
+                updated_at=user.updated_at,
+                total_followers=user.total_followers,
+                location=user.location,
+                is_anonymous=0
+            )
+            
+            # logger.debug(f"Dumping User with login: {login}")
+            self._insert(object_, obj)
+        elif user_object:
+            obj = self.db_schema.contributors_object(
+                user_type=user_object.user_type,
+                login=user_object.login,
+                name=user_object.name,
+                email=user_object.email,
+                created_at=user_object.created_at,
+                updated_at=user_object.updated_at,
+                total_followers=user_object.total_followers,
+                location=user_object.location,
+                is_anonymous=0
+            )
+            
+            logger.debug(f"Dumping User with login: {user_object.login}")
+            self._insert(object_, obj)
+        else:
+            raise GithubMinerError(msg="`_dump_users()` exception! Please consider reporting this error to the team.")
+        
+        return True
+    
     @staticmethod
     def __get_rate_limit(token):
         rate = RateLimitStruct(

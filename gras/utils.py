@@ -132,6 +132,8 @@ def to_datetime(date):
     """
     if not date:
         return None
+    elif isinstance(date, datetime.datetime):
+        return date
     else:
         return parser.parse(date)
 

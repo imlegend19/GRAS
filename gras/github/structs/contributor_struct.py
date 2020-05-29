@@ -3,8 +3,8 @@ import logging
 from requests import exceptions
 
 from gras.errors import ObjectDoesNotExistError
-from gras.github.entity.api_static import APIStaticV3, APIStaticV4, UserStatic
-from gras.github.entity.github_models import AnonContributorModel, UserModel
+from gras.github.entity.api_static import APIStaticV3, APIStaticV4, CommitStatic, UserStatic
+from gras.github.entity.github_models import AnonContributorModel, CommitUserModel, UserModel
 from gras.github.github import GithubInterface
 
 logger = logging.getLogger("main")
@@ -32,7 +32,7 @@ class AssignableUserStruct(GithubInterface, UserModel):
         :param after: return the elements in the list that come after the specified cursor `after`
         :type after: str
     """
-
+    
     QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
@@ -48,14 +48,14 @@ class AssignableUserStruct(GithubInterface, UserModel):
             }}
         }}
     """
-
+    
     def __init__(self, owner, name, after="null"):
         """Constructor Method"""
         super().__init__()
 
         self.query = self.QUERY
         self.query_params = dict(name=name, owner=owner, after=after)
-
+    
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.contributor_struct.AssignableUserStruct`. For more
@@ -83,7 +83,7 @@ class AssignableUserStruct(GithubInterface, UserModel):
 
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][UserStatic.ASSIGNABLE_USERS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-
+    
     def process(self):
         """
             generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
@@ -172,7 +172,7 @@ class UserNodesStruct(GithubInterface, UserModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-    
+
         generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.NODES]
 
@@ -220,10 +220,10 @@ class ContributorList(GithubInterface, AnonContributorModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-    
+
         generator = self._generator()
         hasNextPage = True
-    
+
         while hasNextPage:
             response = next(generator)  # Response object (not json)
 
@@ -283,9 +283,9 @@ class UserStructV3(GithubInterface, UserModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-    
+
         generator = self._generator()
-    
+
         try:
             return next(generator).json()
         except ObjectDoesNotExistError:
@@ -366,5 +366,93 @@ class UserStruct(GithubInterface, UserModel):
 
         try:
             return self.object_decoder(self.iterator())
+        except exceptions.RequestException:
+            return None
+
+
+class CommitUserStruct(GithubInterface, CommitUserModel):
+    """
+        The object models the query to fetch a single user object for a particular commit and generates an object using
+        :class:`gras.github.entity.github_models.CommitUserModel` containing the fetched data.
+
+        Please see GitHub's `user documentation`_ for more information.
+
+        .. _user documentation:
+            https://developer.github.com/v4/object/user/
+
+        :param name: name
+        :type name: str
+        
+        :param email: email
+        :type email: str
+        
+        :param repo_name: name of the repository
+        :type repo_name: str
+        
+        :param repo_owner: owner of the repository
+        :type repo_owner: str
+        
+        :param oid: SHA-12 (oid) of the commit
+        :type oid: str
+    """
+    
+    QUERY = """
+        {{
+            repository(name:"{name}", owner:"{owner}") {{
+                object(oid:"{oid}") {{
+                    ... on Commit {{
+                        author {{
+                            user {{
+                                login
+                                createdAt
+                                updatedAt
+                                location
+                                followers {{
+                                    totalCount
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    """
+    
+    def __init__(self, name, email, repo_name, repo_owner, oid):
+        super().__init__(
+            query=self.QUERY,
+            query_params=dict(name=repo_name, owner=repo_owner, oid=oid)
+        )
+        
+        self.name = name
+        self.email = email
+    
+    def iterator(self):
+        """
+            Iterator function for :class:`gras.github.structs.contributor_struct.CommitUserStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            
+            :return: a single API response or a list of responses
+            :rtype: generator<dict>
+        """
+        
+        generator = self._generator()
+        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
+            UserStatic.USER]
+    
+    def process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
+            
+            :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
+            :rtype: CommitUserModel
+        """
+        
+        try:
+            user = self.object_decoder(dic=self.iterator(), name=self.name, email=self.email)
+            if not user:
+                return None
+            else:
+                return user
         except exceptions.RequestException:
             return None

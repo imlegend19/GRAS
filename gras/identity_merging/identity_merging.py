@@ -238,7 +238,7 @@ class IdentityMerging(BaseMiner):
         writer.writerow(['id-1', 'login', 'name-email', 'id-2', 'login', 'name-email', 'score'])
 
         it = 1
-        for pair in self.__generate_pairs(self.non_anon_contributors, self.non_anon_contributors):
+        for pair in self.__generate_pairs(self.anon_contributors, self.anon_contributors):
             print(f"Ongoing Pair: {it}")
             self._dump_pair(writer=writer, pair=pair)
             it += 1
@@ -251,8 +251,6 @@ class IdentityMerging(BaseMiner):
         score = self.__get_score(c1, c2)
         
         if score > 0.4:
-            if score > 1:
-                print(c1.login, c1.prefix, c2.login, c2.prefix, score)
             writer.writerow([c1.id_, c1.login, f"{c1.name} <{c1.email}>", c2.id_, c2.login,
                              f"{c2.name} <{c2.email}>", score])
     
