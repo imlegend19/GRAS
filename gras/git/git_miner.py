@@ -129,7 +129,7 @@ class GitMiner(BaseMiner):
         if not commit.parents:
             diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
         else:
-            diffs = [self.repo.diff(commit.parents[i], commit) for i in commit.parents]
+            diffs = [self.repo.diff(i, commit) for i in commit.parents]
         
         for diff in diffs:
             for patch in diff:
@@ -156,20 +156,29 @@ class GitMiner(BaseMiner):
     
     def _dump_commit(self, oid):
         commit = self.repo.get(oid)
-        
-        diff = self.repo.diff(commit.parents[0], commit)
-        num_files_changed = diff.stats.files_changed
-        additions = diff.stats.insertions
-        deletions = diff.stats.deletions
-        
+    
+        if not commit.parents:
+            diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
+        else:
+            diffs = [self.repo.diff(i, commit) for i in commit.parents]
+    
+        num_files_changed = 0
+        additions = 0
+        deletions = 0
+    
+        for diff in diffs:
+            num_files_changed += diff.stats.files_changed
+            additions += diff.stats.insertions
+            deletions += diff.stats.deletions
+    
         author_name = commit.author.name
         author_email = commit.author.email
         author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid)
         authored_date = datetime.fromtimestamp(commit.author.time)
-        
+    
         committer_name = commit.committer.name
         committer_email = commit.committer.email
-        
+    
         if committer_email == "noreply@github.com":
             committer_id = author_id
         else:
