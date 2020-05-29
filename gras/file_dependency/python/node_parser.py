@@ -1,8 +1,11 @@
 import ast
-from ast import Attribute, Call, ClassDef, Expr, FunctionDef, Import, ImportFrom, Name, Pass
+from ast import (
+    Assign, Attribute, Call, ClassDef, Expr, FunctionDef, Global, Import, ImportFrom, Name, Nonlocal, Pass,
+    Tuple
+)
 from collections import namedtuple
 
-from gras.file_dependency.python.models import DecoratorModel, DefModel, ImportModel
+from gras.file_dependency.python.models import ArgModel, DecoratorModel, DefModel, ImportModel, KwargModel
 from gras.file_dependency.python.node_types import AttributeTree, CallTree, Class, Function
 
 Template = namedtuple('Template', 'type name decorators docstring')
@@ -34,13 +37,33 @@ class FileAnalyzer(ast.NodeVisitor):
         arguments = []
         for base in node.bases:
             if isinstance(base, Name):
-                arguments.append(node.name)
+                arguments.append(
+                    ArgModel(
+                        subtype=Class,
+                        name=node.name
+                    )
+                )
             else:
                 # TODO: Implement Call and Attribute types
                 raise NotImplementedError
-        
-        functions, classes, imports = [], [], []
-        
+
+        for kwarg in node.keywords:
+            if isinstance(kwarg.value, Name):
+                value = kwarg.value.id
+            else:
+                # TODO: Implement for Call & Attribute type
+                raise NotImplementedError
+    
+            arguments.append(
+                KwargModel(
+                    subtype=Class,
+                    name=kwarg.arg,
+                    value=value
+                )
+            )
+
+        functions, classes, imports, variables = [], [], [], []
+
         for obj in node.body:
             if isinstance(obj, Expr):
                 ...
@@ -52,6 +75,14 @@ class FileAnalyzer(ast.NodeVisitor):
                 functions.append(self.visit_FunctionDef(node=obj, return_=True))
             elif isinstance(obj, ClassDef):
                 classes.append(self.visit_ClassDef(node=obj, return_=True))
+            elif isinstance(obj, Global):
+                for nm in obj.names:
+                    variables.append(nm)
+            elif isinstance(obj, Nonlocal):
+                for nm in obj.names:
+                    variables.append(nm)
+            elif isinstance(obj, Assign):
+                variables.extend(self.visit_Assign(node=obj, return_=True))
             elif isinstance(obj, Pass):
                 pass
             else:
@@ -66,74 +97,108 @@ class FileAnalyzer(ast.NodeVisitor):
             functions=functions,
             classes=classes,
             imports=imports,
+            variables=list(set(variables)),
             docstring=docstring,
             line=line
         )
-        
+
         if return_:
             return class_obj
         else:
             self.classes.append(class_obj)
-        
+
         self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: FunctionDef, return_=False):
+        name = node.name
+        line = node.lineno
+        decorators = self.__parse_decorators(node.decorator_list)
+        docstring = ast.get_docstring(node)
     
-    def visit_FunctionDef(self, node, return_=False):
-        if node.name != "__init__":
-            name = node.name
-            line = node.lineno
-            decorators = self.__parse_decorators(node.decorator_list)
-            docstring = ast.get_docstring(node)
-            
-            arguments = []
-            # TODO: More info present -> defaults, kw_defaults, kwarg, kwonlyargs, vararg.
-            # TODO: Add a special type of Model -> `ArgumentModel` should be made for arguments.
-            for arg in node.args.args:
-                arguments.append(arg.arg)
-            
-            functions, classes, imports = [], [], []
-            
-            for obj in node.body:
-                if isinstance(obj, Expr):
-                    ...
-                elif isinstance(obj, Import):
-                    imports.extend(self.visit_Import(node=obj, return_=True))
-                elif isinstance(obj, ImportFrom):
-                    imports.extend(self.visit_ImportFrom(node=obj, return_=True))
-                elif isinstance(obj, FunctionDef):
-                    func = self.visit_FunctionDef(node=obj, return_=True)
-                    if func:
-                        functions.append(func)
-                elif isinstance(obj, ClassDef):
-                    classes.append(self.visit_ClassDef(node=obj, return_=True))
-                elif isinstance(obj, Pass):
-                    pass
-                else:
-                    # TODO: Implement various types
-                    print(type(obj), "Not Implemented")
-            
-            function_obj = DefModel(
-                subtype=Function,
-                name=name,
-                decorators=decorators,
-                arguments=arguments,
-                functions=functions,
-                classes=classes,
-                imports=imports,
-                docstring=docstring,
-                line=line
+        arguments = []
+        # TODO: Add a special type of Model -> `ArgumentModel` should be made for arguments.
+        for arg in node.args.args:
+            arguments.append(
+                ArgModel(
+                    subtype=Function,
+                    name=arg.arg
+                )
             )
-            
-            if return_:
-                return function_obj
-            else:
-                self.functions.append(function_obj)
-        else:
-            if return_:
-                return None
-        
-        self.generic_visit(node)
     
-    def visit_Import(self, node, return_=False):
+        if node.args.kwarg:
+            arguments.append(
+                ArgModel(
+                    subtype=Function,
+                    name=node.args.kwarg.arg
+                )
+            )
+    
+        for kwarg in node.args.kwonlyargs:
+            arguments.append(
+                ArgModel(
+                    subtype=Function,
+                    name=kwarg.arg
+                )
+            )
+    
+        if node.args.vararg:
+            arguments.append(
+                ArgModel(
+                    subtype=Function,
+                    name=node.args.vararg.arg
+                )
+            )
+    
+        functions, classes, imports, variables = [], [], [], []
+    
+        for obj in node.body:
+            if isinstance(obj, Expr):
+                ...
+            elif isinstance(obj, Import):
+                imports.extend(self.visit_Import(node=obj, return_=True))
+            elif isinstance(obj, ImportFrom):
+                imports.extend(self.visit_ImportFrom(node=obj, return_=True))
+            elif isinstance(obj, FunctionDef):
+                func = self.visit_FunctionDef(node=obj, return_=True)
+                if func:
+                    functions.append(func)
+            elif isinstance(obj, ClassDef):
+                classes.append(self.visit_ClassDef(node=obj, return_=True))
+            elif isinstance(obj, Global):
+                for nm in obj.names:
+                    variables.append(nm)
+            elif isinstance(obj, Nonlocal):
+                for nm in obj.names:
+                    variables.append(nm)
+            elif isinstance(obj, Assign):
+                variables.extend(self.visit_Assign(node=obj, return_=True))
+            elif isinstance(obj, Pass):
+                pass
+            else:
+                # TODO: Implement various types
+                print(type(obj), "Not Implemented")
+    
+        function_obj = DefModel(
+            subtype=Function,
+            name=name,
+            decorators=decorators,
+            arguments=arguments,
+            functions=functions,
+            classes=classes,
+            imports=imports,
+            variables=list(set(variables)),
+            docstring=docstring,
+            line=line
+        )
+    
+        if return_:
+            return function_obj
+        else:
+            self.functions.append(function_obj)
+    
+        self.generic_visit(node)
+
+    def visit_Import(self, node: Import, return_=False):
         objs = []
         for alias in node.names:
             objs.append(
@@ -149,8 +214,8 @@ class FileAnalyzer(ast.NodeVisitor):
             self.imports.extend(objs)
         
         self.generic_visit(node)
-    
-    def visit_ImportFrom(self, node, return_=False):
+
+    def visit_ImportFrom(self, node: ImportFrom, return_=False):
         objs = []
         for alias in node.names:
             objs.append(
@@ -161,22 +226,33 @@ class FileAnalyzer(ast.NodeVisitor):
                     line=node.lineno
                 )
             )
-        
+    
         if return_:
             return objs
         else:
             self.imports.extend(objs)
-        
-        self.generic_visit(node)
     
-    def visit_Assign(self, node):
+        self.generic_visit(node)
+
+    def visit_Global(self, node: Global):
+        pass
+
+    def visit_Assign(self, node: Assign, return_=False):
+        variables = []
         for alias in node.targets:
-            if isinstance(alias, ast.Tuple):
+            if isinstance(alias, Tuple):
                 for name in alias.elts:
                     if name.id not in self.global_variables:
-                        self.global_variables.append(name.id)
-            elif alias.id not in self.global_variables:
-                self.global_variables.append(alias.id)
+                        variables.append(name.id)
+            elif isinstance(alias, Attribute):
+                variables.append(alias.attr)
+            else:
+                variables.append(alias.id)
+    
+        if return_:
+            return variables
+        else:
+            self.global_variables.extend(variables)
     
     def process(self):
         return {

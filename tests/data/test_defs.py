@@ -1,12 +1,24 @@
 import functools
 
 
-def f():
+# noinspection PyUnresolvedReferences
+async def af():
+    return [i async for i in var]
+
+
+# noinspection PyUnresolvedReferences
+def f(a: annotation = 2, b=1, c=2, *d, e, f=3, **g) -> annotation:
     """doc for f()"""
+    var = 1
     
-    class A(object):
-        def __init__(self, a):
-            self.a = a
+    class A(base1, base2, metaclass=meta):
+        global lol
+        
+        LOL = var + a + b + c + e + f;
+        semi = 1
+        
+        def __init__(self, a: int):
+            self.a = a + self.LOL
         
         def f1(self):
             return self.a

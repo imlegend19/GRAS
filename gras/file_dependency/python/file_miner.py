@@ -21,12 +21,9 @@ class FileMiner(BaseMiner):
             with open(file_path, "r") as fp:
                 content = fp.read()
                 path = fp.name
-    
-            dic = self.parse_file(content=content, path=path)
-    
-            from pprint import pprint
-    
-            pprint(dic)
+
+            obj = self.parse_file(content=content, path=path)
+            print(obj)
 
         if self.project_dir:
             obj = self.parse_dir()
@@ -97,4 +94,4 @@ class FileMiner(BaseMiner):
 
 
 if __name__ == '__main__':
-    FileMiner(args=None, project_dir=None, file_path=None)
+    FileMiner(args=None, project_dir=None, file_path="/home/mahen/PycharmProjects/GRAS/tests/data/test_defs.py")

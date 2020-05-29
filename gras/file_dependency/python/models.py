@@ -49,9 +49,9 @@ class FileModel(BaseModel):
 
 
 class DefModel(BaseModel):
-    def __init__(self, subtype, name, decorators, arguments, functions, classes, imports, docstring, line):
+    def __init__(self, subtype, name, decorators, arguments, functions, classes, imports, variables, docstring, line):
         super().__init__()
-        
+    
         self.subtype = subtype
         self.name = name
         self.decorators = decorators
@@ -59,6 +59,7 @@ class DefModel(BaseModel):
         self.functions = functions
         self.classes = classes
         self.imports = imports
+        self.variables = variables
         self.docstring = docstring
         self.line = line
     
@@ -69,15 +70,19 @@ class DefModel(BaseModel):
     @property
     def total_functions(self):
         return len(self.functions)
-    
+
     @property
     def total_classes(self):
         return len(self.classes)
-    
+
     @property
     def total_imports(self):
         return len(self.imports)
-    
+
+    @property
+    def total_variables(self):
+        return len(self.variables)
+
     def object_decoder(self, **kwargs):
         ...
 
@@ -98,13 +103,49 @@ class ImportModel(BaseModel):
 class DecoratorModel(BaseModel):
     def __init__(self, subtype, name, value, line, total_args=None, total_kwargs=None):
         super().__init__()
-        
+
         self.subtype = subtype
         self.name = name
         self.value = value
         self.line = line
         self.total_args = total_args
         self.total_kwargs = total_kwargs
+
+    def object_decoder(self, **kwargs):
+        ...
+
+
+class ArgModel(BaseModel):
+    def __init__(self, subtype, name):
+        super().__init__()
+        
+        self.subtype = subtype
+        self.name = name
+    
+    def object_decoder(self, **kwargs):
+        ...
+
+
+class KwargModel(BaseModel):
+    def __init__(self, subtype, name, value):
+        super().__init__()
+        
+        self.subtype = subtype
+        self.name = name
+        self.value = value
+    
+    def object_decoder(self, **kwargs):
+        ...
+
+
+class VariableModel(BaseModel):
+    def __init__(self, scope, subtype, name, line):
+        super().__init__()
+        
+        self.scope = scope
+        self.subtype = subtype
+        self.name = name
+        self.line = line
     
     def object_decoder(self, **kwargs):
         ...
