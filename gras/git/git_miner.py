@@ -16,6 +16,9 @@ MAX_INSERT_OBJECTS = 1000
 
 
 class GitMiner(BaseMiner):
+    COMMITS = []
+    CODE_CHANGE = []
+    
     def __init__(self, args):
         super().__init__(args)
         
@@ -140,10 +143,16 @@ class GitMiner(BaseMiner):
                     change_type=self.__get_status(patch.status),
                     patch=patch.patch
                 )
-                
+
                 code_change.append(obj)
-        
-        return code_change
+
+        self.CODE_CHANGE.extend(code_change)
+
+        if len(self.CODE_CHANGE) == 1000:
+            logger.info("Inserting 1000 code changes...")
+            self._insert(object_=self.db_schema.code_change.insert(), param=self.CODE_CHANGE)
+            logger.info("Success!")
+            self.CODE_CHANGE.clear()
     
     def _dump_commit(self, oid):
         commit = self.repo.get(oid)
@@ -188,8 +197,14 @@ class GitMiner(BaseMiner):
             num_files_changed=num_files_changed,
             is_merge=is_merge
         )
-        
-        return obj
+
+        self.COMMITS.append(obj)
+
+        if len(self.COMMITS) == 1000:
+            logger.info("Inserting 1000 commits...")
+            self._insert(object_=self.db_schema.commits.insert(), param=self.COMMITS)
+            logger.info("Success!")
+            self.COMMITS.clear()
     
     def _fetch_commit_ids(self):
         commits = list()
@@ -206,43 +221,25 @@ class GitMiner(BaseMiner):
     
     @timing(name="commits", is_stage=True)
     def _dump_commits(self, commits):
-        commit_objects = []
-        
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
             process = {executor.submit(self._dump_commit, oid): oid for oid in commits}
             for future in concurrent.futures.as_completed(process):
                 oid = process[future]
-                commit_objects.append(future.result())
-                logger.info(f"Fetched commit: {oid}")
-            
-            if len(commit_objects) == MAX_INSERT_OBJECTS:
-                logger.info("Inserting 1000 objects...")
-                self._insert(object_=self.db_schema.commits.insert(), param=commit_objects)
-                commit_objects.clear()
-                logger.info("Success!")
-        
-        self._insert(object_=self.db_schema.commits.insert(), param=commit_objects)
-        del commit_objects
+                logger.info(f"Dumped commit: {oid}")
+    
+        self._insert(object_=self.db_schema.commits.insert(), param=self.COMMITS)
+        del self.COMMITS
     
     @timing(name="code change", is_stage=True)
     def _dump_code_change(self, commits):
-        code_change_objects = []
-        
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
             process = {executor.submit(self._dump_code_change, oid): oid for oid in commits}
             for future in concurrent.futures.as_completed(process):
                 oid = process[future]
-                code_change_objects.extend(future.result())
-                logger.info(f"Fetched Code Change for commit: {oid}")
-            
-            if len(code_change_objects) >= MAX_INSERT_OBJECTS:
-                logger.info("Inserting 1000 objects...")
-                self._insert(object_=self.db_schema.code_change.insert(), param=code_change_objects)
-                code_change_objects.clear()
-                logger.info("Success!")
-        
-        self._insert(object_=self.db_schema.code_change.insert(), param=code_change_objects)
-        del code_change_objects
+                logger.info(f"Dumped Code Change for commit: {oid}")
+    
+        self._insert(object_=self.db_schema.code_change.insert(), param=self.CODE_CHANGE)
+        del self.CODE_CHANGE
     
     def process(self):
         commits = self._fetch_commit_ids()
