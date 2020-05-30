@@ -10,6 +10,7 @@ from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository
 from gras.base_miner import BaseMiner
 from gras.db.db_models import DBSchema
 from gras.github.structs.contributor_struct import CommitUserStruct
+from gras.github.structs.repository_struct import RepositoryStruct
 from gras.utils import timing
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -22,29 +23,57 @@ MAX_INSERT_OBJECTS = 100
 class GitMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args)
-        
+    
         self._engine, self._conn = self._connect_to_db()
         self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
-        self._set_repo_id()
-        
+    
         self.db_schema.create_tables()
+        self._dump_repository()
+    
         self._create_loop()
-        
+    
         self.repo = Repository(args.path)
         self._fetch_references()
         self.commits = self._fetch_commit_ids()
-        
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=THREADS)
     
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=THREADS)
+
     def _create_loop(self):
         self.loop = asyncio.new_event_loop()
-    
+
     def _load_from_file(self, file):
         pass
-    
+
     def dump_to_file(self, path):
         pass
+
+    def _dump_repository(self):
+        logger.info("Dumping Repository...")
     
+        repo = RepositoryStruct(
+            name=self.repo_name,
+            owner=self.repo_owner
+        ).process()
+    
+        obj = self.db_schema.repository_object(
+            name=self.repo_name,
+            owner=self.repo_owner,
+            created_at=repo.created_at,
+            updated_at=repo.updated_at,
+            description=repo.description,
+            disk_usage=repo.disk_usage,
+            fork_count=repo.fork_count,
+            url=repo.url,
+            homepage_url=repo.homepage_url,
+            primary_language=repo.primary_language,
+            total_stargazers=repo.stargazer_count,
+            total_watchers=repo.watcher_count,
+            forked_from=repo.forked_from
+        )
+    
+        self._insert(self.db_schema.repository.insert(), obj)
+        self._set_repo_id()
+
     def _fetch_references(self):
         self.tags, self.branches = [], {}
         for reference in self.repo.listall_references():
@@ -52,7 +81,7 @@ class GitMiner(BaseMiner):
                 self.tags.append(reference)
             else:
                 self.branches[reference] = self.repo.lookup_reference(reference).peel().oid
-    
+
     @staticmethod
     def __get_status(status):
         if status == 1:
