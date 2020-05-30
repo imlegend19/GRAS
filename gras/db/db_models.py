@@ -166,7 +166,7 @@ class DBSchema:
         self.contributors = Table(
             'contributors', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
-            Column('contributor_id', INTEGER, autoincrement=True),
+            Column('contributor_id', INTEGER, server_default=None),
             Column('login', UNICODE),
             Column('name', UNICODE),
             Column('email', UNICODE),
