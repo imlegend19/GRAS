@@ -12,13 +12,10 @@ from gras.utils import timing
 
 logger = logging.getLogger("main")
 THREADS = min(32, mp.cpu_count() + 4)
-MAX_INSERT_OBJECTS = 1000
+MAX_INSERT_OBJECTS = 100
 
 
 class GitMiner(BaseMiner):
-    COMMITS = []
-    CODE_CHANGE = []
-    
     def __init__(self, args):
         super().__init__(args)
         
@@ -129,7 +126,7 @@ class GitMiner(BaseMiner):
         if not commit.parents:
             diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
         else:
-            diffs = [self.repo.diff(i, commit) for i in commit.parents]
+            diffs = [self.repo.diff(commit.parents[i], commit) for i in commit.parents]
         
         for diff in diffs:
             for patch in diff:
@@ -146,30 +143,15 @@ class GitMiner(BaseMiner):
 
                 code_change.append(obj)
 
-        self.CODE_CHANGE.extend(code_change)
+        self._insert(object_=self.db_schema.code_change.insert(), param=code_change)
 
-        if len(self.CODE_CHANGE) == 1000:
-            logger.info("Inserting 1000 code changes...")
-            self._insert(object_=self.db_schema.code_change.insert(), param=self.CODE_CHANGE)
-            logger.info("Success!")
-            self.CODE_CHANGE.clear()
-    
     def _dump_commit(self, oid):
         commit = self.repo.get(oid)
     
-        if not commit.parents:
-            diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
-        else:
-            diffs = [self.repo.diff(i, commit) for i in commit.parents]
-    
-        num_files_changed = 0
-        additions = 0
-        deletions = 0
-    
-        for diff in diffs:
-            num_files_changed += diff.stats.files_changed
-            additions += diff.stats.insertions
-            deletions += diff.stats.deletions
+        diff = self.repo.diff(commit.parents[0], commit)
+        num_files_changed = diff.stats.files_changed
+        additions = diff.stats.insertions
+        deletions = diff.stats.deletions
     
         author_name = commit.author.name
         author_email = commit.author.email
@@ -206,20 +188,14 @@ class GitMiner(BaseMiner):
             num_files_changed=num_files_changed,
             is_merge=is_merge
         )
-
-        self.COMMITS.append(obj)
-
-        if len(self.COMMITS) == 1000:
-            logger.info("Inserting 1000 commits...")
-            self._insert(object_=self.db_schema.commits.insert(), param=self.COMMITS)
-            logger.info("Success!")
-            self.COMMITS.clear()
     
+        self._insert(object_=self.db_schema.commits.insert(), param=obj)
+
     def _fetch_commit_ids(self):
         commits = list()
         for branch, target in self.branches.items():
             logger.info(f"Ongoing Branch {branch}...")
-            
+        
             for commit in self.repo.walk(target, GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME):
                 if commit.oid not in commits:
                     commits.append(commit.oid)
@@ -236,9 +212,6 @@ class GitMiner(BaseMiner):
                 oid = process[future]
                 logger.info(f"Dumped commit: {oid}")
     
-        self._insert(object_=self.db_schema.commits.insert(), param=self.COMMITS)
-        del self.COMMITS
-    
     @timing(name="code change", is_stage=True)
     def _dump_code_change(self, commits):
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
@@ -246,9 +219,6 @@ class GitMiner(BaseMiner):
             for future in concurrent.futures.as_completed(process):
                 oid = process[future]
                 logger.info(f"Dumped Code Change for commit: {oid}")
-    
-        self._insert(object_=self.db_schema.code_change.insert(), param=self.CODE_CHANGE)
-        del self.CODE_CHANGE
     
     def process(self):
         commits = self._fetch_commit_ids()
