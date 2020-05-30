@@ -1,14 +1,18 @@
+import asyncio
 import concurrent.futures
 import logging
 import multiprocessing as mp
 from datetime import datetime
 
+import uvloop
 from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository
 
 from gras.base_miner import BaseMiner
 from gras.db.db_models import DBSchema
 from gras.github.structs.contributor_struct import CommitUserStruct
 from gras.utils import timing
+
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 logger = logging.getLogger("main")
 THREADS = min(32, mp.cpu_count() + 4)
@@ -24,10 +28,16 @@ class GitMiner(BaseMiner):
         self._set_repo_id()
         
         self.db_schema.create_tables()
+        self._create_loop()
         
         self.repo = Repository(args.path)
         self._fetch_references()
-        self.process()
+        self.commits = self._fetch_commit_ids()
+        
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=THREADS)
+    
+    def _create_loop(self):
+        self.loop = asyncio.new_event_loop()
     
     def _load_from_file(self, file):
         pass
@@ -144,30 +154,31 @@ class GitMiner(BaseMiner):
                 code_change.append(obj)
 
         self._insert(object_=self.db_schema.code_change.insert(), param=code_change)
-
+        return oid
+    
     def _dump_commit(self, oid):
         commit = self.repo.get(oid)
-    
+        
         if not commit.parents:
             diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
         else:
             diffs = [self.repo.diff(i, commit) for i in commit.parents]
-    
+        
         num_files_changed = 0
         additions, deletions = 0, 0
         for diff in diffs:
             num_files_changed += diff.stats.files_changed
             additions += diff.stats.insertions
             deletions += diff.stats.deletions
-    
+        
         author_name = commit.author.name
         author_email = commit.author.email
         author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid)
         authored_date = datetime.fromtimestamp(commit.author.time)
-    
+        
         committer_name = commit.committer.name
         committer_email = commit.committer.email
-    
+        
         if committer_email == "noreply@github.com":
             committer_id = author_id
         else:
@@ -195,43 +206,43 @@ class GitMiner(BaseMiner):
             num_files_changed=num_files_changed,
             is_merge=is_merge
         )
-    
+        
         self._insert(object_=self.db_schema.commits.insert(), param=obj)
-
+        return oid
+    
     def _fetch_commit_ids(self):
         commits = list()
         for branch, target in self.branches.items():
             logger.info(f"Ongoing Branch {branch}...")
-        
+            
             for commit in self.repo.walk(target, GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME):
                 if commit.oid not in commits:
                     commits.append(commit.oid)
                 else:
                     break
         
+        logger.info(f"TOTAL COMMITS: {len(commits)}")
         return commits
     
     @timing(name="commits", is_stage=True)
-    def _dump_commits(self, commits):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
-            process = {executor.submit(self._dump_commit, oid): oid for oid in commits}
-            for future in concurrent.futures.as_completed(process):
-                oid = process[future]
-                logger.info(f"Dumped commit: {oid}")
+    async def _parse_commits(self):
+        loop = asyncio.get_event_loop()
+        tasks = [loop.run_in_executor(self.executor, self._dump_commit, oid) for oid in self.commits]
+        completed, _ = await asyncio.wait(tasks)
+        for t in completed:
+            logger.info(f"Dumped commit: {t.result()}")
     
     @timing(name="code change", is_stage=True)
-    def _dump_code_change(self, commits):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
-            process = {executor.submit(self._dump_code_change, oid): oid for oid in commits}
-            for future in concurrent.futures.as_completed(process):
-                oid = process[future]
-                logger.info(f"Dumped Code Change for commit: {oid}")
+    async def _parse_code_change(self):
+        loop = asyncio.get_event_loop()
+        tasks = [loop.run_in_executor(self.executor, self._dump_code_change, oid) for oid in self.commits]
+        completed, _ = await asyncio.wait(tasks)
+        for t in completed:
+            logger.info(f"Dumped Code Change for commit: {t.result()}")
     
     def process(self):
-        commits = self._fetch_commit_ids()
-        
-        for oid in commits:
-            self._dump_commit(oid)
-        
-        self._dump_commits(commits)
-        self._dump_code_change(commits)
+        self.loop.run_until_complete(self._parse_commits())
+        self.loop.run_until_complete(self._parse_code_change())
+    
+    def __del__(self):
+        self.loop.close()

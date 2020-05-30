@@ -2,6 +2,7 @@ import logging
 import time
 from datetime import datetime
 
+from aiohttp import ClientResponseError, ClientSession
 from requests import HTTPError, Session, adapters, exceptions
 
 from gras.base_interface import BaseInterface
@@ -130,7 +131,7 @@ class GithubInterface(BaseInterface):
                                                       f"{self.query.format_map(self.query_params)}.")
 
                 if only_json:
-                    return req.json()
+                    return content
                 else:
                     return req
             else:
@@ -171,3 +172,44 @@ class GithubInterface(BaseInterface):
 
     def process(self):
         pass
+
+    async def async_request(self):
+        if self.url is None:
+            self.url = APIStaticV4.BASE_URL
+    
+        async with ClientSession(headers=self.headers) as session:
+            tries = 1
+            while tries <= 3:
+                if self.query is not None:
+                    if self.query_params is None:
+                        response = await session.post(
+                            url=self.url,
+                            json=dict(query=self.query)
+                        )
+                    else:
+                        response = await session.post(
+                            url=self.url,
+                            json=dict(query=self.query.format_map(self.query_params))
+                        )
+                else:
+                    response = await session.get(url=self.url)
+            
+                try:
+                    response.raise_for_status()
+                except ClientResponseError as e:
+                    # TODO: Raise GrasRequestException
+                    raise e
+            
+                if response.status == 200:
+                    content = await response.json()
+                    if "errors" in content:
+                        raise exceptions.RequestException(f"Problem with getting data via url {self.url} + "
+                                                          f"{self.query.format_map(self.query_params)}.")
+                
+                    return content
+                else:
+                    logging.error(f"Problem with getting data via url {self.url}. Error: {response.text}")
+                    tries += 1
+        
+            raise exceptions.RequestException(f"Problem with getting data via url {self.url} + "
+                                              f"{self.query.format_map(self.query_params)}.")

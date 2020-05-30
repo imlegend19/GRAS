@@ -421,13 +421,14 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
     def __init__(self, name, email, repo_name, repo_owner, oid):
         super().__init__(
             query=self.QUERY,
-            query_params=dict(name=repo_name, owner=repo_owner, oid=oid)
+            query_params=dict(name=repo_name, owner=repo_owner, oid=oid),
         )
-        
+
+        self.oid = oid
         self.name = name
         self.email = email
-    
-    def iterator(self):
+
+    async def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.contributor_struct.CommitUserStruct`. For more
             information see :class:`gras.github.github.githubInterface`.
@@ -435,24 +436,25 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-        
-        generator = self._generator()
-        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
-            UserStatic.USER]
     
-    def process(self):
+        gen = await self.async_request()
+        return gen[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
+            UserStatic.USER]
+
+    async def process(self):
         """
             generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
             
             :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
             :rtype: CommitUserModel
         """
-        
+    
         try:
-            user = self.object_decoder(dic=self.iterator(), name=self.name, email=self.email)
+            result = await self.iterator()
+            user = self.object_decoder(dic=result, name=self.name, email=self.email)
             if not user:
                 return None
             else:
-                return user
+                return self.oid, user
         except exceptions.RequestException:
             return None
