@@ -27,10 +27,10 @@ from gras.github.structs.repository_struct import RepositoryStruct
 from gras.github.structs.stargazer_struct import StargazerStruct
 from gras.github.structs.topic_struct import TopicStruct
 from gras.github.structs.watcher_struct import WatcherStruct
-from gras.utils import timing
+from gras.utils import locked, timing
 
 logger = logging.getLogger("main")
-logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
 lock = mp.Lock()
 MAX_INSERT_OBJECTS = 1000
@@ -1141,15 +1141,30 @@ class GithubMiner(BaseMiner):
                     future.result()
                     logger.debug(f"Inserted Comments for PR number: {number}")
 
-    def _get_user_id(self, login, user_object=None, name=None, email=None):
-        if not login and user_object:
+    @locked
+    def __check_user(self, login, name=None, email=None):
+        if login:
             res = self._conn.execute(
                 f"""
                 SELECT id
                 FROM contributors
-                WHERE login="{user_object.login}"
+                WHERE login="{login}"
                 """
             ).fetchone()
+        else:
+            res = self._conn.execute(
+                f"""
+                SELECT id
+                FROM contributors
+                WHERE name="{name}" AND email="{email}"
+                """
+            ).fetchone()
+
+        return res
+
+    def _get_user_id(self, login, user_object=None, name=None, email=None):
+        if not login and user_object:
+            res = self.__check_user(login=user_object.login)
 
             if not res:
                 has_dumped = self._dump_user_object(login=None, user_object=user_object,
@@ -1161,13 +1176,7 @@ class GithubMiner(BaseMiner):
             else:
                 return res[0]
         elif login:
-            res = self._conn.execute(
-                f"""
-                SELECT id
-                FROM contributors
-                WHERE login="{login}"
-                """
-            ).fetchone()
+            res = self.__check_user(login=login)
 
             if not res:
                 has_dumped = self._dump_user_object(login=login, object_=self.db_schema.contributors.insert())
@@ -1178,13 +1187,7 @@ class GithubMiner(BaseMiner):
             else:
                 return res[0]
         elif name and email:
-            res = self._conn.execute(
-                f"""
-                SELECT id
-                FROM contributors
-                WHERE name="{name}" AND email="{email}"
-                """
-            ).fetchone()
+            res = self.__check_user(login=None, name=name, email=email)
 
             if not res:
                 has_dumped = self._dump_anon_user_object(name=name, email=email,
@@ -1198,10 +1201,8 @@ class GithubMiner(BaseMiner):
         else:
             return None
 
-    def _get_table_id(self, table, field, value, pk='id', toggle=False):
-        if value is None:
-            return None
-
+    @locked
+    def __check_table(self, pk, table, field, value):
         res = self._conn.execute(
             f"""
             SELECT {pk}
@@ -1209,6 +1210,14 @@ class GithubMiner(BaseMiner):
             WHERE {field}="{value}" AND repo_id={self.repo_id}
             """
         ).fetchone()
+
+        return res
+
+    def _get_table_id(self, table, field, value, pk='id', toggle=False):
+        if value is None:
+            return None
+
+        res = self.__check_table(pk, table, field, value)
 
         if not res:
             if table == "commits":

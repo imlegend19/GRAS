@@ -10,7 +10,7 @@ from gras.base_miner import BaseMiner
 from gras.db.db_models import DBSchema
 from gras.github.structs.contributor_struct import CommitUserStruct
 from gras.github.structs.repository_struct import RepositoryStruct
-from gras.utils import timing
+from gras.utils import locked, timing
 
 try:
     import uvloop
@@ -20,6 +20,8 @@ except ModuleNotFoundError:
     pass
 
 logger = logging.getLogger("main")
+logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+
 THREADS = min(32, mp.cpu_count() + 4)
 MAX_INSERT_OBJECTS = 100
 
@@ -118,7 +120,8 @@ class GitMiner(BaseMiner):
 
         return res[0]
 
-    def __get_user_id(self, name, email, oid):
+    @locked
+    def __check_user_id(self, email):
         res = self._conn.execute(
             f"""
             SELECT id, login, name
@@ -126,6 +129,21 @@ class GitMiner(BaseMiner):
             WHERE email="{email}"
             """
         ).fetchone()
+
+        return res
+
+    @locked
+    def __update_contributor(self, name, id_):
+        self._conn.execute(
+            f"""
+            UPDATE contributors
+            SET name="{name}"
+            WHERE id={id_}
+            """
+        )
+
+    def __get_user_id(self, name, email, oid):
+        res = self.__check_user_id(email)
 
         if not res:
             user = CommitUserStruct(
@@ -148,14 +166,7 @@ class GitMiner(BaseMiner):
             elif name == res[1]:
                 return res[0]
             else:
-                self._conn.execute(
-                    f"""
-                    UPDATE contributors
-                    SET name="{name}"
-                    WHERE id={res[0]}
-                    """
-                )
-
+                self.__update_contributor(name, res[0])
                 return res[0]
 
     def _dump_code_change(self, oid):
