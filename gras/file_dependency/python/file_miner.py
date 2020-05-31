@@ -23,7 +23,7 @@ class FileMiner(BaseMiner):
                 path = fp.name
 
             obj = self.parse_file(content=content, path=path)
-            print(obj)
+            print(obj.variables)
 
         if self.project_dir:
             obj = self.parse_dir()
@@ -37,8 +37,8 @@ class FileMiner(BaseMiner):
 
     @staticmethod
     def parse_file(content, path):
-        name = os.path.basename(path),
-        loc = lines_of_code_counter(content.split("\n")),
+        name = os.path.basename(path)
+        loc = lines_of_code_counter(content.split("\n"))
     
         analyzer = FileAnalyzer()
         tree = ast.parse(content)

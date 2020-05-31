@@ -182,7 +182,10 @@ class GitMiner(BaseMiner):
 
                 code_change.append(obj)
 
+        logger.debug(f"Inserting for {oid}...")
         self._insert(object_=self.db_schema.code_change.insert(), param=code_change)
+        logger.debug("Inserted!")
+
         return oid
     
     def _dump_commit(self, oid):
@@ -235,8 +238,11 @@ class GitMiner(BaseMiner):
             num_files_changed=num_files_changed,
             is_merge=is_merge
         )
-        
+
+        logger.debug(f"Inserting for {oid}...")
         self._insert(object_=self.db_schema.commits.insert(), param=obj)
+        logger.debug("Inserted!")
+
         return oid
     
     def _fetch_commit_ids(self):
