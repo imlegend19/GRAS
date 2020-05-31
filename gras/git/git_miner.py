@@ -279,20 +279,20 @@ class GitMiner(BaseMiner):
         return commits
 
     @timing(name="commits", is_stage=True)
-    def _parse_commits(self, commits):
+    def _parse_commits(self):
         index = 1
         with self.executor as executor:
-            process = {executor.submit(self._dump_commit, oid): oid for oid in commits}
+            process = {executor.submit(self._dump_commit, oid): oid for oid in self.commits}
             for future in concurrent.futures.as_completed(process):
                 oid = process[future]
                 logger.info(f"Dumped commit: {oid}, index: {index}")
                 index += 1
 
     @timing(name="code change", is_stage=True)
-    def _parse_code_change(self, commits):
+    def _parse_code_change(self):
         index = 1
         with self.executor as executor:
-            process = {executor.submit(self._dump_code_change, oid): oid for oid in commits}
+            process = {executor.submit(self._dump_code_change, oid): oid for oid in self.commits}
             for future in concurrent.futures.as_completed(process):
                 oid = process[future]
                 logger.info(f"Dumped Code Change for commit: {oid}, index: {index}")

@@ -71,12 +71,8 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Basic Stage', is_stage=True)
     def _basic_miner(self):
-        try:
-            node_ids = self._dump_anon_users()
-            self._dump_users(node_ids=node_ids)
-        finally:
-            self._refactor_table(id_='id', table="contributors", group_by="name, email")
-            self._refactor_table(id_='id', table="contributors", group_by="login, name, email")
+        node_ids = self._dump_anon_users()
+        self._dump_users(node_ids=node_ids)
 
         try:
             self._dump_branches()
