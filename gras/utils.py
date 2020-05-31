@@ -192,7 +192,7 @@ def deprecated(instructions):
 
 def locked(func):
     """
-    A decorator to wrap the function with :class:`~multiprocessing.Lock`. This ensure that
+    A decorator to wrap the function with :class:`~multiprocessing.Lock`. This ensures that
     only 1 Process can execute the function at a time.
     
     :param func: Function

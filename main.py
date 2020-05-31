@@ -180,7 +180,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         default=20)
         self.gras_commands.add_argument('-f', '--full', help="Mine the complete repository", const=True, nargs='?',
                                         type=bool)
-        self.gras_settings.add_argument('--path', help="Path to the directory to mine")
+        self.gras_commands.add_argument('--path', help="Path to the directory to mine")
+        self.gras_commands.add_argument('--aio', help="If added, git-miner would use asyncio architecture")
 
     def _add_gras_settings(self):
         self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",

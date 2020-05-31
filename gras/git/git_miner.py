@@ -36,7 +36,10 @@ class GitMiner(BaseMiner):
         self.db_schema.create_tables()
         self._dump_repository()
 
-        self._create_loop()
+        self.aio = args.aio
+
+        if self.aio:
+            self._create_loop()
 
         self.repo = Repository(args.path)
         self._fetch_references()
@@ -109,6 +112,7 @@ class GitMiner(BaseMiner):
         else:
             return None
 
+    @locked
     def __get_commit_id(self, oid):
         res = self._conn.execute(
             f"""
@@ -191,7 +195,7 @@ class GitMiner(BaseMiner):
                     additions=patch.line_stats[1],
                     deletions=patch.line_stats[2],
                     changes=patch.line_stats[1] + patch.line_stats[2],
-                    change_type=self.__get_status(patch.status),
+                    change_type=self.__get_status(patch.delta.status),
                     patch=patch.patch
                 )
 
@@ -275,15 +279,35 @@ class GitMiner(BaseMiner):
         return commits
 
     @timing(name="commits", is_stage=True)
-    async def _parse_commits(self):
+    def _parse_commits(self, commits):
+        index = 1
+        with self.executor as executor:
+            process = {executor.submit(self._dump_commit, oid): oid for oid in commits}
+            for future in concurrent.futures.as_completed(process):
+                oid = process[future]
+                logger.info(f"Dumped commit: {oid}, index: {index}")
+                index += 1
+
+    @timing(name="code change", is_stage=True)
+    def _parse_code_change(self, commits):
+        index = 1
+        with self.executor as executor:
+            process = {executor.submit(self._dump_code_change, oid): oid for oid in commits}
+            for future in concurrent.futures.as_completed(process):
+                oid = process[future]
+                logger.info(f"Dumped Code Change for commit: {oid}, index: {index}")
+                index += 1
+
+    @timing(name="async -> commits", is_stage=True)
+    async def _async_parse_commits(self):
         loop = asyncio.get_event_loop()
         tasks = [loop.run_in_executor(self.executor, self._dump_commit, oid) for oid in self.commits]
         completed, _ = await asyncio.wait(tasks)
         for t in completed:
             logger.info(f"Dumped commit: {t.result()}")
 
-    @timing(name="code change", is_stage=True)
-    async def _parse_code_change(self):
+    @timing(name="async -> code change", is_stage=True)
+    async def _async_parse_code_change(self):
         loop = asyncio.get_event_loop()
         tasks = [loop.run_in_executor(self.executor, self._dump_code_change, oid) for oid in self.commits]
         completed, _ = await asyncio.wait(tasks)
@@ -291,8 +315,13 @@ class GitMiner(BaseMiner):
             logger.info(f"Dumped Code Change for commit: {t.result()}")
 
     def process(self):
-        self.loop.run_until_complete(self._parse_commits())
-        self.loop.run_until_complete(self._parse_code_change())
+        if self.aio:
+            self.loop.run_until_complete(self._parse_commits())
+            self.loop.run_until_complete(self._parse_code_change())
+        else:
+            self._parse_commits()
+            self._parse_code_change()
 
     def __del__(self):
-        self.loop.close()
+        if self.aio:
+            self.loop.close()
