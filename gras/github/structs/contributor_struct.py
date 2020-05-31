@@ -32,7 +32,7 @@ class AssignableUserStruct(GithubInterface, UserModel):
         :param after: return the elements in the list that come after the specified cursor `after`
         :type after: str
     """
-    
+
     QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
@@ -48,14 +48,14 @@ class AssignableUserStruct(GithubInterface, UserModel):
             }}
         }}
     """
-    
+
     def __init__(self, owner, name, after="null"):
         """Constructor Method"""
         super().__init__()
 
         self.query = self.QUERY
         self.query_params = dict(name=name, owner=owner, after=after)
-    
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.contributor_struct.AssignableUserStruct`. For more
@@ -83,7 +83,7 @@ class AssignableUserStruct(GithubInterface, UserModel):
 
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][UserStatic.ASSIGNABLE_USERS][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-    
+
     def process(self):
         """
             generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
@@ -395,7 +395,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         :param oid: SHA-12 (oid) of the commit
         :type oid: str
     """
-    
+
     QUERY = """
         {{
             repository(name:"{name}", owner:"{owner}") {{
@@ -417,7 +417,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, email, repo_name, repo_owner, oid):
         super().__init__(
             query=self.QUERY,
@@ -436,7 +436,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             :return: a single API response or a list of responses
             :rtype: dict
         """
-    
+
         gen = await self.async_request()
         return gen[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
             UserStatic.USER]
@@ -449,7 +449,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-    
+
         generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
             UserStatic.USER]
@@ -461,7 +461,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
             :rtype: CommitUserModel
         """
-    
+
         try:
             user = self.object_decoder(dic=self.iterator(), name=self.name, email=self.email)
             if not user:
@@ -478,7 +478,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
             :rtype: CommitUserModel
         """
-    
+
         try:
             result = await self.async_iterator()
             user = self.object_decoder(dic=result, name=self.name, email=self.email)

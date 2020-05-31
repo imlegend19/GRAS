@@ -59,21 +59,21 @@ class LanguageStruct(GithubInterface, LanguageModel):
 
         generator = self._generator()
         hasNextPage = True
-        
+
         while hasNextPage:
             try:
                 response = next(generator)
             except StopIteration:
                 break
-            
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 RepositoryStatic.LANGUAGES][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            
+
             self.query_params[APIStaticV4.AFTER] = '\"' + endCursor + '\"' if endCursor is not None else "null"
-            
+
             resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 RepositoryStatic.LANGUAGES][APIStaticV4.EDGES]
-            
+
             if resp is not None:
                 if None not in resp:
                     yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][

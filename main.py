@@ -90,13 +90,13 @@ def get_repo_stats(args, repo_list=None):
             start_date=to_iso_format(args.start_date),
             end_date=to_iso_format(args.end_date)
         )
-        
+
         return repo_stats.repo_stats()
 
 
 def animated_loading(msg, animator):
     chars = animator
-    
+
     for char in chars:
         sys.stdout.write('\r' + f"{msg}: " + char + "\t")
         time.sleep(.2)
@@ -111,7 +111,7 @@ def get_logging_level(level):
         'ERROR'   : logging.ERROR,
         'CRITICAL': logging.CRITICAL
     }
-    
+
     return choices[level]
 
 
@@ -121,7 +121,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
             description='GRAS - GIT REPOSITORIES ARCHIVING SERVICE',
             add_help=False
         )
-        
+
         self._init_groups()
         self._add_gras_commands()
         self._add_gras_settings()
@@ -146,17 +146,17 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._set_arg_groups()
         self._validate()
         self._execute()
-    
+
     @property
     def action_groups(self):
         return self._action_groups
-    
+
     def _init_groups(self):
         self.gras_commands = self.add_argument_group('GRAS-COMMANDS')
         self.gras_settings = self.add_argument_group('GRAS-SETTINGS')
         self.database_settings = self.add_argument_group('DATABASE-SETTINGS')
         self.other = self.add_argument_group('OTHER')
-    
+
     def _add_gras_commands(self):
         self.gras_commands.add_argument('-s', '--stats', help="View the stats of the repository", default=False,
                                         type=bool, const=True, nargs='?')
@@ -199,7 +199,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         help="End Date for mining the data (in any ISO 8601 format, e.g., 'YYYY-MM-DD "
                                              "HH:mm:SS +|-HH:MM')", default=DEFAULT_END_DATE, required=False)
         self.gras_settings.add_argument('-c', '--config', help="Path to the config file")
-    
+
     def _add_database_settings(self):
         self.database_settings.add_argument('-dbms', help="DBMS to dump the data into", default='mysql',
                                             choices=["sqlite", "mysql", "postgresql"])
@@ -217,7 +217,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                             help="The path to the .db file in case of sqlite dbms")
         self.database_settings.add_argument('-dbl', '--db-log', help="DB-log flag to log the generated SQL produced",
                                             default=False, type=bool, nargs='?', required=False, const=True)
-    
+
     def _add_other_arguments(self):
         self.other.add_argument("-h", "--help", action="help", help="show this help message and exit")
         self.other.add_argument('-a', '--animator', help="Loading animator", default='bar',
@@ -229,13 +229,13 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                 nargs='?', default=False)
         self.other.add_argument('-o', '--output', help="The output path where the config file is to be generated",
                                 default=f"{os.getcwd()}/gras.ini")
-    
+
     def _validate(self):
         args = self.args
-        
+
         if (args.stats and args.generate) or (args.stats and args.mine) or (args.generate and args.mine):
             raise GrasArgumentParserError(msg="Only one GRAS command should be passed.")
-        
+
         if args.generate:
             if not args.output:
                 logger.warning(f"Output path not provided, using default: {os.getcwd()}/gras.ini")
@@ -254,7 +254,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                 if not args.config:
                     raise GrasArgumentParserError(msg="Either Repo-name and Repo-owner or GrasConfig file should "
                                                       "be provided!")
-        
+
         if args.mine:
             if args.dbms == "sqlite" and not args.db_output:
                 logger.warning(f"SQLite database output file path not provided, using path: {os.getcwd()}/gras.db")
@@ -271,18 +271,18 @@ class GrasArgumentParser(argparse.ArgumentParser):
                     not args.pull_tracker:
                 logger.warning("Stage name not specified, using `basic` by default.")
                 args.basic = True
-    
+
     def _set_arg_groups(self):
         self.arg_groups = {}
-        
+
         for group in self.action_groups:
             group_dict = {a.dest: getattr(self.args, a.dest, None) for a in group._group_actions}
             self.arg_groups[group.title] = argparse.Namespace(**group_dict)
-    
+
     def _execute(self):
         if self.args.clear_logs:
             folder = os.path.dirname(LOGFILE)
-            
+
             for filename in os.listdir(folder):
                 file_path = os.path.join(folder, filename)
                 try:
@@ -292,28 +292,28 @@ class GrasArgumentParser(argparse.ArgumentParser):
                         shutil.rmtree(file_path)
                 except Exception as e:
                     logger.error('Failed to delete %s. Reason: %s' % (file_path, e))
-        
+
         if self.args.generate:
             self._create_config()
-        
+
         if self.args.stats:
             try:
                 repo_list = self.repo_list
             except AttributeError:
                 repo_list = None
-            
+
             queue = Queue()
             t = threading.Thread(name='process', target=lambda q, arg1, arg2: q.put(get_repo_stats(arg1, arg2)),
                                  args=(queue, self.args, repo_list))
             t.daemon = True
             t.start()
-            
+
             now = datetime.now().strftime('%d/%d/%Y %H:%M:%S')
 
             while t.is_alive():
                 animated_loading(f"{now} - main - INFO - Fetching `{self.args.repo_name}` statistics", ANIMATORS[
                     self.args.animator])
-            
+
             t.join()
             result = queue.get()
 
@@ -331,16 +331,16 @@ class GrasArgumentParser(argparse.ArgumentParser):
                 im.process()
             else:
                 raise NotImplementedError
-    
+
     def _create_config(self):
         cfg = configparser.RawConfigParser()
-        
+
         groups = {k: v for k, v in self.arg_groups.items() if k not in ['positional arguments', 'optional arguments']}
-        
+
         for group in groups:
             if group == "GRAS-COMMANDS":
                 continue
-            
+
             cfg.add_section(group)
             group_dict = vars(groups[group])
             for key in group_dict:
@@ -350,50 +350,50 @@ class GrasArgumentParser(argparse.ArgumentParser):
                     pass
                 else:
                     cfg.set(group, key, group_dict[key])
-        
+
         start_date = cfg.get('GRAS-SETTINGS', 'start_date') or DEFAULT_START_DATE
         end_date = cfg.get('GRAS-SETTINGS', 'end_date') or DEFAULT_END_DATE
-        
+
         cfg.add_section('REPOSITORY-LIST')
         cfg.set('REPOSITORY-LIST', 'python/cpython', f'{start_date}, {end_date}')
         cfg.set('REPOSITORY-LIST', 'Microsoft/vscode', f', {end_date}')
         cfg.set('REPOSITORY-LIST', 'apache/spark', '')
-        
+
         path = self.args.output
-        
+
         try:
             with open(path, 'w') as file:
                 cfg.write(file)
         except Exception as e:
             logger.error(e)
             sys.exit(1)
-    
+
     def _read_config(self):
         cfp = configparser.ConfigParser()
         cfp.read(self.args.config)
-        
+
         if cfp.has_section("REPOSITORY-LIST"):
             section = "REPOSITORY-LIST"
-            
+
             repos = []
-            
+
             try:
                 for key in cfp[section]:
                     key_lst = cfp[section][key].split('/')
                     value = cfp[section][key].split(',')
-                    
+
                     if value[0] is None:
                         value[0] = DEFAULT_START_DATE
-                    
+
                     if value[1] is None:
                         value[1] = DEFAULT_END_DATE
 
                     repos.append((key_lst[0], key_lst[1], value[0], value[1]))
             except Exception:
                 raise GrasConfigError(msg="Please check REPOSITORY-LIST section.")
-            
+
             self.repo_list = repos
-        
+
         if cfp.has_section("GRAS-SETTINGS"):
             section = "GRAS-SETTINGS"
 
@@ -408,61 +408,61 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
             if cfp.has_option(section, 'repo_name'):
                 self.args.repo_name = cfp[section]['repo_name']
-            
+
             if cfp.has_option(section, 'start_date'):
                 try:
                     self.args.start_date = to_iso_format(cfp[section]['start_date'])
                 except Exception:
                     raise GrasConfigError(msg="Please enter the `start_date` in ISO-8601 format!")
-            
+
             if cfp.has_option(section, 'end_date'):
                 try:
                     self.args.end_date = to_iso_format(cfp[section]['end_date'])
                 except Exception:
                     raise GrasConfigError(msg="Please enter the `end_date` in ISO-8601 format!")
-        
+
         if cfp.has_section("DATABASE-SETTINGS"):
             section = "DATABASE-SETTINGS"
-            
+
             if cfp.has_option(section, 'dbms'):
                 self.args.dbms = cfp[section]['dbms']
-            
+
             if cfp.has_option(section, 'db_name'):
                 self.args.db_name = cfp[section]['db_name']
-            
+
             if cfp.has_option(section, 'db_username'):
                 self.args.db_username = cfp[section]['db_username']
-            
+
             if cfp.has_option(section, 'db_password'):
                 try:
                     self.args.db_password = bool(cfp[section]['db_password'])
                 except Exception:
                     raise GrasConfigError(msg="`db_password` should be either `True` or `False`!")
-            
+
             if cfp.has_option(section, 'db_host'):
                 self.args.db_host = cfp[section]['db_host']
-            
+
             if cfp.has_option(section, 'db_port'):
                 self.args.db_port = cfp[section]['db_port']
-            
+
             if cfp.has_option(section, 'db_output'):
                 self.args.db_output = cfp[section]['db_output']
-            
+
             if cfp.has_option(section, 'db_log'):
                 try:
                     self.args.db_log = cfp[section]['db_log']
                 except Exception:
                     raise GrasConfigError(msg="`db_log` should be either `True` or `False`!")
-        
+
         if cfp.has_section("OTHER"):
             section = "OTHER"
-            
+
             if cfp.has_option(section, 'help'):
                 self.args.help = cfp[section]['help']
-            
+
             if cfp.has_option(section, 'animator'):
                 self.args.animator = cfp[section]['animator']
-            
+
             if cfp.has_option(section, 'operation'):
                 self.args.operation = cfp[section]['operation']
 
@@ -478,29 +478,29 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
 def print_func_timings(dic, name, col_name):
     sys.stdout.write("\n")
-    
+
     function_time = []
     for f, te in dic.items():
         function_time.append([f, te])
-    
+
     total_time = sum([float(_) for _ in np.array(function_time)[:, 1].tolist()])
-    
+
     function_time.append(["Total", total_time])
-    
+
     df = pd.DataFrame(data=np.array(function_time), columns=[col_name, "Time Taken"])
     df.style.set_caption(name)
-    
+
     sys.stdout.write(tabulate([list(row) for row in df.values], headers=list(df.columns), tablefmt='fancy_grid'))
-    
+
     sys.stdout.write("\n")
 
 
 def main():
     GrasArgumentParser()
-    
+
     if ELAPSED_TIME_ON_FUNCTIONS:
         print_func_timings(ELAPSED_TIME_ON_FUNCTIONS, name="Function Timings", col_name="Function")
-    
+
     if STAGE_WISE_TIME:
         print_func_timings(STAGE_WISE_TIME, name="Stage Timings", col_name="Stage")
 
@@ -508,7 +508,7 @@ def main():
 if __name__ == '__main__':
     logger = logging.getLogger("main")
     set_up_logging()
-    
+
     logger.info("Starting GRAS...")
 
     main()

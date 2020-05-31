@@ -23,7 +23,7 @@ class RateLimitStruct(GithubInterface, RateLimitModel):
             }
         }
     """
-    
+
     def __init__(self, github_token):
         """Constructor Method"""
         super().__init__(

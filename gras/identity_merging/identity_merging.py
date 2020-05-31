@@ -42,7 +42,7 @@ class Alias:
     :param is_anonymous: whether the contributor is anonymous or not
     :type is_anonymous: int
     """
-    
+
     def __init__(self, id_, login, name, email, location=None, is_anonymous=0):
         self.id_ = id_
         self.contributor_id = None
@@ -94,7 +94,7 @@ class Alias:
             self.email = None
             self.prefix = None
             self.domain = None
-    
+
     @staticmethod
     def __is_english(s):
         try:
@@ -103,27 +103,27 @@ class Alias:
             return False
         else:
             return True
-    
+
     @staticmethod
     def sort_words(words):
         words = sorted(words.split(" "))
         new_string = " ".join([x for x in words if x not in TERMS])
         return new_string
-    
+
     @staticmethod
     @exception_handler(exceptions_to_catch=requests.ConnectionError, exception_to_raise=YandexError,
                        msg="Connection Error!")
     def translate():
         return translator.translate()
-    
+
     def normalize_unicode_to_ascii(self, data):
         global TOTAL_TRANSLATED
         if not self.__is_english(data) and translator.key:
             TOTAL_TRANSLATED += 1
-            
+
             logger.debug(f"Translating {data}...")
             translator.set_text(data)
-            
+
             try:
                 data = self.translate()
             except TranslaterError as e:
@@ -132,21 +132,21 @@ class Alias:
                 else:
                     logger.error(f"Some error occurred in translating! Error: {e}")
                     sys.exit(1)
-        
+
         normal = unicodedata.normalize('NFKD', data).encode('ASCII', 'ignore')
         val = normal.decode("utf-8").lower()
         val = re.sub('[^A-Za-z0-9 ]+', ' ', val)
         val = re.sub(' +', ' ', val)
-        
+
         if not val.strip():
             val = None
-        
+
         return self.sort_words(val) if val is not None else None
-    
+
     @staticmethod
     def __get_email(str_):
         str_ = str_.strip().lower()
-        
+
         if '[' in str_:
             # user[at]gmail[dot]com
             str_ = str_.replace('[at]', '@').replace('[dot]', '.')
@@ -156,44 +156,44 @@ class Alias:
             if len(str_lst) > 1:
                 if 'dot' in str_lst:
                     str_lst[str_lst.index('dot')] = '.'
-                
+
                 if 'at' in str_lst:
                     ind = str_lst.index('at')
                     str_lst[ind] = '@'
-                    
+
                     # maiz at lulk in
                     if len(str_lst[ind + 1:]) > 1:
                         str_lst.append(str_lst[-1])
                         str_lst[-2] = '.'
-                    
+
                     # user at gmail
                     if '.' not in str_lst:
                         str_lst.append('.com')
-            
+
             str_ = "".join(str_lst)
-        
+
         return str_
 
 
 class IdentityMerging(BaseMiner):
     def __init__(self, args):
         super().__init__(args=args)
-        
+
         self._engine, self._conn = self._connect_to_db()
         self.yandex_key = args.yandex_key
         self.anon_contributors = []
         self.non_anon_contributors = []
-        
+
         if self.yandex_key:
             translator.set_key(self.yandex_key)
             translator.set_to_lang('en')
-    
+
     def load_from_file(self, file):
         pass
-    
+
     def dump_to_file(self, path):
         pass
-    
+
     def process(self):
         res = self._conn.execute(
             """
@@ -202,7 +202,7 @@ class IdentityMerging(BaseMiner):
             WHERE is_anonymous=1
             """
         ).fetchall()
-        
+
         for r in res:
             self.anon_contributors.append(Alias(
                 id_=r[0],
@@ -211,7 +211,7 @@ class IdentityMerging(BaseMiner):
                 email=r[2],
                 is_anonymous=1,
             ))
-        
+
         res = self._conn.execute(
             """
             SELECT DISTINCT id, login, name, email, location
@@ -219,7 +219,7 @@ class IdentityMerging(BaseMiner):
             WHERE is_anonymous=0
             """
         ).fetchall()
-        
+
         for r in res:
             self.non_anon_contributors.append(Alias(
                 id_=r[0],
@@ -244,16 +244,16 @@ class IdentityMerging(BaseMiner):
             it += 1
 
         file.close()
-    
+
     def _dump_pair(self, writer, pair):
         c1: Alias = pair[0]
         c2: Alias = pair[1]
         score = self.__get_score(c1, c2)
-        
+
         if score > 0.4:
             writer.writerow([c1.id_, c1.login, f"{c1.name} <{c1.email}>", c2.id_, c2.login,
                              f"{c2.name} <{c2.email}>", score])
-    
+
     @staticmethod
     def __get_score(c1, c2, inverse=True):
         """
@@ -274,13 +274,13 @@ class IdentityMerging(BaseMiner):
         prefix_prefix = damerau_levenshtein(c1.prefix, c2.prefix)
         login_name = max(damerau_levenshtein(c1.login, c2.name), damerau_levenshtein(c1.name, c2.login))
         login_prefix = max(damerau_levenshtein(c1.login, c2.prefix), damerau_levenshtein(c1.prefix, c2.login))
-        
+
         if inverse:
             login_login = damerau_levenshtein(c1.login, c2.login)
             return sum([name_name, name_prefix, prefix_prefix, login_name, login_prefix, login_login]) / 6
         else:
             return sum([name_name, name_prefix, prefix_prefix, login_name, login_prefix]) / 5
-    
+
     @staticmethod
     def __generate_pairs(lst1, lst2):
         for ele in lst1:

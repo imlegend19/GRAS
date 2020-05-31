@@ -12,28 +12,28 @@ class RepoStatistics:
         self.name = name
         self.start_date = start_date
         self.end_date = end_date
-    
+
     def _total_contributors(self, anon):
         u = GithubInterface(
             url=f"https://api.github.com/repos/{self.owner}/{self.name}/contributors?per_page=100&anon={anon}"
         )
-        
+
         total = 0
         generator = u._generator()
         hasNextPage = True
-        
+
         while hasNextPage:
             response = next(generator)  # Response object (not json)
             total += len(response.json())
-            
+
             try:
                 next_url = response.links["next"]["url"]
                 u.url = next_url
             except KeyError:
                 break
-        
+
         return total
-    
+
     def _total_issues_and_pr(self):
         QUERY = """
             {{
@@ -45,19 +45,19 @@ class RepoStatistics:
                 }}
             }}
         """
-        
+
         gi = GithubInterface(
             query=QUERY,
             query_params=dict(name=self.name, owner=self.owner, start_date=self.start_date, end_date=self.end_date)
         )
-        
+
         response = gi.iterator()[APIStaticV4.DATA]
-        
+
         return {
             "total_issues"       : response["issue"]["issueCount"],
             "total_pull_requests": response["pr"]["issueCount"]
         }
-    
+
     def _other_repo_stats(self):
         QUERY = """
             {{
@@ -92,14 +92,14 @@ class RepoStatistics:
                 }}
             }}
         """
-        
+
         gi = GithubInterface(
             query=QUERY,
             query_params=dict(name=self.name, owner=self.owner)
         )
-        
+
         response = gi.iterator()[APIStaticV4.DATA][APIStaticV4.REPOSITORY]
-        
+
         return {
             "total_labels"    : response[LabelStatic.LABELS][APIStaticV4.TOTAL_COUNT],
             "total_forks"     : response[RepositoryStatic.FORKS][APIStaticV4.TOTAL_COUNT],
@@ -111,7 +111,7 @@ class RepoStatistics:
             "total_milestones": response[MilestoneStatic.MILESTONES][APIStaticV4.TOTAL_COUNT],
             "total_assignees" : response[RepositoryStatic.ASSIGNEES][APIStaticV4.TOTAL_COUNT]
         }
-    
+
     def repo_stats(self):
         total_contributors = self._total_contributors(anon=0)
         total_anon_contributors = self._total_contributors(anon=1) - total_contributors
@@ -138,23 +138,23 @@ class RepoStatistics:
                 }}
             }}
         """
-        
+
         for branch in branch_list:
             branches[branch] = {}
-            
+
             gi = GithubInterface(
                 query=QUERY,
                 query_params=dict(name=self.name, owner=self.owner, start_date=self.start_date,
                                   end_date=self.end_date,
                                   branch=branch)
             )
-            
+
             resp = gi.iterator()
             response = resp[APIStaticV4.DATA][APIStaticV4.REPOSITORY]
             branches[branch]["total_commits"] = response[CommitStatic.OBJECT][CommitStatic.HISTORY][
                 APIStaticV4.TOTAL_COUNT]
             branches[branch]["total_commit_comments"] = response[CommitStatic.COMMIT_COMMENTS][APIStaticV4.TOTAL_COUNT]
-        
+
         return {
             "total_contributors"     : total_contributors,
             "total_anon_contributors": total_anon_contributors,

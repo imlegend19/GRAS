@@ -30,7 +30,7 @@ def lines_of_code_counter(file):
     blank_line_count = 0
     comment_line_count = 0
     comment_flag = '0'
-    
+
     for line in file:
         line_count += 1
         if comment_flag == '1':
@@ -45,6 +45,6 @@ def lines_of_code_counter(file):
                 comment_line_count += 1
             else:
                 comment_flag = '0'
-    
+
     effective_loc = line_count - blank_line_count - comment_line_count
     return effective_loc

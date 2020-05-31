@@ -13,7 +13,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
-import sphinx_rtd_theme
+
 # -- Project information -----------------------------------------------------
 
 project = u'GRAS'
@@ -23,7 +23,6 @@ language = 'en'
 # The full version, including alpha/beta/rc tags
 version = '0.1.0a'
 release = '0.1.0a'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -45,7 +44,6 @@ templates_path = ['_templates']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
-
 
 # -- Options for HTML output -------------------------------------------------
 master_doc = 'index'

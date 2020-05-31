@@ -54,7 +54,7 @@ class CommentStruct(GithubInterface, CommentModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner, number, type_filter):
         """Constructor Method"""
         super().__init__(
@@ -63,7 +63,7 @@ class CommentStruct(GithubInterface, CommentModel):
         )
 
         self.type_filter = type_filter
-    
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.comment_struct.CommentStruct`. For more information see
@@ -74,7 +74,7 @@ class CommentStruct(GithubInterface, CommentModel):
 
         generator = self._generator()
         hasNextPage = True
-        
+
         while hasNextPage:
             try:
                 response = next(generator)

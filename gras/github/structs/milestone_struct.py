@@ -48,7 +48,7 @@ class MilestoneStruct(GithubInterface, MilestoneModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner):
         """Constructor method
         """
@@ -56,7 +56,7 @@ class MilestoneStruct(GithubInterface, MilestoneModel):
             query=self.MILESTONE_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
-    
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.milestone_struct.MilestoneStruct`. For more information
@@ -65,24 +65,24 @@ class MilestoneStruct(GithubInterface, MilestoneModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-    
+
         generator = self._generator()
         hasNextPage = True
-        
+
         while hasNextPage:
             try:
                 response = next(generator)
             except StopIteration:
                 break
-            
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 MilestoneStatic.MILESTONES][APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            
+
             self.query_params[APIStaticV4.AFTER] = '\"' + endCursor + '\"' if endCursor is not None else "null"
-            
+
             resp = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][
                 MilestoneStatic.MILESTONES][APIStaticV4.NODES]
-            
+
             if resp is not None:
                 if None not in resp:
                     yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][

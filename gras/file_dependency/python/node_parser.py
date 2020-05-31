@@ -19,21 +19,21 @@ class FileAnalyzer(ast.NodeVisitor):
     .. _ast.NodeVisitor :
         https://docs.python.org/3/library/ast.html#ast.NodeVisitor
     """
-    
+
     def __init__(self):
         """Constructor Method"""
-        
+
         self.functions = []
         self.classes = []
         self.imports = []
         self.global_variables = []
-    
+
     def visit_ClassDef(self, node, return_=False):
         name = node.name
         line = node.lineno
         decorators = self.__parse_decorators(node.decorator_list)
         docstring = ast.get_docstring(node)
-        
+
         arguments = []
         for base in node.bases:
             if isinstance(base, Name):
@@ -53,7 +53,7 @@ class FileAnalyzer(ast.NodeVisitor):
             else:
                 # TODO: Implement for Call & Attribute type
                 raise NotImplementedError
-    
+
             arguments.append(
                 KwargModel(
                     subtype=Class,
@@ -88,7 +88,7 @@ class FileAnalyzer(ast.NodeVisitor):
             else:
                 # TODO: Implement various types
                 print(type(obj), "Not Implemented")
-        
+
         class_obj = DefModel(
             subtype=Class,
             name=name,
@@ -114,7 +114,7 @@ class FileAnalyzer(ast.NodeVisitor):
         line = node.lineno
         decorators = self.__parse_decorators(node.decorator_list)
         docstring = ast.get_docstring(node)
-    
+
         arguments = []
         # TODO: Add a special type of Model -> `ArgumentModel` should be made for arguments.
         for arg in node.args.args:
@@ -124,7 +124,7 @@ class FileAnalyzer(ast.NodeVisitor):
                     name=arg.arg
                 )
             )
-    
+
         if node.args.kwarg:
             arguments.append(
                 ArgModel(
@@ -132,7 +132,7 @@ class FileAnalyzer(ast.NodeVisitor):
                     name=node.args.kwarg.arg
                 )
             )
-    
+
         for kwarg in node.args.kwonlyargs:
             arguments.append(
                 ArgModel(
@@ -140,7 +140,7 @@ class FileAnalyzer(ast.NodeVisitor):
                     name=kwarg.arg
                 )
             )
-    
+
         if node.args.vararg:
             arguments.append(
                 ArgModel(
@@ -148,9 +148,9 @@ class FileAnalyzer(ast.NodeVisitor):
                     name=node.args.vararg.arg
                 )
             )
-    
+
         functions, classes, imports, variables = [], [], [], []
-    
+
         for obj in node.body:
             if isinstance(obj, Expr):
                 ...
@@ -177,7 +177,7 @@ class FileAnalyzer(ast.NodeVisitor):
             else:
                 # TODO: Implement various types
                 print(type(obj), "Not Implemented")
-    
+
         function_obj = DefModel(
             subtype=Function,
             name=name,
@@ -190,12 +190,12 @@ class FileAnalyzer(ast.NodeVisitor):
             docstring=docstring,
             line=line
         )
-    
+
         if return_:
             return function_obj
         else:
             self.functions.append(function_obj)
-    
+
         self.generic_visit(node)
 
     def visit_Import(self, node: Import, return_=False):
@@ -212,7 +212,7 @@ class FileAnalyzer(ast.NodeVisitor):
             return objs
         else:
             self.imports.extend(objs)
-        
+
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ImportFrom, return_=False):
@@ -226,12 +226,12 @@ class FileAnalyzer(ast.NodeVisitor):
                     line=node.lineno
                 )
             )
-    
+
         if return_:
             return objs
         else:
             self.imports.extend(objs)
-    
+
         self.generic_visit(node)
 
     def visit_Global(self, node: Global):
@@ -248,12 +248,12 @@ class FileAnalyzer(ast.NodeVisitor):
                 variables.append(alias.attr)
             else:
                 variables.append(alias.id)
-    
+
         if return_:
             return variables
         else:
             self.global_variables.extend(variables)
-    
+
     def process(self):
         return {
             "functions": self.functions,
@@ -261,11 +261,11 @@ class FileAnalyzer(ast.NodeVisitor):
             "variables": self.global_variables,
             "imports"  : self.imports
         }
-    
+
     @staticmethod
     def __parse_decorators(lst):
         objects = []
-        
+
         for decorator in lst:
             if isinstance(decorator, Name):
                 objects.append(
@@ -310,5 +310,5 @@ class FileAnalyzer(ast.NodeVisitor):
                 )
             else:
                 raise NotImplementedError
-        
+
         return objects

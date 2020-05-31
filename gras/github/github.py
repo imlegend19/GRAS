@@ -16,7 +16,7 @@ logger = logging.getLogger("main")
 class GithubInterface(BaseInterface):
     GET = "get"
     POST = "post"
-    
+
     @property
     def tag(self):
         return 'github'
@@ -30,28 +30,28 @@ class GithubInterface(BaseInterface):
         self.query_params = query_params
         self.additional_headers = additional_headers or dict()
         self.token = github_token
-    
+
     @property
     def headers(self):
         default_headers = dict(
             Authorization=f"token {self.token}",
             Connection="close",
         )
-        
+
         return {
             **default_headers,
             **self.additional_headers
         }
-    
+
     def _create_http_session(self):
         self.session = Session()
-        
+
         if self.headers:
             self.session.headers.update(self.headers)
-        
+
         self.session.mount('http://', adapters.HTTPAdapter(max_retries=self.max_retries))
         self.session.mount('https://', adapters.HTTPAdapter(max_retries=self.max_retries))
-    
+
     def _fetch(self, url, headers, method, payload=None):
         if method == self.GET:
             response = self.session.get(url, params=payload, headers=headers)
@@ -75,15 +75,15 @@ class GithubInterface(BaseInterface):
         except Exception as e:
             # TODO: Raise exception
             logger.error(e)
-        
+
         return response
-    
+
     def _close_session(self):
         """Close the session"""
-        
+
         if self.session:
             self.session.keep_alive = False
-    
+
     def _send_request(self, param=None, only_json=True, method=POST):
         self._create_http_session()
 
@@ -112,7 +112,7 @@ class GithubInterface(BaseInterface):
                 except Exception as e:
                     logger.error(e)
                     raise GrasError(msg=e)
-            
+
             if req.status_code == 200:
                 if 'X-RateLimit-Remaining' in req.headers and int(req.headers['X-RateLimit-Remaining']) <= 2:
                     reset_time = datetime.fromtimestamp(float(req.headers['X-RateLimit-Reset']))
@@ -141,7 +141,7 @@ class GithubInterface(BaseInterface):
 
         raise exceptions.RequestException(f"Problem with getting data via url {self.url} + "
                                           f"{self.query.format_map(self.query_params)}.")
-    
+
     def _generator(self):
         if self.url is None:
             self.url = APIStaticV4.BASE_URL
@@ -176,7 +176,7 @@ class GithubInterface(BaseInterface):
     async def async_request(self):
         if self.url is None:
             self.url = APIStaticV4.BASE_URL
-    
+
         async with ClientSession(headers=self.headers) as session:
             tries = 1
             while tries <= 3:
@@ -193,23 +193,23 @@ class GithubInterface(BaseInterface):
                         )
                 else:
                     response = await session.get(url=self.url)
-            
+
                 try:
                     response.raise_for_status()
                 except ClientResponseError as e:
                     # TODO: Raise GrasRequestException
                     raise e
-            
+
                 if response.status == 200:
                     content = await response.json()
                     if "errors" in content:
                         raise exceptions.RequestException(f"Problem with getting data via url {self.url} + "
                                                           f"{self.query.format_map(self.query_params)}.")
-                
+
                     return content
                 else:
                     logging.error(f"Problem with getting data via url {self.url}. Error: {response.text}")
                     tries += 1
-        
+
             raise exceptions.RequestException(f"Problem with getting data via url {self.url} + "
                                               f"{self.query.format_map(self.query_params)}.")

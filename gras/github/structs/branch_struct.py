@@ -49,7 +49,7 @@ class BranchStruct(GithubInterface, BranchModel):
             query=self.BRANCH_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
         )
-    
+
         self.name = name
         self.owner = owner
 

@@ -84,14 +84,14 @@ class IssueDetailStruct(GithubInterface, IssueModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner, number):
         """Constructor Method"""
         super().__init__(
             query=self.QUERY,
             query_params=dict(owner=owner, name=name, number=number)
         )
-    
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.issue_struct.IssueDetailStruct`. For more
@@ -102,7 +102,7 @@ class IssueDetailStruct(GithubInterface, IssueModel):
 
         generator = self._generator()
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUE]
-    
+
     def process(self):
         """
             generates a :class:`gras.github.entity.github_models.IssueModel` object representing the fetched data.
@@ -207,7 +207,7 @@ class IssueSearchStruct(GithubInterface, IssueModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner, start_date, end_date, chunk_size=25):
         """Constructor Method"""
         super().__init__(
@@ -218,7 +218,7 @@ class IssueSearchStruct(GithubInterface, IssueModel):
         )
 
         self.chunk_size = chunk_size
-    
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.issue_struct.IssueSearchStruct`. For more
@@ -229,16 +229,16 @@ class IssueSearchStruct(GithubInterface, IssueModel):
 
         assert self.query_params["start_date"] is not None
         assert self.query_params["end_date"] is not None
-        
+
         for start, end in time_period_chunks(self.query_params["start_date"],
                                              self.query_params["end_date"], chunk_size=self.chunk_size):
             self.query_params["start_date"] = start
             self.query_params["end_date"] = end
             self.query_params["after"] = "null"
-            
+
             generator = self._generator()
             hasNextPage = True
-            
+
             while hasNextPage:
                 try:
                     response = next(generator)
@@ -258,7 +258,7 @@ class IssueSearchStruct(GithubInterface, IssueModel):
 
                 hasNextPage = response[APIStaticV4.DATA][APIStaticV4.SEARCH][APIStaticV4.PAGE_INFO][
                     APIStaticV4.HAS_NEXT_PAGE]
-    
+
     def process(self):
         """
             generates a :class:`gras.github.entity.github_models.IssueModel` object representing the fetched data.
@@ -354,14 +354,14 @@ class IssueStruct(GithubInterface, IssueModel):
             }}
         }}
     """
-    
+
     def __init__(self, name, owner):
         """Constructor Method"""
         super().__init__(
             query=self.QUERY,
             query_params=dict(owner=owner, name=name, after="null")
         )
-    
+
     def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.issue_struct.IssueStruct`. For more
@@ -372,23 +372,23 @@ class IssueStruct(GithubInterface, IssueModel):
 
         generator = self._generator()
         hasNextPage = True
-        
+
         while hasNextPage:
             try:
                 response = next(generator)
             except StopIteration:
                 break
-            
+
             endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUES][
                 APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
-            
+
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
-            
+
             yield response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUES][APIStaticV4.NODES]
-            
+
             hasNextPage = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.ISSUES][
                 APIStaticV4.PAGE_INFO][APIStaticV4.HAS_NEXT_PAGE]
-    
+
     def process(self):
         """
             generates a :class:`gras.github.entity.github_models.IssueModel` object representing the fetched data.

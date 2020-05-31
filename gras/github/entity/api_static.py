@@ -189,7 +189,7 @@ class EventStatic(metaclass=BaseStatic):
     UNLABELED_EVENT = "UnlabeledEvent"
     UNMARKED_AS_DUPLICATE_EVENT = "UnmarkedAsDuplicateEvent"
     UNPINNED_EVENT = "UnpinnedEvent"
-    
+
     TIMELINE_ITEMS = "timelineItems"
     EVENT_TYPE = "eventType"
     WHO = "who"
