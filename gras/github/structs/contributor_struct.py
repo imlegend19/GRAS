@@ -428,7 +428,20 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         self.name = name
         self.email = email
 
-    async def iterator(self):
+    async def async_iterator(self):
+        """
+            Async iterator function for :class:`gras.github.structs.contributor_struct.CommitUserStruct`. For more
+            information see :class:`gras.github.github.githubInterface`.
+            
+            :return: a single API response or a list of responses
+            :rtype: dict
+        """
+    
+        gen = await self.async_request()
+        return gen[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
+            UserStatic.USER]
+
+    def iterator(self):
         """
             Iterator function for :class:`gras.github.structs.contributor_struct.CommitUserStruct`. For more
             information see :class:`gras.github.github.githubInterface`.
@@ -437,11 +450,11 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             :rtype: generator<dict>
         """
     
-        gen = await self.async_request()
-        return gen[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
+        generator = self._generator()
+        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
             UserStatic.USER]
 
-    async def process(self):
+    def process(self):
         """
             generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
             
@@ -450,7 +463,24 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         """
     
         try:
-            result = await self.iterator()
+            user = self.object_decoder(dic=self.iterator(), name=self.name, email=self.email)
+            if not user:
+                return None
+            else:
+                return user
+        except exceptions.RequestException:
+            return None
+
+    async def async_process(self):
+        """
+            generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
+            
+            :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
+            :rtype: CommitUserModel
+        """
+    
+        try:
+            result = await self.async_iterator()
             user = self.object_decoder(dic=result, name=self.name, email=self.email)
             if not user:
                 return None
