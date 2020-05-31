@@ -24,7 +24,7 @@ class CPythonMiner(BaseMiner):
         
         self.process()
     
-    def _load_from_file(self, file):
+    def load_from_file(self, file):
         pass
     
     def dump_to_file(self, path):

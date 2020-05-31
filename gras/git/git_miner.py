@@ -41,7 +41,7 @@ class GitMiner(BaseMiner):
     def _create_loop(self):
         self.loop = asyncio.new_event_loop()
 
-    def _load_from_file(self, file):
+    def load_from_file(self, file):
         pass
 
     def dump_to_file(self, path):

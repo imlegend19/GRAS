@@ -7,7 +7,7 @@ from gras.file_dependency.python.node_parser import FileAnalyzer
 from gras.file_dependency.utils import is_python_file, lines_of_code_counter
 
 
-class FileMiner(BaseMiner):
+class PythonMiner(BaseMiner):
     # noinspection PyMissingConstructor
     def __init__(self, args, project_dir, file_path):
         # super().__init__(args=args)
@@ -16,7 +16,7 @@ class FileMiner(BaseMiner):
         
         self.project_dir = project_dir
         self.file_path = file_path
-
+        
         if self.file_path:
             with open(file_path, "r") as fp:
                 content = fp.read()
@@ -94,4 +94,4 @@ class FileMiner(BaseMiner):
 
 
 if __name__ == '__main__':
-    FileMiner(args=None, project_dir=None, file_path="/home/mahen/PycharmProjects/GRAS/tests/data/test_defs.py")
+    PythonMiner(args=None, project_dir=None, file_path="/home/mahen/PycharmProjects/GRAS/tests/data/test_defs.py")

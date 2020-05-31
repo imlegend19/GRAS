@@ -188,7 +188,7 @@ class IdentityMerging(BaseMiner):
             translator.set_key(self.yandex_key)
             translator.set_to_lang('en')
     
-    def _load_from_file(self, file):
+    def load_from_file(self, file):
         pass
     
     def dump_to_file(self, path):

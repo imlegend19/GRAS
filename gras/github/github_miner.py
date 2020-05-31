@@ -44,7 +44,7 @@ class GithubMiner(BaseMiner):
         self._engine, self._conn = self._connect_to_db()
         self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
 
-    def _load_from_file(self, file):
+    def load_from_file(self, file):
         pass
 
     def dump_to_file(self, path):
