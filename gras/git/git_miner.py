@@ -45,8 +45,6 @@ class GitMiner(BaseMiner):
         self._fetch_references()
         self.commits = self._fetch_commit_ids()
 
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=THREADS)
-
     def _create_loop(self):
         self.loop = asyncio.new_event_loop()
 
@@ -280,9 +278,20 @@ class GitMiner(BaseMiner):
 
     @timing(name="commits", is_stage=True)
     def _parse_commits(self):
+        res = self._conn.execute(
+            f"""
+            SELECT DISTINCT oid
+            FROM commits
+            """
+        ).fetchall()
+
+        dumped_commits = [x[0] for x in res]
+        del res
+
         index = 1
-        with self.executor as executor:
-            process = {executor.submit(self._dump_commit, oid): oid for oid in self.commits}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+            process = {executor.submit(self._dump_commit, oid): oid for oid in self.commits if
+                       oid.hex not in dumped_commits}
             for future in concurrent.futures.as_completed(process):
                 oid = process[future]
                 logger.info(f"Dumped commit: {oid}, index: {index}")
@@ -290,9 +299,24 @@ class GitMiner(BaseMiner):
 
     @timing(name="code change", is_stage=True)
     def _parse_code_change(self):
+        res = self._conn.execute(
+            f"""
+            SELECT oid 
+            FROM commits
+            WHERE id in (
+                SELECT DISTINCT commit_id
+                FROM code_change 
+            )           
+            """
+        )
+
+        dumped_commits = [x[0] for x in res]
+        del res
+
         index = 1
-        with self.executor as executor:
-            process = {executor.submit(self._dump_code_change, oid): oid for oid in self.commits}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+            process = {executor.submit(self._dump_code_change, oid): oid for oid in self.commits if
+                       oid.hex not in dumped_commits}
             for future in concurrent.futures.as_completed(process):
                 oid = process[future]
                 logger.info(f"Dumped Code Change for commit: {oid}, index: {index}")
