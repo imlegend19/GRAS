@@ -2,6 +2,7 @@ import json
 import subprocess
 
 from gras.base_miner import BaseMiner
+from gras.file_dependency.javascript.models import FunctionModel, VariableModel
 
 
 class JavascriptMiner(BaseMiner):
@@ -34,7 +35,43 @@ class JavascriptMiner(BaseMiner):
         out = subprocess.run(['node', 'esprima-parser.js', path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         ast = json.loads(out.stdout.decode('utf-8'))
 
-        # TODO: Parse ast
+        variables = []
+        functions = []
+
+        for i in ast['body']:
+            if i['type'] == 'FunctionDeclaration':
+                name = i['id']['name']
+                temp = []
+                for p in i['params']:
+                    temp.append(p['name'])
+                functions.append(FunctionModel(name=name, params=temp))
+
+            if i['type'] == 'VariableDeclaration' and i['declarations'][0]['init']['type'] != 'ArrowFunctionExpression':
+                name = i['declarations'][0]['id']['name']
+                kind = i['declarations'][0]['init']['type']
+                variables.append(VariableModel(name=name, kind=kind))
+            elif i['type'] == 'VariableDeclaration' and \
+                    i['declarations'][0]['init']['type'] == "ArrowFunctionExpression":
+                name = i['declarations'][0]['id']['name']
+                temp = []
+                for p in i['declarations'][0]['init']['params']:
+                    temp.append(p['name'])
+                functions.append(FunctionModel(name=name, params=temp))
+
+        print('=== Printing Variables ===')
+        for i in variables:
+            print(i.name)
+            print(i.kind)
+
+        print('=== Printing Functions ===')
+        for i in functions:
+            print(i.name)
+            for p in i.params:
+                print(p)
 
     def process(self):
         pass
+
+
+if __name__ == '__main__':
+    JavascriptMiner(args=None, project_dir=None, file_path="/home/mahen/PycharmProjects/GRAS/tests/data/test.js")

@@ -147,6 +147,15 @@ class GithubMiner(BaseMiner):
             owner=self.repo_owner
         )
 
+        res = self._conn.execute(
+            f"""
+            SELECT DISTINCT email
+            FROM contributors
+            """
+        ).fetchall()
+
+        dumped_emails = [x[0] for x in res]
+
         node_ids = []
         obj_list = []
 
@@ -164,7 +173,8 @@ class GithubMiner(BaseMiner):
                     is_anonymous=1
                 )
 
-                obj_list.append(obj)
+                if cont.email not in dumped_emails:
+                    obj_list.append(obj)
             else:
                 node_ids.append("\"" + cont + "\"")
 
@@ -175,6 +185,15 @@ class GithubMiner(BaseMiner):
 
     def _dump_users(self, node_ids):
         assert isinstance(node_ids, list)
+
+        res = self._conn.execute(
+            f"""
+            SELECT DISTINCT login
+            FROM contributors
+            """
+        ).fetchall()
+
+        dumped_login = [x[0] for x in res]
 
         for i in range(0, len(node_ids), 100):
             ids_str = ",".join(node_ids[i:i + 100])
@@ -195,7 +214,8 @@ class GithubMiner(BaseMiner):
                     location=node.location
                 )
 
-                obj_list.append(obj)
+                if node.login not in dumped_login:
+                    obj_list.append(obj)
 
             logger.info("Dumping Other Contributors...")
             self._insert(self.db_schema.contributors.insert(), obj_list)
