@@ -67,7 +67,7 @@ class DownloaderError(GrasError):
 
 class YandexKeyError(GrasError):
     """
-    Exception to be thrown by :class:`~gras.identity_merging.IdentityMerging` on
+    Exception to be thrown by :class:`~gras.identity_merging.IdentityMiner` on
     :class:`yandex.Translater.TranslaterError`
     """
 
@@ -75,6 +75,6 @@ class YandexKeyError(GrasError):
 
 
 class YandexError(GrasError):
-    """Exception to be thrown by :class:`~gras.identity_merging.IdentityMerging`"""
+    """Exception to be thrown by :class:`~gras.identity_merging.IdentityMiner`"""
 
     message = "Yandex Error! %(msg)s"
