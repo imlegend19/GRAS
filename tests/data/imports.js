@@ -10,24 +10,24 @@
 import '/modules/my-module.js';
 
 // Dynamic imports
-( async () => {
+(async () => {
     if (somethingIsTrue) {
         // import module for side effects
         await import('/modules/my-module.js');
     }
-} )();
+})();
 
 // dynamic namespace imports
-( async () => {
+(async () => {
     if (somethingIsTrue) {
         const { default: myDefault, foo, bar } = await import('/modules/my-module.js');
     }
-} )();
+})();
 
 // Dynamic Imports
 import('/modules/my-module.js')
-    .then((module) => {
-        // Do something with the module.
-    });
+.then((module) => {
+    // Do something with the module.
+});
 
 let module = await import('/modules/my-module.js');
