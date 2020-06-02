@@ -18,7 +18,7 @@ from gras.errors import GrasArgumentParserError, GrasConfigError
 from gras.git.git_miner import GitMiner
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
-from gras.identity_merging.identity_merging import IdentityMerging
+from gras.identity_merging.identity_miner import IdentityMiner
 from gras.utils import (
     ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
     to_iso_format
@@ -164,8 +164,6 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-m', '--mine', help="Mine the repository", default=False, type=bool,
                                         const=True, nargs='?')
-        self.gras_commands.add_argument('-id', '--identity-merging', help="Merge the identities of the contributors",
-                                        default=False, type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-B', '--basic', help="Mining Stage 1-A: Basic", const=True, type=bool,
                                         nargs='?', default=False)
         self.gras_commands.add_argument('-BE', '--basic-extra', help="Mining Stage 1-B: Basic Extra", const=True,
@@ -329,7 +327,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                 git = GitMiner(args=self.args)
                 git.process()
             elif self.args.interface == "identity-merging":
-                im = IdentityMerging(args=self.args)
+                im = IdentityMiner(args=self.args)
                 im.process()
             else:
                 raise NotImplementedError

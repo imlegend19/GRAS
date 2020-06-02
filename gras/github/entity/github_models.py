@@ -202,9 +202,13 @@ class IssueModel(BaseModel):
         else:
             user = dic[IssueStatic.AUTHOR]
             author = UserModel(
-                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
-                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
-                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                user_type=user[APIStaticV4.TYPE],
+                login=user[UserStatic.LOGIN],
+                name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL],
+                created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION],
+                updated_at=user[APIStaticV4.UPDATED_AT],
                 total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
             )
 
@@ -762,7 +766,7 @@ class EventModel(BaseModel):
             obj.added = dic[EventStatic.ADDED][APIStaticV4.NUMBER] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.ADDED][
                 EventStatic.TYPE]).upper() if dic[EventStatic.ADDED] is not None else None
-            obj.is_cross_repository = True
+            obj.is_cross_repository = dic[EventStatic.IS_CROSS_REPOSITORY]
         elif event_type == EventStatic.DEMILESTONED_EVENT:
             obj.removed = dic[EventStatic.REMOVED]
             obj.removed_type = "MILESTONE"
@@ -781,7 +785,7 @@ class EventModel(BaseModel):
         elif event_type == EventStatic.REFERENCED_EVENT:
             obj.added = dic[EventStatic.ADDED][APIStaticV4.OID] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = "COMMIT_ID"
-            obj.is_cross_repository = True
+            obj.is_cross_repository = dic[EventStatic.IS_CROSS_REPOSITORY]
         elif event_type == EventStatic.RENAMED_TITLE_EVENT:
             obj.removed = dic[EventStatic.REMOVED]
             obj.removed_type = "TITLE"

@@ -4,6 +4,7 @@ import logging
 import re
 import sys
 import unicodedata
+from collections import namedtuple
 
 import requests
 from yandex.Translater import Translater, TranslaterError
@@ -28,7 +29,7 @@ EMAIL_REGEX = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
 class Alias:
     """
     Represents an alias of a contributor.
-    
+
     :param id_: ID allotted to the contributor (PRIMARY KEY of `contributors` table)
     :type id_: int
     :param login: `login` of the contributor
@@ -175,7 +176,7 @@ class Alias:
         return str_
 
 
-class IdentityMerging(BaseMiner):
+class IdentityMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args=args)
 
@@ -194,10 +195,274 @@ class IdentityMerging(BaseMiner):
     def dump_to_file(self, path):
         pass
 
+    def __init_contributor_id(self):
+        self._conn.execute(
+            """
+            UPDATE contributors
+            SET contributor_id = id
+            WHERE contributor_id IS NULL;
+            """
+        )
+
+    def __update_issue_tracker_tables(self, min_id, id_):
+        self._conn.execute(
+            f"""
+            UPDATE issues
+            SET reporter_id = {min_id}
+            WHERE reporter_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE issue_comments
+            SET commenter_id = {min_id}
+            WHERE commenter_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE issue_assignees
+            SET assignee_id = {min_id}
+            WHERE assignee_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE issue_events
+            SET who = {min_id}
+            WHERE who = {id_}
+            """
+        )
+
+    def __update_pull_tracker_tables(self, min_id, id_):
+        self._conn.execute(
+            f"""
+            UPDATE pull_requests
+            SET author_id = {min_id}
+            WHERE author_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE pull_requests
+            SET merged_by = {min_id}
+            WHERE merged_by = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE pull_request_assignees
+            SET assignee_id = {min_id}
+            WHERE assignee_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE pull_request_comments
+            SET commenter_id = {min_id}
+            WHERE commenter_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE pull_request_events
+            SET who = {min_id}
+            WHERE who = {id_}
+            """
+        )
+
+    def __update_commit_tables(self, min_id, id_):
+        self._conn.execute(
+            f"""
+            UPDATE commits
+            SET author_id = {min_id}
+            WHERE author_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE commits
+            SET committer_id = {min_id}
+            WHERE committer_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE commit_comments
+            SET commenter_id = {min_id}
+            WHERE commenter_id = {id_}
+            """
+        )
+
+    def __update_other_tables(self, min_id, id_):
+        self._conn.execute(
+            f"""
+            UPDATE forks
+            SET user_id = {min_id}
+            WHERE user_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE milestones
+            SET creator_id = {min_id}
+            WHERE creator_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE releases
+            SET creator_id = {min_id}
+            WHERE creator_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE milestones
+            SET creator_id = {min_id}
+            WHERE creator_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE stargazers
+            SET user_id = {min_id}
+            WHERE user_id = {id_}
+            """
+        )
+
+        self._conn.execute(
+            f"""
+            UPDATE watchers
+            SET user_id = {min_id}
+            WHERE user_id = {id_}
+            """
+        )
+
+    def __update_contributors(self, cluster):
+        min_id = min(cluster)
+
+        for id_ in cluster:
+            if id_ == min_id:
+                pass
+            else:
+                self._conn.execute(
+                    f"""
+                    UPDATE contributors
+                    SET contributor_id = {min_id}
+                    WHERE contributor_id = {id_}
+                    """
+                )
+
+                self.__update_issue_tracker_tables(min_id=min_id, id_=id_)
+                self.__update_pull_tracker_tables(min_id=min_id, id_=id_)
+                self.__update_commit_tables(min_id=min_id, id_=id_)
+                self.__update_other_tables(min_id=min_id, id_=id_)
+
+    def refactor_contributors(self, field):
+        res = self._conn.execute(
+            f"""
+            SELECT t.contributor_id, c.contributor_id
+            FROM contributors t
+            INNER JOIN (
+                SELECT contributor_id, {field}
+                FROM contributors
+            ) c
+            ON t.contributor_id != c.contributor_id AND t.{field} like c.{field}
+            """
+        ).fetchall()
+
+        index = 0
+        cont_index = {}
+        for tup in res:
+            if tup[0] in cont_index and tup[1] in cont_index:
+                pass
+            elif tup[0] not in cont_index and tup[1] in cont_index:
+                cont_index[tup[0]] = cont_index[tup[1]]
+            elif tup[0] in cont_index and tup[1] not in cont_index:
+                cont_index[tup[1]] = cont_index[tup[0]]
+            else:
+                cont_index[tup[0]] = index
+                cont_index[tup[1]] = index
+                index += 1
+
+        clusters = {}
+        for k, v in cont_index.items():
+            clusters.setdefault(v, []).append(k)
+
+        logger.info("Updating contributors...")
+        for clu in clusters.values():
+            self.__update_contributors(clu)
+
+    def __delete_contributor(self, contributor_id):
+        self._conn.execute(
+            f"""
+            DELETE FROM contributors
+            WHERE contributor_id={contributor_id}
+            """
+        )
+
+    def _delete_duplicates(self):
+        Contributor = namedtuple("Contributor", ["login", "name", "email"])
+        cont_id = {}
+
+        res = self._conn.execute(
+            f"""
+            SELECT min(contributor_id), login, name, email
+            FROM contributors
+            GROUP BY login, name, email
+            HAVING COUNT(*) > 1
+            """
+        ).fetchall()
+
+        for row in res:
+            cont_id[Contributor(login=row[1], name=row[2], email=row[3])] = row[0]
+
+        res = self._conn.execute(
+            f"""
+            SELECT tc.contributor_id, tc.login, tc.name, tc.email
+            FROM (
+                SELECT dup, t.contributor_id, t.login, t.name, t.email
+                FROM contributors t
+                INNER JOIN (
+                    SELECT contributor_id, RANK() OVER (PARTITION BY login, name, email ORDER BY contributor_id) AS dup
+                    FROM contributors
+                ) c
+                ON t.contributor_id = c.contributor_id
+            ) AS tc
+            WHERE dup > 1;
+            """
+        ).fetchall()
+
+        for row in res:
+            self.__update_contributors([row[0], cont_id[Contributor(login=row[1], name=row[2], email=row[3])]])
+            self.__delete_contributor(contributor_id=row[0])
+
     def process(self):
+        self.__init_contributor_id()
+
+        # self._delete_duplicates()
+        #
+        # logger.info("Forming exact contributor clusters...")
+        # self.refactor_contributors(field='login')
+        # self.refactor_contributors(field='email')
+
         res = self._conn.execute(
             """
-            SELECT DISTINCT id, name, email
+            SELECT DISTINCT contributor_id, name, email
             FROM contributors
             WHERE is_anonymous=1
             """
@@ -214,7 +479,7 @@ class IdentityMerging(BaseMiner):
 
         res = self._conn.execute(
             """
-            SELECT DISTINCT id, login, name, email, location
+            SELECT DISTINCT contributor_id, login, name, email, location
             FROM contributors
             WHERE is_anonymous=0
             """
@@ -232,7 +497,7 @@ class IdentityMerging(BaseMiner):
 
         print(TOTAL_TRANSLATED)
 
-        file = open("react-result.csv", "a")
+        file = open(f"{self.repo_name}-result.csv", "a")
 
         writer = csv.writer(file)
         writer.writerow(['id-1', 'login', 'name-email', 'id-2', 'login', 'name-email', 'score'])
@@ -250,7 +515,7 @@ class IdentityMerging(BaseMiner):
         c2: Alias = pair[1]
         score = self.__get_score(c1, c2)
 
-        if score > 0.4:
+        if score > 0.3:
             writer.writerow([c1.id_, c1.login, f"{c1.name} <{c1.email}>", c2.id_, c2.login,
                              f"{c2.name} <{c2.email}>", score])
 
@@ -258,14 +523,14 @@ class IdentityMerging(BaseMiner):
     def __get_score(c1, c2, inverse=True):
         """
         Calculates the aggregate score for 2 strings.
-        
+
         :param c1: Contributor 1
         :type c1: Alias
         :param c2: Contributor 2
         :type c2: Alias
         :param inverse: `True` if similarity between non-anonymous users, else `False`
         :type inverse: bool
-        
+
         :return: Final score
         :rtype: int
         """

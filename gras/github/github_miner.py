@@ -112,12 +112,12 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
-        try:
-            self._dump_issues()
-        finally:
-            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+        # try:
+        #     self._dump_issues()
+        # finally:
+        #     self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
 
-        self._fetch_issue_events()
+        # self._fetch_issue_events()
         self._fetch_issue_comments()
 
     @timing(name='Commit Stage', is_stage=True)
@@ -498,6 +498,15 @@ class GithubMiner(BaseMiner):
 
             self._insert(self.db_schema.issues.insert(), obj)
         else:
+            res = self._conn.execute(
+                f"""
+                SELECT DISTINCT number
+                FROM issues
+                """
+            ).fetchall()
+
+            dumped_issues = [x[0] for x in res]
+
             if self.full:
                 logger.info("Dumping Issues...")
                 issues = IssueStruct(
@@ -519,38 +528,43 @@ class GithubMiner(BaseMiner):
             issue_labels_lst = []
             issue_list = []
 
-            it = 0
+            it = len(dumped_issues) + 1
             for node in issues.process():
-                print(f"Ongoing {it} --> {node.number}")
-                it += 1
-                obj = self.db_schema.issues_object(
-                    number=node.number,
-                    repo_id=self.repo_id,
-                    created_at=node.created_at,
-                    updated_at=node.updated_at,
-                    closed_at=node.closed_at,
-                    title=node.title,
-                    body=node.body,
-                    reporter_id=self._get_user_id(login=None, user_object=node.author),
-                    milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
-                    positive_reaction_count=node.positive_reaction_count,
-                    negative_reaction_count=node.negative_reaction_count,
-                    ambiguous_reaction_count=node.ambiguous_reaction_count,
-                    state=node.state
-                )
+                if node.number not in dumped_issues:
+                    print(f"Ongoing {it} --> {node.number}")
+                    it += 1
 
-                issue_assignees_lst.append((node.number, node.assignees))
-                issue_labels_lst.append((node.number, node.labels))
+                    obj = self.db_schema.issues_object(
+                        number=node.number,
+                        repo_id=self.repo_id,
+                        created_at=node.created_at,
+                        updated_at=node.updated_at,
+                        closed_at=node.closed_at,
+                        title=node.title,
+                        body=node.body,
+                        reporter_id=self._get_user_id(login=None, user_object=node.author),
+                        milestone_id=self._get_table_id(table='milestones', field='number',
+                                                        value=node.milestone_number),
+                        positive_reaction_count=node.positive_reaction_count,
+                        negative_reaction_count=node.negative_reaction_count,
+                        ambiguous_reaction_count=node.ambiguous_reaction_count,
+                        state=node.state
+                    )
 
-                if node.number not in issue_list:
-                    issue_list.append(node.number)
-                    obj_list.append(obj)
+                    issue_assignees_lst.append((node.number, node.assignees))
+                    issue_labels_lst.append((node.number, node.labels))
 
-                if len(obj_list) % MAX_INSERT_OBJECTS == 0:
-                    logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
-                    self._insert(object_=self.db_schema.issues.insert(), param=obj_list)
-                    obj_list.clear()
-                    logger.debug("Success!")
+                    if node.number not in issue_list:
+                        issue_list.append(node.number)
+                        obj_list.append(obj)
+
+                    if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                        logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
+                        self._insert(object_=self.db_schema.issues.insert(), param=obj_list)
+                        obj_list.clear()
+                        logger.debug("Success!")
+                else:
+                    print("Skipped:", node.number)
 
             logger.info(f"Total Issues: {len(issue_list)}...")
             self._insert(self.db_schema.issues.insert(), obj_list)

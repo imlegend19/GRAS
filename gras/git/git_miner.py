@@ -126,7 +126,7 @@ class GitMiner(BaseMiner):
     def __check_user_id(self, email):
         res = self._conn.execute(
             f"""
-            SELECT min(id), login, name
+            SELECT id, login, name
             FROM contributors
             WHERE email="{email}"
             """
