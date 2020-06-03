@@ -396,7 +396,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         :type oid: str
     """
 
-    QUERY = """
+    AUTHOR_QUERY = """
         {{
             repository(name:"{name}", owner:"{owner}") {{
                 object(oid:"{oid}") {{
@@ -418,9 +418,31 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         }}
     """
 
-    def __init__(self, name, email, repo_name, repo_owner, oid):
+    COMMITTER_QUERY = """
+        {{
+            repository(name:"{name}", owner:"{owner}") {{
+                object(oid:"{oid}") {{
+                    ... on Commit {{
+                        committer {{
+                            user {{
+                                login
+                                createdAt
+                                updatedAt
+                                location
+                                followers {{
+                                    totalCount
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    """
+
+    def __init__(self, name, email, repo_name, repo_owner, oid, is_author):
         super().__init__(
-            query=self.QUERY,
+            query=self.AUTHOR_QUERY if is_author else self.COMMITTER_QUERY,
             query_params=dict(name=repo_name, owner=repo_owner, oid=oid),
         )
 

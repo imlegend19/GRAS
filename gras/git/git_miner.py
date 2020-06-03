@@ -144,7 +144,7 @@ class GitMiner(BaseMiner):
             """
         )
 
-    def __get_user_id(self, name, email, oid):
+    def __get_user_id(self, name, email, oid, is_author):
         res = self.__check_user_id(email)
 
         if not res:
@@ -153,7 +153,8 @@ class GitMiner(BaseMiner):
                 repo_name=self.repo_name,
                 repo_owner=self.repo_owner,
                 name=name,
-                email=email
+                email=email,
+                is_author=is_author
             ).process()
 
             if user is None:
@@ -161,7 +162,7 @@ class GitMiner(BaseMiner):
             else:
                 self._dump_user_object(login=None, user_object=user, object_=self.db_schema.contributors.insert())
 
-            return self.__get_user_id(name=name, email=email, oid=oid)
+            return self.__get_user_id(name=name, email=email, oid=oid, is_author=is_author)
         else:
             if name == res[2]:
                 return res[0]
@@ -222,7 +223,7 @@ class GitMiner(BaseMiner):
 
         author_name = commit.author.name
         author_email = commit.author.email
-        author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid)
+        author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid, is_author=True)
         authored_date = datetime.fromtimestamp(commit.author.time)
 
         committer_name = commit.committer.name
@@ -231,7 +232,7 @@ class GitMiner(BaseMiner):
         if committer_email == "noreply@github.com":
             committer_id = author_id
         else:
-            committer_id = self.__get_user_id(name=committer_name, email=committer_email, oid=oid)
+            committer_id = self.__get_user_id(name=committer_name, email=committer_email, oid=oid, is_author=False)
 
         committed_date = datetime.fromtimestamp(commit.commit_time)
 

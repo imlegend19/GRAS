@@ -317,25 +317,33 @@ class PullRequestModel(BaseModel):
         self.review_decision = review_decision
 
     def object_decoder(self, dic):
-        if dic[IssueStatic.AUTHOR] is None:
+        if dic[IssueStatic.AUTHOR] is None or dic[IssueStatic.AUTHOR] == {}:
             author = None
         else:
             user = dic[IssueStatic.AUTHOR]
             author = UserModel(
-                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
-                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
-                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                user_type=user[APIStaticV4.TYPE],
+                login=user[UserStatic.LOGIN],
+                name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL],
+                created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION],
+                updated_at=user[APIStaticV4.UPDATED_AT],
                 total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
             )
 
-        if dic[IssueStatic.MERGED_BY] is None:
+        if dic[IssueStatic.MERGED_BY] is None or dic[IssueStatic.MERGED_BY] == {}:
             merged_by = None
         else:
             user = dic[IssueStatic.MERGED_BY]
             merged_by = UserModel(
-                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
-                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
-                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                user_type=user[APIStaticV4.TYPE],
+                login=user[UserStatic.LOGIN],
+                name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL],
+                created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION],
+                updated_at=user[APIStaticV4.UPDATED_AT],
                 total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
             )
 

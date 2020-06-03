@@ -964,6 +964,15 @@ class GithubMiner(BaseMiner):
 
             self._insert(self.db_schema.pull_requests.insert(), obj)
         else:
+            res = self._conn.execute(
+                f"""
+                SELECT DISTINCT number
+                FROM pull_requests
+                """
+            ).fetchall()
+
+            dumped_prs = [x[0] for x in res]
+
             if self.full:
                 logger.info("Dumping Pull Requests...")
                 prs = PullRequestStruct(
@@ -987,47 +996,54 @@ class GithubMiner(BaseMiner):
             pr_labels_lst = []
             pr_list = []
 
+            it = len(dumped_prs) + 1
             for node in prs.process():
-                logger.debug(f"Ongoing PR: {node.number}")
-                obj = self.db_schema.pull_requests_object(
-                    repo_id=self.repo_id,
-                    number=node.number,
-                    title=node.title,
-                    body=node.body,
-                    author_id=self._get_user_id(login=None, user_object=node.author),
-                    num_files_changed=node.num_files_changed,
-                    created_at=node.created_at,
-                    updated_at=node.updated_at,
-                    additions=node.additions,
-                    deletions=node.deletions,
-                    base_ref_name=node.base_ref_name,
-                    base_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.base_ref_oid),
-                    head_ref_name=node.head_ref_name,
-                    head_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.head_ref_oid),
-                    closed=node.closed,
-                    closed_at=node.closed_at,
-                    merged=node.merged,
-                    merged_at=node.merged_at,
-                    merged_by=self._get_user_id(login=None, user_object=node.merged_by),
-                    milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
-                    positive_reaction_count=node.positive_reaction_count,
-                    negative_reaction_count=node.negative_reaction_count,
-                    ambiguous_reaction_count=node.ambiguous_reaction_count,
-                    state=node.state,
-                    review_decision=node.review_decision
-                )
+                if node.number not in dumped_prs:
+                    print(f"Ongoing {it} --> {node.number}")
+                    it += 1
 
-                pr_assignees_lst.append((node.number, node.assignees))
-                pr_labels_lst.append((node.number, node.labels))
-                pr_list.append(node.number)
+                    logger.debug(f"Ongoing PR: {node.number}")
+                    obj = self.db_schema.pull_requests_object(
+                        repo_id=self.repo_id,
+                        number=node.number,
+                        title=node.title,
+                        body=node.body,
+                        author_id=self._get_user_id(login=None, user_object=node.author),
+                        num_files_changed=node.num_files_changed,
+                        created_at=node.created_at,
+                        updated_at=node.updated_at,
+                        additions=node.additions,
+                        deletions=node.deletions,
+                        base_ref_name=node.base_ref_name,
+                        base_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.base_ref_oid),
+                        head_ref_name=node.head_ref_name,
+                        head_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.head_ref_oid),
+                        closed=node.closed,
+                        closed_at=node.closed_at,
+                        merged=node.merged,
+                        merged_at=node.merged_at,
+                        merged_by=self._get_user_id(login=None, user_object=node.merged_by),
+                        milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
+                        positive_reaction_count=node.positive_reaction_count,
+                        negative_reaction_count=node.negative_reaction_count,
+                        ambiguous_reaction_count=node.ambiguous_reaction_count,
+                        state=node.state,
+                        review_decision=node.review_decision
+                    )
 
-                obj_list.append(obj)
+                    pr_assignees_lst.append((node.number, node.assignees))
+                    pr_labels_lst.append((node.number, node.labels))
+                    pr_list.append(node.number)
 
-                if len(obj_list) % MAX_INSERT_OBJECTS == 0:
-                    logger.debug(f"Inserting {MAX_INSERT_OBJECTS} pull requests...")
-                    self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
-                    obj_list.clear()
-                    logger.debug("Success!")
+                    obj_list.append(obj)
+
+                    if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                        logger.debug(f"Inserting {MAX_INSERT_OBJECTS} pull requests...")
+                        self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
+                        obj_list.clear()
+                        logger.debug("Success!")
+                else:
+                    print("Skipped:", node.number)
 
             logger.info(f"Total Pull Requests: {len(pr_list)}...")
             self._insert(self.db_schema.pull_requests.insert(), obj_list)
