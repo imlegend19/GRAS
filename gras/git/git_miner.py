@@ -136,6 +136,8 @@ class GitMiner(BaseMiner):
 
     @locked
     def __update_contributor(self, name, id_):
+        name = name.replace('"', '""')
+
         self._conn.execute(
             f"""
             UPDATE contributors
@@ -185,7 +187,10 @@ class GitMiner(BaseMiner):
         else:
             diffs = [self.repo.diff(i, commit) for i in commit.parents]
 
+        total_diffs = len(diffs)
         for diff in diffs:
+            print(f"Remaining: {total_diffs}")
+            total_diffs -= 1
             for patch in diff:
                 obj = self.db_schema.code_change_object(
                     repo_id=self.repo_id,
@@ -344,7 +349,7 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            self._parse_commits()
+            # self._parse_commits()
             self._parse_code_change()
 
     def __del__(self):

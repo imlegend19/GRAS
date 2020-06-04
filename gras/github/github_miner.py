@@ -132,10 +132,10 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Pull Tracker Stage', is_stage=True)
     def _pull_tracker_miner(self):
-        try:
-            self._dump_pull_requests()
-        finally:
-            self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
+        # try:
+        #     self._dump_pull_requests()
+        # finally:
+        #     self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
 
         self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
@@ -838,9 +838,12 @@ class GithubMiner(BaseMiner):
                 oid=oid
             )
 
-            obj_list = []
+            for p in com.process():
+                commit = p
 
-            for commit in com.process():
+                if commit is None:
+                    return None
+
                 obj = self.db_schema.commits_object(
                     repo_id=self.repo_id,
                     oid=oid,
@@ -857,9 +860,7 @@ class GithubMiner(BaseMiner):
                     is_merge=commit.is_merge
                 )
 
-                obj_list.append(obj)
-
-            self._insert(object_=self.db_schema.commits.insert(), param=obj_list)
+                self._insert(object_=self.db_schema.commits.insert(), param=obj)
 
     def _dump_code_change(self, oid):
         logger.info(f"Inserting code change for oid: {oid}.")

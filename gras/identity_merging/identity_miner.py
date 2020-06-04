@@ -31,7 +31,7 @@ class Alias:
     Represents an alias of a contributor.
 
     :param id_: ID allotted to the contributor (PRIMARY KEY of `contributors` table)
-    :type id_: int
+    :type id_: int or None
     :param login: `login` of the contributor
     :type login: str or None
     :param name: `name` of the contributor
@@ -79,8 +79,8 @@ class Alias:
                     self.domain = None
                 else:
                     self.email = self.__get_email(email)
-                    self.prefix = self.normalize_unicode_to_ascii(self.email.split("@")[0]).strip()
-                    self.domain = self.normalize_unicode_to_ascii(self.email.split("@")[1].strip())
+                    self.prefix = self.normalize_unicode_to_ascii(self.email.split("@")[0]).replace(' ', '').strip()
+                    self.domain = self.email.split("@")[1].lower().strip()
 
                     if self.domain.strip() == '':
                         self.domain = None
@@ -142,7 +142,7 @@ class Alias:
         if not val.strip():
             val = None
 
-        return self.sort_words(val) if val is not None else None
+        return self.sort_words(val).strip() if val is not None else None
 
     @staticmethod
     def __get_email(str_):
@@ -553,3 +553,76 @@ class IdentityMiner(BaseMiner):
             for pair in temp:
                 if pair[0].id_ != pair[1].id_:
                     yield pair
+
+
+def train_data():
+    file = open("ground_truth.csv", "r")
+
+    pairs = []
+    emails = set()
+
+    reader = csv.reader(file)
+    for row in reader:
+        if reader.line_num == 1:
+            continue
+
+        row = [int(x) if x.isdigit() else x if x else None for x in row]
+        login_1, name_email_1, login_2, name_email_2, result = row
+
+        pattern = re.compile(r'(?<=<)(.*?)(?=>)')
+
+        name_1 = name_email_1.split('<')[0]
+        email_1 = pattern.search(name_email_1).group(0)
+
+        if email_1 == "None":
+            email_1 = None
+        else:
+            emails.add(email_1)
+
+        name_2 = name_email_2.split('<')[0]
+        email_2 = pattern.search(name_email_2).group(0)
+
+        if email_2 == "None":
+            email_2 = None
+        else:
+            emails.add(email_2)
+
+        alias_1 = Alias(
+            id_=None,
+            login=login_1,
+            name=name_1,
+            email=email_1,
+            location=None,
+            is_anonymous=1 if login_1 is None else 0
+        )
+
+        alias_2 = Alias(
+            id_=None,
+            login=login_2,
+            name=name_2,
+            email=email_2,
+            location=None,
+            is_anonymous=1 if login_2 is None else 0
+        )
+
+        pairs.append((alias_1, alias_2, result))
+
+    file.close()
+
+    domain_count = {}
+    for email in emails:
+        domain = email.split('@')[0]
+        domain = re.sub('[^A-Za-z0-9 ]+', '', domain)
+        domain = re.sub(' +', '', domain)
+        if domain in domain_count:
+            domain_count[domain] += 1
+        else:
+            domain_count[domain] = 1
+
+    items = sorted(domain_count.items(), key=lambda x: x[1], reverse=True)
+    from pprint import pprint
+    pprint(items)
+
+
+if __name__ == '__main__':
+    train_data()

@@ -318,7 +318,13 @@ class CommitStructV4(GithubInterface, CommitModelV4):
         if not self.oid:
             for lst in self.iterator():
                 for commit in lst:
-                    yield self.object_decoder(commit)
+                    if not commit:
+                        yield None
+                    else:
+                        yield self.object_decoder(commit)
         else:
             for dic in self.iterator():
-                yield self.object_decoder(dic)
+                if not dic:
+                    yield None
+                else:
+                    yield self.object_decoder(dic)
