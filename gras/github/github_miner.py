@@ -27,10 +27,10 @@ from gras.github.structs.repository_struct import RepositoryStruct
 from gras.github.structs.stargazer_struct import StargazerStruct
 from gras.github.structs.topic_struct import TopicStruct
 from gras.github.structs.watcher_struct import WatcherStruct
-from gras.utils import timing
+from gras.utils import locked, timing
 
 logger = logging.getLogger("main")
-logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
 lock = mp.Lock()
 MAX_INSERT_OBJECTS = 1000
@@ -44,7 +44,7 @@ class GithubMiner(BaseMiner):
         self._engine, self._conn = self._connect_to_db()
         self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
 
-    def _load_from_file(self, file):
+    def load_from_file(self, file):
         pass
 
     def dump_to_file(self, path):
@@ -71,12 +71,8 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Basic Stage', is_stage=True)
     def _basic_miner(self):
-        try:
-            node_ids = self._dump_anon_users()
-            self._dump_users(node_ids=node_ids)
-        finally:
-            self._refactor_table(id_='id', table="contributors", group_by="name, email")
-            self._refactor_table(id_='id', table="contributors", group_by="login, name, email")
+        node_ids = self._dump_anon_users()
+        self._dump_users(node_ids=node_ids)
 
         try:
             self._dump_branches()
@@ -116,12 +112,12 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
-        try:
-            self._dump_issues()
-        finally:
-            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+        # try:
+        #     self._dump_issues()
+        # finally:
+        #     self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
 
-        self._fetch_issue_events()
+        # self._fetch_issue_events()
         self._fetch_issue_comments()
 
     @timing(name='Commit Stage', is_stage=True)
@@ -136,11 +132,11 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Pull Tracker Stage', is_stage=True)
     def _pull_tracker_miner(self):
-        try:
-            self._dump_pull_requests()
-        finally:
-            self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
-    
+        # try:
+        #     self._dump_pull_requests()
+        # finally:
+        #     self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
+
         self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
         self._fetch_pull_request_comments()
@@ -150,10 +146,19 @@ class GithubMiner(BaseMiner):
             name=self.repo_name,
             owner=self.repo_owner
         )
-    
+
+        res = self._conn.execute(
+            f"""
+            SELECT DISTINCT email
+            FROM contributors
+            """
+        ).fetchall()
+
+        dumped_emails = [x[0] for x in res]
+
         node_ids = []
         obj_list = []
-    
+
         for cont in cont_list.process():
             if isinstance(cont, AnonContributorModel):
                 obj = self.db_schema.contributors_object(
@@ -167,25 +172,35 @@ class GithubMiner(BaseMiner):
                     location=None,
                     is_anonymous=1
                 )
-            
-                obj_list.append(obj)
+
+                if cont.email not in dumped_emails:
+                    obj_list.append(obj)
             else:
                 node_ids.append("\"" + cont + "\"")
-    
+
         logger.info("Dumping Anonymous Contributors...")
         self._insert(self.db_schema.contributors.insert(), obj_list)
-    
+
         return node_ids
 
     def _dump_users(self, node_ids):
         assert isinstance(node_ids, list)
-    
+
+        res = self._conn.execute(
+            f"""
+            SELECT DISTINCT login
+            FROM contributors
+            """
+        ).fetchall()
+
+        dumped_login = [x[0] for x in res]
+
         for i in range(0, len(node_ids), 100):
             ids_str = ",".join(node_ids[i:i + 100])
             users = UserNodesStruct(
                 node_ids=ids_str
             )
-        
+
             obj_list = []
             for node in users.process():
                 obj = self.db_schema.contributors_object(
@@ -198,20 +213,21 @@ class GithubMiner(BaseMiner):
                     total_followers=node.total_followers,
                     location=node.location
                 )
-            
-                obj_list.append(obj)
-        
+
+                if node.login not in dumped_login:
+                    obj_list.append(obj)
+
             logger.info("Dumping Other Contributors...")
             self._insert(self.db_schema.contributors.insert(), obj_list)
 
     def _dump_repository(self):
         logger.info("Dumping Repository...")
-    
+
         repo = RepositoryStruct(
             name=self.repo_name,
             owner=self.repo_owner
         ).process()
-    
+
         obj = self.db_schema.repository_object(
             name=self.repo_name,
             owner=self.repo_owner,
@@ -227,17 +243,17 @@ class GithubMiner(BaseMiner):
             total_watchers=repo.watcher_count,
             forked_from=repo.forked_from
         )
-    
+
         self._insert(self.db_schema.repository.insert(), obj)
         self._set_repo_id()
-    
+
     @timing(name='languages')
     def _dump_languages(self):
         lang = LanguageStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+
         obj_list = []
         for node in lang.process():
             obj = self.db_schema.languages_object(
@@ -245,19 +261,19 @@ class GithubMiner(BaseMiner):
                 name=node.language,
                 size=node.size
             )
-            
+
             obj_list.append(obj)
-        
+
         logger.info("Dumping Languages...")
         self._insert(self.db_schema.languages.insert(), obj_list)
-    
+
     @timing(name='milestones')
     def _dump_milestones(self):
         milestones = MilestoneStruct(
             name=self.repo_name,
             owner=self.repo_owner
         )
-        
+
         obj_list = []
         for node in milestones.process():
             obj = self.db_schema.milestones_object(
@@ -272,9 +288,9 @@ class GithubMiner(BaseMiner):
                 updated_at=node.updated_at,
                 state=node.state
             )
-            
+
             obj_list.append(obj)
-        
+
         logger.info("Dumping Milestones...")
         self._insert(self.db_schema.milestones.insert(), obj_list)
 
@@ -329,7 +345,7 @@ class GithubMiner(BaseMiner):
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                 self._insert(object_=self.db_schema.watchers.insert(), param=obj_list)
                 obj_list.clear()
-        
+
         self._insert(self.db_schema.watchers.insert(), obj_list)
 
     @timing(name='forks')
@@ -376,9 +392,9 @@ class GithubMiner(BaseMiner):
                 total_stargazers=node.stargazer_count,
                 url=node.url
             )
-            
+
             obj_list.append(obj)
-        
+
         self._insert(self.db_schema.topics.insert(), obj_list)
 
     @timing(name='releases')
@@ -403,7 +419,7 @@ class GithubMiner(BaseMiner):
                 is_prerelease=node.is_prerelease,
                 tag=node.tag_name
             )
-            
+
             obj_list.append(obj)
 
         self._insert(self.db_schema.releases.insert(), obj_list)
@@ -425,7 +441,7 @@ class GithubMiner(BaseMiner):
                 name=node.name,
                 target_commit_id=node.commit_id
             )
-            
+
             obj_list.append(obj)
 
         self._insert(self.db_schema.branches.insert(), obj_list)
@@ -482,6 +498,15 @@ class GithubMiner(BaseMiner):
 
             self._insert(self.db_schema.issues.insert(), obj)
         else:
+            res = self._conn.execute(
+                f"""
+                SELECT DISTINCT number
+                FROM issues
+                """
+            ).fetchall()
+
+            dumped_issues = [x[0] for x in res]
+
             if self.full:
                 logger.info("Dumping Issues...")
                 issues = IssueStruct(
@@ -503,38 +528,43 @@ class GithubMiner(BaseMiner):
             issue_labels_lst = []
             issue_list = []
 
-            it = 0
+            it = len(dumped_issues) + 1
             for node in issues.process():
-                print(f"Ongoing {it} --> {node.number}")
-                it += 1
-                obj = self.db_schema.issues_object(
-                    number=node.number,
-                    repo_id=self.repo_id,
-                    created_at=node.created_at,
-                    updated_at=node.updated_at,
-                    closed_at=node.closed_at,
-                    title=node.title,
-                    body=node.body,
-                    reporter_id=self._get_user_id(login=None, user_object=node.author),
-                    milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
-                    positive_reaction_count=node.positive_reaction_count,
-                    negative_reaction_count=node.negative_reaction_count,
-                    ambiguous_reaction_count=node.ambiguous_reaction_count,
-                    state=node.state
-                )
+                if node.number not in dumped_issues:
+                    print(f"Ongoing {it} --> {node.number}")
+                    it += 1
 
-                issue_assignees_lst.append((node.number, node.assignees))
-                issue_labels_lst.append((node.number, node.labels))
+                    obj = self.db_schema.issues_object(
+                        number=node.number,
+                        repo_id=self.repo_id,
+                        created_at=node.created_at,
+                        updated_at=node.updated_at,
+                        closed_at=node.closed_at,
+                        title=node.title,
+                        body=node.body,
+                        reporter_id=self._get_user_id(login=None, user_object=node.author),
+                        milestone_id=self._get_table_id(table='milestones', field='number',
+                                                        value=node.milestone_number),
+                        positive_reaction_count=node.positive_reaction_count,
+                        negative_reaction_count=node.negative_reaction_count,
+                        ambiguous_reaction_count=node.ambiguous_reaction_count,
+                        state=node.state
+                    )
 
-                if node.number not in issue_list:
-                    issue_list.append(node.number)
-                    obj_list.append(obj)
+                    issue_assignees_lst.append((node.number, node.assignees))
+                    issue_labels_lst.append((node.number, node.labels))
 
-                if len(obj_list) % MAX_INSERT_OBJECTS == 0:
-                    logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
-                    self._insert(object_=self.db_schema.issues.insert(), param=obj_list)
-                    obj_list.clear()
-                    logger.debug("Success!")
+                    if node.number not in issue_list:
+                        issue_list.append(node.number)
+                        obj_list.append(obj)
+
+                    if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                        logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
+                        self._insert(object_=self.db_schema.issues.insert(), param=obj_list)
+                        obj_list.clear()
+                        logger.debug("Success!")
+                else:
+                    print("Skipped:", node.number)
 
             logger.info(f"Total Issues: {len(issue_list)}...")
             self._insert(self.db_schema.issues.insert(), obj_list)
@@ -556,7 +586,7 @@ class GithubMiner(BaseMiner):
                     issue_id=self._get_table_id(table="issues", field="number", value=number),
                     assignee_id=self._get_user_id(login=assignee_login)
                 )
-                
+
                 obj_list.append(obj)
 
         self._insert(self.db_schema.issue_assignees.insert(), obj_list)
@@ -575,11 +605,11 @@ class GithubMiner(BaseMiner):
                     issue_id=self._get_table_id(table="issues", field="number", value=number),
                     label_id=self._get_table_id('labels', 'name', label_name)
                 )
-                
+
                 obj_list.append(obj)
 
         self._insert(self.db_schema.issue_labels.insert(), obj_list)
-    
+
     def _events_object_list(self, events, id_, type_):
         obj_list = []
 
@@ -625,7 +655,7 @@ class GithubMiner(BaseMiner):
                     obj_list.clear()
 
         return obj_list
-    
+
     def _dump_issue_events(self, number):
         issue_event = EventDetailStruct(
             name=self.repo_name,
@@ -747,13 +777,20 @@ class GithubMiner(BaseMiner):
             for branch in self.__get_branches():
                 logger.info(f"Dumping commits for branch {branch}...")
 
-                commits = CommitStructV4(
-                    name=self.repo_name,
-                    owner=self.repo_owner,
-                    start_date=self.start_date,
-                    end_date=self.end_date,
-                    branch=branch
-                )
+                if self.full:
+                    commits = CommitStructV4(
+                        name=self.repo_name,
+                        owner=self.repo_owner,
+                        branch=branch
+                    )
+                else:
+                    commits = CommitStructV4(
+                        name=self.repo_name,
+                        owner=self.repo_owner,
+                        start_date=self.start_date,
+                        end_date=self.end_date,
+                        branch=branch
+                    )
 
                 obj_list = []
 
@@ -801,9 +838,12 @@ class GithubMiner(BaseMiner):
                 oid=oid
             )
 
-            obj_list = []
+            for p in com.process():
+                commit = p
 
-            for commit in com.process():
+                if commit is None:
+                    return None
+
                 obj = self.db_schema.commits_object(
                     repo_id=self.repo_id,
                     oid=oid,
@@ -820,9 +860,7 @@ class GithubMiner(BaseMiner):
                     is_merge=commit.is_merge
                 )
 
-                obj_list.append(obj)
-
-            self._insert(object_=self.db_schema.commits.insert(), param=obj_list)
+                self._insert(object_=self.db_schema.commits.insert(), param=obj)
 
     def _dump_code_change(self, oid):
         logger.info(f"Inserting code change for oid: {oid}.")
@@ -853,18 +891,18 @@ class GithubMiner(BaseMiner):
             obj_list.append(obj)
 
         self._insert(object_=self.db_schema.code_change.insert(), param=obj_list)
-    
+
     @timing(name='commit_comments')
     def _dump_commit_comments(self):
         logger.info("Dumping Commit Comments...")
-        
+
         commit_comments = CommitCommentStruct(
             name=self.repo_name,
             owner=self.repo_owner,
         )
-        
+
         obj_list = []
-        
+
         for node in commit_comments.process():
             obj = self.db_schema.commit_comments_object(
                 repo_id=self.repo_id,
@@ -885,7 +923,7 @@ class GithubMiner(BaseMiner):
             if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                 self._insert(object_=self.db_schema.commit_comments.insert(), param=obj_list)
                 obj_list.clear()
-        
+
         self._insert(object_=self.db_schema.commit_comments.insert(), param=obj_list)
 
     @timing(name='pull_requests')
@@ -927,6 +965,15 @@ class GithubMiner(BaseMiner):
 
             self._insert(self.db_schema.pull_requests.insert(), obj)
         else:
+            res = self._conn.execute(
+                f"""
+                SELECT DISTINCT number
+                FROM pull_requests
+                """
+            ).fetchall()
+
+            dumped_prs = [x[0] for x in res]
+
             if self.full:
                 logger.info("Dumping Pull Requests...")
                 prs = PullRequestStruct(
@@ -950,47 +997,54 @@ class GithubMiner(BaseMiner):
             pr_labels_lst = []
             pr_list = []
 
+            it = len(dumped_prs) + 1
             for node in prs.process():
-                logger.debug(f"Ongoing PR: {node.number}")
-                obj = self.db_schema.pull_requests_object(
-                    repo_id=self.repo_id,
-                    number=node.number,
-                    title=node.title,
-                    body=node.body,
-                    author_id=self._get_user_id(login=None, user_object=node.author),
-                    num_files_changed=node.num_files_changed,
-                    created_at=node.created_at,
-                    updated_at=node.updated_at,
-                    additions=node.additions,
-                    deletions=node.deletions,
-                    base_ref_name=node.base_ref_name,
-                    base_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.base_ref_oid),
-                    head_ref_name=node.head_ref_name,
-                    head_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.head_ref_oid),
-                    closed=node.closed,
-                    closed_at=node.closed_at,
-                    merged=node.merged,
-                    merged_at=node.merged_at,
-                    merged_by=self._get_user_id(login=None, user_object=node.merged_by),
-                    milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
-                    positive_reaction_count=node.positive_reaction_count,
-                    negative_reaction_count=node.negative_reaction_count,
-                    ambiguous_reaction_count=node.ambiguous_reaction_count,
-                    state=node.state,
-                    review_decision=node.review_decision
-                )
+                if node.number not in dumped_prs:
+                    print(f"Ongoing {it} --> {node.number}")
+                    it += 1
 
-                pr_assignees_lst.append((node.number, node.assignees))
-                pr_labels_lst.append((node.number, node.labels))
-                pr_list.append(node.number)
+                    logger.debug(f"Ongoing PR: {node.number}")
+                    obj = self.db_schema.pull_requests_object(
+                        repo_id=self.repo_id,
+                        number=node.number,
+                        title=node.title,
+                        body=node.body,
+                        author_id=self._get_user_id(login=None, user_object=node.author),
+                        num_files_changed=node.num_files_changed,
+                        created_at=node.created_at,
+                        updated_at=node.updated_at,
+                        additions=node.additions,
+                        deletions=node.deletions,
+                        base_ref_name=node.base_ref_name,
+                        base_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.base_ref_oid),
+                        head_ref_name=node.head_ref_name,
+                        head_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.head_ref_oid),
+                        closed=node.closed,
+                        closed_at=node.closed_at,
+                        merged=node.merged,
+                        merged_at=node.merged_at,
+                        merged_by=self._get_user_id(login=None, user_object=node.merged_by),
+                        milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
+                        positive_reaction_count=node.positive_reaction_count,
+                        negative_reaction_count=node.negative_reaction_count,
+                        ambiguous_reaction_count=node.ambiguous_reaction_count,
+                        state=node.state,
+                        review_decision=node.review_decision
+                    )
 
-                obj_list.append(obj)
+                    pr_assignees_lst.append((node.number, node.assignees))
+                    pr_labels_lst.append((node.number, node.labels))
+                    pr_list.append(node.number)
 
-                if len(obj_list) % MAX_INSERT_OBJECTS == 0:
-                    logger.debug(f"Inserting {MAX_INSERT_OBJECTS} pull requests...")
-                    self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
-                    obj_list.clear()
-                    logger.debug("Success!")
+                    obj_list.append(obj)
+
+                    if len(obj_list) % MAX_INSERT_OBJECTS == 0:
+                        logger.debug(f"Inserting {MAX_INSERT_OBJECTS} pull requests...")
+                        self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
+                        obj_list.clear()
+                        logger.debug("Success!")
+                else:
+                    print("Skipped:", node.number)
 
             logger.info(f"Total Pull Requests: {len(pr_list)}...")
             self._insert(self.db_schema.pull_requests.insert(), obj_list)
@@ -1012,9 +1066,9 @@ class GithubMiner(BaseMiner):
                     pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
                     assignee_id=self._get_user_id(login=assignee_login)
                 )
-                
+
                 obj_list.append(obj)
-                
+
                 if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                     self._insert(object_=self.db_schema.pull_request_assignees.insert(), param=obj_list)
                     obj_list.clear()
@@ -1133,16 +1187,31 @@ class GithubMiner(BaseMiner):
                     number = process[future]
                     future.result()
                     logger.debug(f"Inserted Comments for PR number: {number}")
-    
-    def _get_user_id(self, login, user_object=None, name=None, email=None):
-        if not login and user_object:
+
+    @locked
+    def __check_user(self, login, name=None, email=None):
+        if login:
             res = self._conn.execute(
                 f"""
                 SELECT id
                 FROM contributors
-                WHERE login="{user_object.login}"
+                WHERE login="{login}"
                 """
             ).fetchone()
+        else:
+            res = self._conn.execute(
+                f"""
+                SELECT id
+                FROM contributors
+                WHERE name="{name}" AND email="{email}"
+                """
+            ).fetchone()
+
+        return res
+
+    def _get_user_id(self, login, user_object=None, name=None, email=None):
+        if not login and user_object:
+            res = self.__check_user(login=user_object.login)
 
             if not res:
                 has_dumped = self._dump_user_object(login=None, user_object=user_object,
@@ -1154,13 +1223,7 @@ class GithubMiner(BaseMiner):
             else:
                 return res[0]
         elif login:
-            res = self._conn.execute(
-                f"""
-                SELECT id
-                FROM contributors
-                WHERE login="{login}"
-                """
-            ).fetchone()
+            res = self.__check_user(login=login)
 
             if not res:
                 has_dumped = self._dump_user_object(login=login, object_=self.db_schema.contributors.insert())
@@ -1171,13 +1234,7 @@ class GithubMiner(BaseMiner):
             else:
                 return res[0]
         elif name and email:
-            res = self._conn.execute(
-                f"""
-                SELECT id
-                FROM contributors
-                WHERE name="{name}" AND email="{email}"
-                """
-            ).fetchone()
+            res = self.__check_user(login=None, name=name, email=email)
 
             if not res:
                 has_dumped = self._dump_anon_user_object(name=name, email=email,
@@ -1190,11 +1247,9 @@ class GithubMiner(BaseMiner):
                 return res[0]
         else:
             return None
-    
-    def _get_table_id(self, table, field, value, pk='id', toggle=False):
-        if value is None:
-            return None
 
+    @locked
+    def __check_table(self, pk, table, field, value):
         res = self._conn.execute(
             f"""
             SELECT {pk}
@@ -1202,6 +1257,14 @@ class GithubMiner(BaseMiner):
             WHERE {field}="{value}" AND repo_id={self.repo_id}
             """
         ).fetchone()
+
+        return res
+
+    def _get_table_id(self, table, field, value, pk='id', toggle=False):
+        if value is None:
+            return None
+
+        res = self.__check_table(pk, table, field, value)
 
         if not res:
             if table == "commits":
@@ -1279,6 +1342,6 @@ class GithubMiner(BaseMiner):
 
         for branch in res:
             yield branch[0]
-    
+
     def __del__(self):
         self._close_the_db()

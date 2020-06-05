@@ -15,34 +15,34 @@ class CPythonMiner(BaseMiner):
             super().__init__(args=args)
         except AttributeError:
             pass
-        
+
         self.url = url
         self.path = path
-        
+
         self.files = [f for f in listdir(self.path) if isfile(join(self.path, f))]
         self.files.sort(key=lambda x: datetime.strptime(x.split('.')[0], "%Y-%B"))
-        
+
         self.process()
-    
-    def _load_from_file(self, file):
+
+    def load_from_file(self, file):
         pass
-    
+
     def dump_to_file(self, path):
         pass
-    
+
     def download_files(self):
         downloader = Downloader(url=self.url, path=self.path)
         downloader.process()
-    
+
     @staticmethod
     def _parse(path):
         issues = {}
-        
+
         with open(path, "r") as fp:
             obj = {}
             toggle = False
             message = []
-            
+
             for line in fp.readlines():
                 if not toggle:
                     if BUGS_URL in line and "http://" not in line:
@@ -51,7 +51,7 @@ class CPythonMiner(BaseMiner):
                         value = line[line.find("<") + 1:line.find(">")]
                         obj["number"] = int(value.split("issue")[-1])
                         issues[value.strip()] = obj.copy()
-                        
+
                         obj.clear()
                         message.clear()
                     elif "New submission from" in line:
@@ -60,12 +60,12 @@ class CPythonMiner(BaseMiner):
                             obj["author_email"] = value[value.find("<") + 1:value.find(">")].strip()
                         else:
                             obj["author_email"] = None
-                        
+
                         toggle = True
                     elif ":" in line:
                         temp = line.split(":", maxsplit=1)
                         key, value = temp[0].strip().lower(), temp[1].strip()
-                        
+
                         if key == "from":
                             key = "author"
                             value = value[value.find("(") + 1:value.find(")")].strip()
@@ -83,7 +83,7 @@ class CPythonMiner(BaseMiner):
                         else:
                             print(key)
                             continue
-                        
+
                         obj[key] = value
                     else:
                         continue
@@ -93,17 +93,17 @@ class CPythonMiner(BaseMiner):
                         toggle = False
                     else:
                         message.append(line.strip())
-        
+
         return issues
-    
+
     def process(self):
         from pprint import pprint
-        
+
         for f in self.files:
             issues = self._parse(join(self.path, f))
             for iss in issues:
                 pprint(issues[iss])
-            
+
             break
 
 

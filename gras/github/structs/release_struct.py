@@ -59,7 +59,7 @@ class ReleaseStruct(GithubInterface, ReleaseModel):
     def __init__(self, name, owner):
         """Constructor method
         """
-    
+
         super().__init__(
             query=self.RELEASE_QUERY,
             query_params=dict(name=name, owner=owner, after="null"),
@@ -72,10 +72,10 @@ class ReleaseStruct(GithubInterface, ReleaseModel):
             :return: a single API response or a list of responses
             :rtype: generator<dict>
         """
-    
+
         generator = self._generator()
         hasNextPage = True
-    
+
         while hasNextPage:
             try:
                 response = next(generator)

@@ -29,7 +29,7 @@ class CircularQueue:
         self.__nodes: list = [None for _ in range(n)]
         self.__n: int = n
         self.__pointer = 0
-    
+
     def enqueue(self, node):
         if self.__nodes[self.__pointer] is None:
             self.__nodes[self.__pointer] = node
@@ -67,7 +67,7 @@ def reaction_count(dic, decider) -> int:
     :return: corresponding reaction count
     :rtype int
     """
-    
+
     reaction_decider = {
         'THUMBS_UP'  : 1,
         'LAUGH'      : 1,
@@ -78,31 +78,31 @@ def reaction_count(dic, decider) -> int:
         'ROCKET'     : 0,
         'EYES'       : 0
     }
-    
+
     count = 0
-    
+
     for obj in dic:
         if reaction_decider[obj[IssueStatic.CONTENT]] == decider:
             count += obj[UserStatic.USERS][APIStaticV4.TOTAL_COUNT]
-    
+
     return count
 
 
 def time_period_chunks(start_date, end_date, chunk_size=400):
     dt_start = parser.parse(start_date)
     dt_end = parser.parse(end_date)
-    
+
     assert dt_start < dt_end
-    
+
     while True:
         end = dt_start + datetime.timedelta(days=chunk_size)
-        
+
         if end > dt_end:
             yield dt_start.isoformat(), dt_end.isoformat()
             break
         else:
             yield dt_start.isoformat(), end.isoformat()
-        
+
         dt_start = end - datetime.timedelta(days=1)
 
 
@@ -119,7 +119,7 @@ def waiting_animation(n, msg):
     sys.stdout.write(f'\r {msg} ' + dots)
     sys.stdout.flush()
     time.sleep(0.5)
-    
+
     return n
 
 
@@ -162,37 +162,37 @@ def deprecated(instructions):
     :param instructions: A human-friendly string of instructions, such
             as: 'Please migrate to function() ASAP.'
     """
-    
+
     def decorator(func):
         """
         This is a decorator which can be used to mark functions
         as deprecated. It will result in a warning being emitted
         when the function is used.
         """
-        
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             message = 'Call to deprecated function {}. {}'.format(
                 func.__name__,
                 instructions)
-            
+
             frame = inspect.currentframe().f_back
-            
+
             warnings.warn_explicit(message,
                                    category=DeprecatedWarning,
                                    filename=inspect.getfile(frame.f_code),
                                    lineno=frame.f_lineno)
-            
+
             return func(*args, **kwargs)
-        
+
         return wrapper
-    
+
     return decorator
 
 
 def locked(func):
     """
-    A decorator to wrap the function with :class:`~multiprocessing.Lock`. This ensure that
+    A decorator to wrap the function with :class:`~multiprocessing.Lock`. This ensures that
     only 1 Process can execute the function at a time.
     
     :param func: Function
@@ -205,15 +205,15 @@ def locked(func):
         >>>     ...
         >>>
     """
-    
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         lock.acquire()
         result = func(*args, **kwargs)
         lock.release()
-        
+
         return result
-    
+
     return wrapper
 
 
@@ -237,10 +237,10 @@ def timing(func=None, *, name=None, is_stage=None):
         >>>     ...
         >>>
     """
-    
+
     if func is None:
         return partial(timing, name=name, is_stage=is_stage)
-    
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         start = timer()
@@ -284,10 +284,10 @@ def exception_handler(func=None, *, retries=3, exceptions_to_catch=Exception, ex
         >>>     ...
         >>>
     """
-    
+
     if func is None:
         return partial(exception_handler)
-    
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         for _ in range(retries):
@@ -295,12 +295,12 @@ def exception_handler(func=None, *, retries=3, exceptions_to_catch=Exception, ex
                 return func(*args, **kwargs)
             except exceptions_to_catch:
                 pass
-        
+
         if msg is None or not issubclass(exception_to_raise, GrasError):
             raise exception_to_raise
         else:
             raise exception_to_raise(msg=msg)
-    
+
     return wrapper
 
 
@@ -311,9 +311,9 @@ def set_up_token_queue(tokens):
     :param tokens: list of tokens
     """
     global TOKEN_QUEUE
-    
+
     TOKEN_QUEUE = CircularQueue(n=len(tokens))
-    
+
     for token in tokens:
         TOKEN_QUEUE.enqueue(token)
 

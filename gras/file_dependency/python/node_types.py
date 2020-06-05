@@ -4,7 +4,7 @@ from ast import Attribute, Call, Name
 
 class BaseType(ABC):
     __slots__ = ("type_", "subtype")
-    
+
     def __init__(self, subtype):
         self.type_ = type(self)
         self.subtype = subtype
@@ -29,12 +29,12 @@ class GlobalVariable(BaseType):
 class CallTree:
     def __init__(self, node):
         self.__set_values(node)
-        
+
         if isinstance(node.func, Attribute):
             self.parent = AttributeTree(node=node.func)
         else:
             self.parent = None
-    
+
     def __set_values(self, node):
         if isinstance(node, Attribute):
             self.name = node.attr
@@ -57,12 +57,12 @@ class CallTree:
 class AttributeTree:
     def __init__(self, node):
         self.__set_values(node)
-        
+
         if isinstance(node.value, Attribute):
             self.parent = AttributeTree(node=node.value)
         else:
             self.parent = None
-    
+
     def __set_values(self, node):
         if isinstance(node, Attribute):
             self.name = node.attr

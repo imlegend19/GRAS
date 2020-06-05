@@ -9,7 +9,7 @@ class RepositoryModel(BaseModel):
     def __init__(self, created_at, updated_at, disk_usage, url, name, description, fork_count,
                  homepage_url, is_archived, is_fork, primary_language, stargazer_count, watcher_count, forked_from):
         super().__init__()
-        
+
         self.name = name
         self.description = description
         self.fork_count = fork_count
@@ -24,7 +24,7 @@ class RepositoryModel(BaseModel):
         self.disk_usage = disk_usage
         self.updated_at = updated_at
         self.created_at = created_at
-    
+
     def object_decoder(self, dic):
         obj = RepositoryModel(
             name=dic[UserStatic.NAME],
@@ -43,14 +43,14 @@ class RepositoryModel(BaseModel):
             stargazer_count=dic[RepositoryStatic.STARGAZERS][APIStaticV4.TOTAL_COUNT],
             watcher_count=dic[RepositoryStatic.WATCHERS][APIStaticV4.TOTAL_COUNT],
         )
-        
+
         return obj
 
 
 class MilestoneModel(BaseModel):
     def __init__(self, closed_at, created_at, creator_login, description, due_on, state, title, updated_at, number):
         super().__init__()
-        
+
         self.number = number
         self.title = title
         self.state = state
@@ -60,7 +60,7 @@ class MilestoneModel(BaseModel):
         self.created_at = created_at
         self.updated_at = updated_at
         self.closed_at = closed_at
-    
+
     def object_decoder(self, dic):
         obj = MilestoneModel(
             number=dic[APIStaticV4.NUMBER],
@@ -73,17 +73,17 @@ class MilestoneModel(BaseModel):
             updated_at=dic[APIStaticV4.UPDATED_AT],
             closed_at=dic[MilestoneStatic.CLOSED_AT],
         )
-        
+
         return obj
 
 
 class StargazerModel(BaseModel):
     def __init__(self, user, starred_at):
         super().__init__()
-        
+
         self.user = user
         self.starred_at = starred_at
-    
+
     def object_decoder(self, dic):
         obj = StargazerModel(
             starred_at=dic[RepositoryStatic.STARRED_AT],
@@ -98,50 +98,50 @@ class StargazerModel(BaseModel):
                 updated_at=dic[APIStaticV4.NODE][APIStaticV4.UPDATED_AT]
             )
         )
-        
+
         return obj
 
 
 class LabelModel(BaseModel):
     def __init__(self, color, name, created_at):
         super().__init__()
-        
+
         self.color = color
         self.name = name
         self.created_at = created_at
-    
+
     def object_decoder(self, dic):
         obj = LabelModel(
             color=dic[APIStaticV4.NODE][LabelStatic.COLOR],
             name=dic[APIStaticV4.NODE][UserStatic.NAME],
             created_at=dic[APIStaticV4.NODE][APIStaticV4.CREATED_AT],
         )
-        
+
         return obj
 
 
 class BranchModel(BaseModel):
     def __init__(self, name, commit_id):
         super().__init__()
-        
+
         self.commit_id = commit_id
         self.name = name
-    
+
     def object_decoder(self, dic):
         obj = BranchModel(
             name=dic[UserStatic.NAME],
             commit_id=dic[RepositoryStatic.TARGET][APIStaticV4.OID],
         )
-        
+
         return obj
 
 
 class WatcherModel(BaseModel):
     def __init__(self, user):
         super().__init__()
-        
+
         self.user = user
-    
+
     def object_decoder(self, dic):
         obj = WatcherModel(
             user=UserModel(
@@ -155,23 +155,23 @@ class WatcherModel(BaseModel):
                 updated_at=dic[APIStaticV4.UPDATED_AT]
             )
         )
-        
+
         return obj
 
 
 class LanguageModel(BaseModel):
     def __init__(self, language, size):
         super().__init__()
-        
+
         self.language = language
         self.size = size
-    
+
     def object_decoder(self, dic):
         obj = LanguageModel(
             language=dic[APIStaticV4.NODE][UserStatic.NAME],
             size=dic[RepositoryStatic.SIZE] / 1024,
         )
-        
+
         return obj
 
 
@@ -202,9 +202,13 @@ class IssueModel(BaseModel):
         else:
             user = dic[IssueStatic.AUTHOR]
             author = UserModel(
-                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
-                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
-                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                user_type=user[APIStaticV4.TYPE],
+                login=user[UserStatic.LOGIN],
+                name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL],
+                created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION],
+                updated_at=user[APIStaticV4.UPDATED_AT],
                 total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
             )
 
@@ -225,7 +229,7 @@ class IssueModel(BaseModel):
             ambiguous_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
             state=dic[IssueStatic.STATE]
         )
-        
+
         return obj
 
 
@@ -233,7 +237,7 @@ class CommentModel(BaseModel):
     def __init__(self, author_login, body, created_at, updated_at, is_minimized, minimized_reason,
                  positive_reaction_count, negative_reaction_count, ambiguous_reaction_count):
         super().__init__()
-        
+
         self.updated_at = updated_at
         self.author_login = author_login
         self.body = body
@@ -243,7 +247,7 @@ class CommentModel(BaseModel):
         self.positive_reaction_count = positive_reaction_count
         self.negative_reaction_count = negative_reaction_count
         self.ambiguous_reaction_count = ambiguous_reaction_count
-    
+
     def object_decoder(self, dic):
         obj = CommentModel(
             created_at=dic[APIStaticV4.CREATED_AT],
@@ -256,25 +260,25 @@ class CommentModel(BaseModel):
             is_minimized=dic[IssueStatic.IS_MINIMIZED],
             minimized_reason=dic[IssueStatic.MINIMIZED_REASON]
         )
-        
+
         return obj
 
 
 class FileModel(BaseModel):
     def __init__(self, path, additions, deletions):
         super().__init__()
-        
+
         self.path = path
         self.additions = additions
         self.deletions = deletions
-    
+
     def object_decoder(self, dic):
         obj = FileModel(
             path=dic[IssueStatic.FILE_PATH],
             additions=dic[IssueStatic.ADDITIONS],
             deletions=dic[IssueStatic.DELETIONS]
         )
-        
+
         return obj
 
 
@@ -284,7 +288,7 @@ class PullRequestModel(BaseModel):
                  merged, merged_at, merged_by, milestone_number, positive_reaction_count,
                  negative_reaction_count, ambiguous_reaction_count, state, review_decision):
         super().__init__()
-        
+
         self.number = number
         self.title = title
         self.body = body
@@ -311,30 +315,38 @@ class PullRequestModel(BaseModel):
         self.ambiguous_reaction_count = ambiguous_reaction_count
         self.state = state
         self.review_decision = review_decision
-    
+
     def object_decoder(self, dic):
-        if dic[IssueStatic.AUTHOR] is None:
+        if dic[IssueStatic.AUTHOR] is None or dic[IssueStatic.AUTHOR] == {}:
             author = None
         else:
             user = dic[IssueStatic.AUTHOR]
             author = UserModel(
-                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
-                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
-                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                user_type=user[APIStaticV4.TYPE],
+                login=user[UserStatic.LOGIN],
+                name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL],
+                created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION],
+                updated_at=user[APIStaticV4.UPDATED_AT],
                 total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
             )
-        
-        if dic[IssueStatic.MERGED_BY] is None:
+
+        if dic[IssueStatic.MERGED_BY] is None or dic[IssueStatic.MERGED_BY] == {}:
             merged_by = None
         else:
             user = dic[IssueStatic.MERGED_BY]
             merged_by = UserModel(
-                user_type=user[APIStaticV4.TYPE], login=user[UserStatic.LOGIN], name=user[UserStatic.NAME],
-                email=user[UserStatic.EMAIL], created_at=user[APIStaticV4.CREATED_AT],
-                location=user[UserStatic.LOCATION], updated_at=user[APIStaticV4.UPDATED_AT],
+                user_type=user[APIStaticV4.TYPE],
+                login=user[UserStatic.LOGIN],
+                name=user[UserStatic.NAME],
+                email=user[UserStatic.EMAIL],
+                created_at=user[APIStaticV4.CREATED_AT],
+                location=user[UserStatic.LOCATION],
+                updated_at=user[APIStaticV4.UPDATED_AT],
                 total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
             )
-        
+
         obj = PullRequestModel(
             number=dic[APIStaticV4.NUMBER],
             title=dic[IssueStatic.TITLE],
@@ -372,30 +384,30 @@ class PullRequestModel(BaseModel):
 class PullRequestCommitModel(BaseModel):
     def __init__(self, num, oid):
         super().__init__()
-        
+
         self.num = num
         self.oid = oid
-    
+
     def object_decoder(self, num, dic):
         obj = PullRequestCommitModel(
             num=num,
             oid=dic[CommitStatic.COMMIT][APIStaticV4.OID]
         )
-        
+
         return obj
 
 
 class AssetModel(BaseModel):
     def __init__(self, download_count, name, size, updated_at, content_type, created_at):
         super().__init__()
-        
+
         self.download_count = download_count
         self.name = name
         self.size = size
         self.updated_at = updated_at
         self.content_type = content_type
         self.created_at = created_at
-    
+
     @staticmethod
     def object_decoder(dic, **kwargs):
         obj = AssetModel(
@@ -406,14 +418,14 @@ class AssetModel(BaseModel):
             content_type=dic[ReleaseStatic.CONTENT_TYPE],
             created_at=dic[APIStaticV4.CREATED_AT],
         )
-        
+
         return obj
 
 
 class ReleaseModel(BaseModel):
     def __init__(self, author_login, description, created_at, isPrerelease, name, release_assets, tag_name, updated_at):
         super().__init__()
-        
+
         self.author_login = author_login
         self.description = description
         self.created_at = created_at
@@ -422,7 +434,7 @@ class ReleaseModel(BaseModel):
         self.release_assets = release_assets
         self.tag_name = tag_name
         self.updated_at = updated_at
-    
+
     def object_decoder(self, dic):
         obj = ReleaseModel(
             author_login=dic[ReleaseStatic.AUTHOR][
@@ -436,7 +448,7 @@ class ReleaseModel(BaseModel):
             tag_name=dic[ReleaseStatic.TAG_NAME],
             updated_at=dic[APIStaticV4.UPDATED_AT],
         )
-        
+
         return obj
 
 
@@ -444,7 +456,7 @@ class CommitModelV3(BaseModel):
     def __init__(self, commit_id, author_login, author_name, author_email, authored_date, committed_date,
                  committer_name, committer_email, committer_login, msg, is_merge):
         super().__init__()
-        
+
         self.commit_id = commit_id
         self.author_name = author_name
         self.author_email = author_email
@@ -456,7 +468,7 @@ class CommitModelV3(BaseModel):
         self.committer_login = committer_login
         self.msg = msg
         self.is_merge = is_merge
-    
+
     def object_decoder(self, dic, merge):
         obj = CommitModelV3(
             commit_id=dic[CommitStatic.SHA],
@@ -479,7 +491,7 @@ class CommitModelV3(BaseModel):
             msg=dic[CommitStatic.COMMIT][CommitStatic.MESSAGE],
             is_merge=merge
         )
-        
+
         return obj
 
 
@@ -488,7 +500,7 @@ class CommitModelV4(BaseModel):
                  committer_name, committer_email, committer_login, committed_date, message, num_changed_files,
                  is_merge):
         super().__init__()
-        
+
         self.commit_id = commit_id
         self.additions = additions
         self.deletions = deletions
@@ -503,7 +515,7 @@ class CommitModelV4(BaseModel):
         self.message = message
         self.num_changed_files = num_changed_files
         self.is_merge = is_merge
-    
+
     def object_decoder(self, dic):
         obj = CommitModelV4(
             commit_id=dic[APIStaticV4.OID],
@@ -523,7 +535,7 @@ class CommitModelV4(BaseModel):
             num_changed_files=dic[CommitStatic.CHANGED_FILES],
             is_merge=True if dic[CommitStatic.PARENTS][APIStaticV4.TOTAL_COUNT] > 1 else False
         )
-        
+
         return obj
 
 
@@ -537,7 +549,7 @@ class CodeChangeModel(BaseModel):
         self.deletions = deletions
         self.changes = changes
         self.patch = patch
-    
+
     def object_decoder(self, dic):
         try:
             obj = CodeChangeModel(
@@ -557,7 +569,7 @@ class CodeChangeModel(BaseModel):
 class UserModel(BaseModel):
     def __init__(self, user_type, login, name, email, created_at, total_followers, location, updated_at):
         super().__init__()
-        
+
         self.login = login
         self.name = name
         self.email = email
@@ -566,14 +578,14 @@ class UserModel(BaseModel):
         self.location = location
         self.updated_at = updated_at
         self.user_type = user_type
-    
+
     def object_decoder(self, dic):
         if dic[APIStaticV4.TYPE] == "User":
             try:
                 followers = dic[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
             except TypeError:
                 followers = dic[UserStatic.FOLLOWERS]
-            
+
             name = dic[UserStatic.NAME]
             email = dic[UserStatic.EMAIL]
             location = dic[UserStatic.LOCATION]
@@ -587,7 +599,7 @@ class UserModel(BaseModel):
             name = None
             email = None
             location = None
-        
+
         try:
             created_at = dic[APIStaticV4.CREATED_AT]
             updated_at = dic[APIStaticV4.UPDATED_AT]
@@ -612,7 +624,7 @@ class UserModel(BaseModel):
 class CommitUserModel(BaseModel):
     def __init__(self, login, name, email, created_at, total_followers, location, updated_at, user_type):
         super().__init__()
-        
+
         self.login = login
         self.name = name
         self.email = email
@@ -621,11 +633,11 @@ class CommitUserModel(BaseModel):
         self.location = location
         self.updated_at = updated_at
         self.user_type = user_type
-    
+
     def object_decoder(self, dic, name, email):
         if dic is None:
             return None
-        
+
         obj = CommitUserModel(
             login=dic[UserStatic.LOGIN],
             name=name,
@@ -636,41 +648,41 @@ class CommitUserModel(BaseModel):
             location=dic[UserStatic.LOCATION],
             user_type="USER"
         )
-        
+
         return obj
 
 
 class AnonContributorModel(BaseModel):
     def __init__(self, email, name):
         super().__init__()
-        
+
         self.email = email
         self.name = name
-    
+
     def object_decoder(self, dic):
         obj = AnonContributorModel(
             name=dic[APIStaticV3.NAME],
             email=dic[APIStaticV3.EMAIL]
         )
-        
+
         return obj
 
 
 class TopicModel(BaseModel):
     def __init__(self, url, topic_name, stargazer_count):
         super().__init__()
-        
+
         self.url = url
         self.topic_name = topic_name
         self.stargazer_count = stargazer_count
-    
+
     def object_decoder(self, dic):
         obj = TopicModel(
             url=dic[APIStaticV4.URL],
             topic_name=dic[RepositoryStatic.TOPIC][UserStatic.NAME],
             stargazer_count=dic[RepositoryStatic.TOPIC][RepositoryStatic.STARGAZERS][APIStaticV4.TOTAL_COUNT]
         )
-        
+
         return obj
 
 
@@ -678,7 +690,7 @@ class CommitCommentModel(BaseModel):
     def __init__(self, author_login, body, commit_id, created_at, path, position, positive_reaction_count,
                  negative_reaction_count, ambiguous_reaction_count, updated_at):
         super().__init__()
-        
+
         self.author_login = author_login
         self.body = body
         self.commit_id = commit_id
@@ -689,11 +701,11 @@ class CommitCommentModel(BaseModel):
         self.negative_reaction_count = negative_reaction_count
         self.ambiguous_reaction_count = ambiguous_reaction_count
         self.updated_at = updated_at
-    
+
     def object_decoder(self, dic):
         if dic[CommitStatic.COMMIT] is None:
             return None
-        
+
         obj = CommitCommentModel(
             author_login=dic[CommitStatic.AUTHOR][UserStatic.LOGIN],
             body=dic[CommitStatic.BODY_TEXT],
@@ -706,7 +718,7 @@ class CommitCommentModel(BaseModel):
             negative_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 0),
             ambiguous_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], -1)
         )
-        
+
         return obj
 
 
@@ -716,7 +728,7 @@ class ForkModel(BaseModel):
 
         self.login = login
         self.forked_at = forked_at
-    
+
     def object_decoder(self, dic):
         obj = ForkModel(
             login=dic[RepositoryStatic.NAME_WITH_OWNER].split('/')[0],
@@ -729,7 +741,7 @@ class ForkModel(BaseModel):
 class EventModel(BaseModel):
     def __init__(self, number, who, when, event_type, added, added_type, removed, removed_type, is_cross_repository):
         super().__init__()
-        
+
         self.number = number
         self.who = who
         self.when = when
@@ -739,10 +751,10 @@ class EventModel(BaseModel):
         self.removed = removed
         self.removed_type = removed_type
         self.is_cross_repository = is_cross_repository
-    
+
     def object_decoder(self, dic, number):
         event_type = dic[EventStatic.EVENT_TYPE]
-        
+
         obj = EventModel(
             number=number,
             event_type=re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.EVENT_TYPE]).upper(),
@@ -754,7 +766,7 @@ class EventModel(BaseModel):
             removed_type=None,
             is_cross_repository=False
         )
-        
+
         if event_type == EventStatic.ASSIGNED_EVENT:
             obj.added = dic[EventStatic.ADDED][UserStatic.LOGIN] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = "USER"
@@ -762,7 +774,7 @@ class EventModel(BaseModel):
             obj.added = dic[EventStatic.ADDED][APIStaticV4.NUMBER] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.ADDED][
                 EventStatic.TYPE]).upper() if dic[EventStatic.ADDED] is not None else None
-            obj.is_cross_repository = True
+            obj.is_cross_repository = dic[EventStatic.IS_CROSS_REPOSITORY]
         elif event_type == EventStatic.DEMILESTONED_EVENT:
             obj.removed = dic[EventStatic.REMOVED]
             obj.removed_type = "MILESTONE"
@@ -781,7 +793,7 @@ class EventModel(BaseModel):
         elif event_type == EventStatic.REFERENCED_EVENT:
             obj.added = dic[EventStatic.ADDED][APIStaticV4.OID] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = "COMMIT_ID"
-            obj.is_cross_repository = True
+            obj.is_cross_repository = dic[EventStatic.IS_CROSS_REPOSITORY]
         elif event_type == EventStatic.RENAMED_TITLE_EVENT:
             obj.removed = dic[EventStatic.REMOVED]
             obj.removed_type = "TITLE"
@@ -811,14 +823,14 @@ class EventModel(BaseModel):
 class RateLimitModel(BaseModel):
     def __init__(self, remaining, reset_at):
         super().__init__()
-        
+
         self.remaining = remaining
         self.reset_at = reset_at
-    
+
     def object_decoder(self, dic):
         obj = RateLimitModel(
             remaining=dic[APIStaticV4.REMAINING],
             reset_at=dic[APIStaticV4.RESET_AT]
         )
-        
+
         return obj

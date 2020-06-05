@@ -16,7 +16,7 @@ from tabulate import tabulate
 
 from gras.errors import GrasArgumentParserError, GrasConfigError
 from gras.github.github_repo_stats import RepoStatistics
-from gras.identity_merging.identity_merging import IdentityMerging
+from gras.identity_merging.identity_miner import IdentityMiner
 from gras.utils import (
     ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
     to_iso_format,
@@ -87,7 +87,7 @@ def get_repo_stats(args, repo_list=None):
             owner=args.repo_owner,
             start_date=to_iso_format(args.start_date),
             end_date=to_iso_format(args.end_date)
-            )
+        )
 
         return repo_stats.repo_stats()
 
@@ -108,7 +108,7 @@ def get_logging_level(level):
         'WARNING' : logging.WARNING,
         'ERROR'   : logging.ERROR,
         'CRITICAL': logging.CRITICAL
-        }
+    }
 
     return choices[level]
 
@@ -119,9 +119,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
             description='GRAS - GIT REPOSITORIES ARCHIVING SERVICE',
             add_help=True,
             # TODO: complete usage and add custom help argument
-            usage=''' GRAS [-h] [--help], [-v] [--version], <interface> [args] ..
-            '''
-            )
+            usage='''GRAS [-h] [--help], [-v] [--version], <interface> [args] ...'''
+        )
 
         self.gras_command_groups = argparse.ArgumentParser(add_help=False)
         self.gras_setting_groups = argparse.ArgumentParser(add_help=False)
@@ -204,11 +203,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self.gras_commands.add_argument('-m', '--mine', metavar='', help="Mine the repository", default=False,
                                         type=bool,
                                         const=True, nargs='?')
-        # self.gras_commands.add_argument('-id', '--identity-merging', help="Merge the identities of the contributors",
-        #                                 default=False, type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-B', '--basic', metavar='', help="Mining Stage 1-A: Basic", const=True,
-                                        type=bool,
-                                        nargs='?', default=False)
+                                        type=bool, nargs='?', default=False)
         self.gras_commands.add_argument('-BE', '--basic-extra', metavar='', help="Mining Stage 1-B: Basic Extra",
                                         const=True,
                                         type=bool, nargs='?', default=False)
@@ -228,6 +224,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         nargs='?',
                                         type=bool)
         self.gras_settings.add_argument('--path', metavar='', help="Path to the directory to mine")
+        self.gras_commands.add_argument('--aio', help="If added, git-miner would use asyncio architecture",
+                                        type=bool, const=True, nargs='?', default=False)
 
     def _add_gras_settings(self):
         self.gras_settings.add_argument('-t', '--tokens', metavar='<token1> ',
@@ -235,14 +233,11 @@ class GrasArgumentParser(argparse.ArgumentParser):
                                         nargs='+')
         self.gras_settings.add_argument('-yk', '--yandex-key', metavar='', help="Yandex Translator API Key ("
                                                                                 "https://translate.yandex.com/developers/keys)")
-        # self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',
-        #                                 choices=['github', 'git', 'identity-merging'], required=False)
         self.gras_settings.add_argument('-RO', '--repo-owner', metavar='', help="Owner of the repository")
         self.gras_settings.add_argument('-RN', '--repo-name', metavar='', help="Name of the repository")
         self.gras_settings.add_argument('-SD', '--start-date', metavar='',
                                         help="Start Date for mining the data (in any ISO 8601 format, e.g., "
-                                             "'YYYY-MM-DD HH:mm:SS +|-HH:MM')", default=DEFAULT_START_DATE,
-                                        required=False)
+                                             "'YYYY-MM-DD HH:mm:SS +|-HH:MM')", default=DEFAULT_START_DATE, required=False)
         self.gras_settings.add_argument('-ED', '--end-date',
                                         help="End Date for mining the data (in any ISO 8601 format, e.g., 'YYYY-MM-DD "
                                              "HH:mm:SS +|-HH:MM')", default=DEFAULT_END_DATE, required=False)
@@ -297,7 +292,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                 logger.warning(f"Output path not provided, using default: {os.getcwd()}/gras.ini")
 
         if args.stats or args.mine:
-            if not args.tokens:
+            if not args.tokens and args.interface == 'github':
                 raise GrasArgumentParserError(msg="Please provide at least 1 token!")
 
             if not args.start_date and not args.full:
