@@ -5,7 +5,7 @@ import multiprocessing as mp
 import pickle
 from datetime import datetime
 
-from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository
+from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository, Oid
 
 from gras.base_miner import BaseMiner
 from gras.db.db_models import DBSchema
@@ -44,7 +44,7 @@ class GitMiner(BaseMiner):
 
         self.repo = Repository(args.path)
         self._fetch_references()
-        self.commits = self._fetch_commit_ids()
+        self._fetch_commit_ids()
 
     def _create_loop(self):
         self.loop = asyncio.new_event_loop()
@@ -269,31 +269,40 @@ class GitMiner(BaseMiner):
 
         return oid
 
+    def __fetch_branch_commits(self, branch_target):
+        logger.info(f"Ongoing Branch {branch_target[0]}...")
+
+        for commit in self.repo.walk(branch_target[1], GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME):
+            if commit.oid not in self.commits:
+                self.commits.add(commit.oid)
+            else:
+                break
+
     def _fetch_commit_ids(self):
         try:
             with open(f"{self.repo_name}_commits.txt", "rb") as fp:
-                commits = pickle.load(fp)
+                self.commits = pickle.load(fp)
 
-            logger.info(f"TOTAL COMMITS: {len(commits)}")
-            return commits
+            self.commits = [Oid(hex=x) for x in self.commits]
+
+            logger.info(f"TOTAL COMMITS: {len(self.commits)}")
+            return self.commits
         except FileNotFoundError:
             logger.error("Commits file not present, dumping...")
 
-        commits, index = list(), 1
-        for branch, target in self.branches.items():
-            logger.info(f"Index: {index} -> Ongoing Branch {branch}...")
+        self.commits = set()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+            process = {executor.submit(self.__fetch_branch_commits, branch_target): branch_target for branch_target
+                       in self.branches.items()}
+            for future in concurrent.futures.as_completed(process):
+                branch_target = process[future]
+                logger.info(f"Fetched for {branch_target}")
 
-            for commit in self.repo.walk(target, GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME):
-                if commit.oid not in commits:
-                    commits.append(commit.oid)
-                else:
-                    break
-
-        logger.info(f"TOTAL COMMITS: {len(commits)}")
+        logger.info(f"TOTAL COMMITS: {len(self.commits)}")
         with open(f"{self.repo_name}_commits.txt", "wb") as fp:
-            pickle.dump(commits, fp)
-
-        return commits
+            temp = [x.hex for x in self.commits]
+            pickle.dump(temp, fp)
+            del temp
 
     @timing(name="commits", is_stage=True)
     def _parse_commits(self):
@@ -362,8 +371,9 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            self._parse_commits()
-            self._parse_code_change()
+            pass
+            # self._parse_commits()
+            # self._parse_code_change()
 
     def __del__(self):
         if self.aio:

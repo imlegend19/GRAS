@@ -15,12 +15,14 @@ import pandas as pd
 from tabulate import tabulate
 
 from gras.errors import GrasArgumentParserError, GrasConfigError
+from gras.git.git_miner import GitMiner
+from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
 from gras.identity_merging.identity_miner import IdentityMiner
 from gras.utils import (
     ANIMATORS, DEFAULT_END_DATE, DEFAULT_START_DATE, ELAPSED_TIME_ON_FUNCTIONS, STAGE_WISE_TIME, set_up_token_queue,
-    to_iso_format,
-    )
+    to_iso_format
+)
 
 LOGFILE = os.getcwd() + '/logs/{0}.{1}.log'.format(
     'gras', datetime.now().strftime('%Y-%m-%d %H-%M-%S %Z'))
@@ -32,31 +34,31 @@ DEFAULT_LOGGING = {
         "simple": {
             "format" : "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             "datefmt": "%d/%m/%Y %H:%M:%S"
-            }
-        },
+        }
+    },
     'handlers'                : {
         'console': {
             'class'    : 'logging.StreamHandler',
             'formatter': 'simple',
             'level'    : 'DEBUG',
             'stream'   : sys.stdout,
-            },
+        },
         'file'   : {
             'class'    : 'logging.FileHandler',
             'formatter': 'simple',
             'level'    : 'DEBUG',
             'filename' : LOGFILE,
             'mode'     : 'w',
-            },
         },
+    },
     'loggers'                 : {
         "main": {
             'level'    : 'DEBUG',
             'handlers' : ['console', 'file'],
             'propagate': False,
-            },
-        }
+        },
     }
+}
 
 
 def create_log_folder(path):
@@ -117,24 +119,14 @@ class GrasArgumentParser(argparse.ArgumentParser):
     def __init__(self):
         super().__init__(
             description='GRAS - GIT REPOSITORIES ARCHIVING SERVICE',
-            add_help=True,
-            # TODO: complete usage and add custom help argument
-            usage='''GRAS [-h] [--help], [-v] [--version], <interface> [args] ...'''
+            add_help=False
         )
-
-        self.gras_command_groups = argparse.ArgumentParser(add_help=False)
-        self.gras_setting_groups = argparse.ArgumentParser(add_help=False)
-        self.database_groups = argparse.ArgumentParser(add_help=False)
 
         self._init_groups()
         self._add_gras_commands()
         self._add_gras_settings()
         self._add_database_settings()
         self._add_other_arguments()
-        self._init_subparsers()
-        self._add_git_parser_commands()
-        self._add_idm_parser_commands()
-        self._add_file_dependency_parser_commands()
 
         try:
             self.args = self.parse_args()
@@ -159,127 +151,84 @@ class GrasArgumentParser(argparse.ArgumentParser):
     def action_groups(self):
         return self._action_groups
 
-    def _init_subparsers(self):
-        self.subparsers = self.add_subparsers(title='interfaces', dest="interface",
-                                              parser_class=argparse.ArgumentParser)
-        self.github_parser = self.subparsers.add_parser("github", parents=[self.gras_setting_groups,
-                                                                           self.gras_command_groups,
-                                                                           self.database_groups])
-        self.git_parser = self.subparsers.add_parser("git", parents=[self.gras_command_groups, self.database_groups])
-        self.identity_merging = self.subparsers.add_parser("id-merge")
-        self.file_dependency = self.subparsers.add_parser("file_dependency")
-
-    def _add_git_parser_commands(self):
-        self.git_parser.add_argument('-PP', '--project-path', help="Path to the .git file")
-
-    def _add_idm_parser_commands(self):
-        self.identity_merging.add_argument('-dbm', '--db-to-merge', metavar='\b',
-                                           help="Database to apply identity merging on")
-
-    def _add_file_dependency_parser_commands(self):
-        self.neo4j_commands = self.file_dependency.add_argument_group('NEO4J-COMMANDS')
-        self.neo4j_commands.add_argument('-uri', metavar='', type=str, help="URI to connect to the neo4j graph "
-                                                                            "database", default="bolt://localhost:7687")
-        self.neo4j_commands.add_argument('-n4u', metavar='', type=str, help="UserName of the neo4j database" )
-        self.neo4j_commands.add_argument('-n4p', metavar='', type=str, help="UserName of the neo4j database")
-        self.file_dependency.add_argument('-pd', '--project-directory', metavar='',type=str, help="Absolute path of " \
-                                                                                              "project "
-                                                                                         "root directory")
-        self.file_dependency.add_argument('-fp', '--file-path', metavar='',type=str, help="Absolute path of file" )
-
     def _init_groups(self):
-        self.gras_commands = self.gras_command_groups.add_argument_group('GRAS-COMMANDS')
-        self.gras_settings = self.gras_setting_groups.add_argument_group('GRAS-SETTINGS')
-        self.database_settings = self.database_groups.add_argument_group('DATABASE-SETTINGS')
+        self.gras_commands = self.add_argument_group('GRAS-COMMANDS')
+        self.gras_settings = self.add_argument_group('GRAS-SETTINGS')
+        self.database_settings = self.add_argument_group('DATABASE-SETTINGS')
         self.other = self.add_argument_group('OTHER')
 
     def _add_gras_commands(self):
-        self.gras_commands.add_argument('-s', '--stats', metavar='', help="View the stats of the repository",
-                                        default=False,
+        self.gras_commands.add_argument('-s', '--stats', help="View the stats of the repository", default=False,
                                         type=bool, const=True, nargs='?')
-        self.gras_commands.add_argument('-g', '--generate', metavar='', help="Generate a config file template",
-                                        default=False,
+        self.gras_commands.add_argument('-g', '--generate', help="Generate a config file template", default=False,
                                         type=bool, const=True, nargs='?')
-        self.gras_commands.add_argument('-m', '--mine', metavar='', help="Mine the repository", default=False,
-                                        type=bool,
+        self.gras_commands.add_argument('-m', '--mine', help="Mine the repository", default=False, type=bool,
                                         const=True, nargs='?')
-        self.gras_commands.add_argument('-B', '--basic', metavar='', help="Mining Stage 1-A: Basic", const=True,
-                                        type=bool, nargs='?', default=False)
-        self.gras_commands.add_argument('-BE', '--basic-extra', metavar='', help="Mining Stage 1-B: Basic Extra",
-                                        const=True,
-                                        type=bool, nargs='?', default=False)
-        self.gras_commands.add_argument('-IT', '--issue-tracker', metavar='', help="Mining Stage 2: Issue Tracker",
-                                        const=True,
-                                        type=bool, nargs='?', default=False)
-        self.gras_commands.add_argument('-CD', '--commit', metavar='', help="Mining Stage 3: Commit Data", const=True,
-                                        type=bool,
+        self.gras_commands.add_argument('-B', '--basic', help="Mining Stage 1-A: Basic", const=True, type=bool,
                                         nargs='?', default=False)
-        self.gras_commands.add_argument('-PT', '--pull-tracker', metavar='',
-                                        help="Mining Stage 4: Pull Request Tracker",
+        self.gras_commands.add_argument('-BE', '--basic-extra', help="Mining Stage 1-B: Basic Extra", const=True,
+                                        type=bool, nargs='?', default=False)
+        self.gras_commands.add_argument('-IT', '--issue-tracker', help="Mining Stage 2: Issue Tracker", const=True,
+                                        type=bool, nargs='?', default=False)
+        self.gras_commands.add_argument('-CD', '--commit', help="Mining Stage 3: Commit Data", const=True, type=bool,
+                                        nargs='?', default=False)
+        self.gras_commands.add_argument('-PT', '--pull-tracker', help="Mining Stage 4: Pull Request Tracker",
                                         const=True, type=bool, nargs='?', default=False)
-        self.gras_commands.add_argument('-CS', '--chunk-size', metavar='', help="Time Period Chunk Size (in Days)",
-                                        type=int,
+        self.gras_commands.add_argument('-CS', '--chunk-size', help="Time Period Chunk Size (in Days)", type=int,
                                         default=20)
-        self.gras_commands.add_argument('-f', '--full', metavar='', help="Mine the complete repository", const=True,
-                                        nargs='?',
+        self.gras_commands.add_argument('-f', '--full', help="Mine the complete repository", const=True, nargs='?',
                                         type=bool)
-        self.gras_settings.add_argument('--path', metavar='', help="Path to the directory to mine")
+        self.gras_commands.add_argument('--path', help="Path to the directory to mine")
         self.gras_commands.add_argument('--aio', help="If added, git-miner would use asyncio architecture",
                                         type=bool, const=True, nargs='?', default=False)
 
     def _add_gras_settings(self):
-        self.gras_settings.add_argument('-t', '--tokens', metavar='<token1> ',
-                                        help="List of Personal API Access Tokens for parsing",
+        self.gras_settings.add_argument('-t', '--tokens', help="List of Personal API Access Tokens for parsing",
                                         nargs='+')
-        self.gras_settings.add_argument('-yk', '--yandex-key', metavar='', help="Yandex Translator API Key ("
-                                                                                "https://translate.yandex.com/developers/keys)")
-        self.gras_settings.add_argument('-RO', '--repo-owner', metavar='', help="Owner of the repository")
-        self.gras_settings.add_argument('-RN', '--repo-name', metavar='', help="Name of the repository")
-        self.gras_settings.add_argument('-SD', '--start-date', metavar='',
+        self.gras_settings.add_argument('-yk', '--yandex-key', help="Yandex Translator API Key ("
+                                                                    "https://translate.yandex.com/developers/keys)")
+        self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',
+                                        choices=['github', 'git', 'identity-merging'], required=False)
+        self.gras_settings.add_argument('-RO', '--repo-owner', help="Owner of the repository")
+        self.gras_settings.add_argument('-RN', '--repo-name', help="Name of the repository")
+        self.gras_settings.add_argument('-SD', '--start-date',
                                         help="Start Date for mining the data (in any ISO 8601 format, e.g., "
-                                             "'YYYY-MM-DD HH:mm:SS +|-HH:MM')", default=DEFAULT_START_DATE, required=False)
+                                             "'YYYY-MM-DD HH:mm:SS +|-HH:MM')", default=DEFAULT_START_DATE,
+                                        required=False)
         self.gras_settings.add_argument('-ED', '--end-date',
                                         help="End Date for mining the data (in any ISO 8601 format, e.g., 'YYYY-MM-DD "
                                              "HH:mm:SS +|-HH:MM')", default=DEFAULT_END_DATE, required=False)
-        self.gras_settings.add_argument('-c', '--config', metavar='', help="Path to the config file")
+        self.gras_settings.add_argument('-c', '--config', help="Path to the config file")
 
     def _add_database_settings(self):
-        self.database_settings.add_argument('-dbms', metavar='', help="DBMS to dump the data into", default='mysql',
+        self.database_settings.add_argument('-dbms', help="DBMS to dump the data into", default='mysql',
                                             choices=["sqlite", "mysql", "postgresql"])
-        self.database_settings.add_argument('-DB', '--db-name', metavar='', help="Name of the database", default='gras')
-        self.database_settings.add_argument('-U', '--db-username', metavar='',
-                                            help="The user name that is used to connect and "
-                                                 "operate the selected database")
-        self.database_settings.add_argument('-P', '--db-password', metavar='',
-                                            help="The password for the user name entered")
-        # const=True, nargs='?') TODO: why do we need this here?
-        self.database_settings.add_argument('-H', '--db-host', metavar='',
-                                            help="The database server IP address or DNS name",
+        self.database_settings.add_argument('-DB', '--db-name', help="Name of the database", default='gras')
+        self.database_settings.add_argument('-U', '--db-username', help="The user name that is used to connect and "
+                                                                        "operate the selected database")
+        self.database_settings.add_argument('-P', '--db-password', help="The password for the user name entered",
+                                            const=True, nargs='?')
+        self.database_settings.add_argument('-H', '--db-host', help="The database server IP address or DNS name",
                                             default="localhost")
-        self.database_settings.add_argument('-p', '--db-port', metavar='',
+        self.database_settings.add_argument('-p', '--db-port',
                                             help="The database server db_port that allows communication to your "
                                                  "database", default=3306, type=int)
-        self.database_settings.add_argument('-dbo', '--db-output', metavar='',
+        self.database_settings.add_argument('-dbo', '--db-output',
                                             help="The path to the .db file in case of sqlite dbms")
-        self.database_settings.add_argument('-dbl', '--db-log', metavar='',
-                                            help="DB-log flag to log the generated SQL produced",
+        self.database_settings.add_argument('-dbl', '--db-log', help="DB-log flag to log the generated SQL produced",
                                             default=False, type=bool, nargs='?', required=False, const=True)
 
     def _add_other_arguments(self):
-        self.other.add_argument('-a', '--animator', metavar='', help="Loading animator", default='bar',
+        self.other.add_argument("-h", "--help", action="help", help="show this help message and exit")
+        self.other.add_argument('-a', '--animator', help="Loading animator", default='bar',
                                 choices=list(ANIMATORS.keys()), required=False)
-        self.other.add_argument('-OP', '--operation', metavar='',
+        self.other.add_argument('-OP', '--operation',
                                 help="Choose the operation to perform for retrieving the stats.: 1. CREATE, 2. UPDATE, "
                                      "3. APPEND", choices=['1', '2', '3'], default='1')
-        self.other.add_argument('-CL', '--clear-logs', metavar='', help="Clear the logs directory", const=True,
-                                type=bool,
+        self.other.add_argument('-CL', '--clear-logs', help="Clear the logs directory", const=True, type=bool,
                                 nargs='?', default=False)
-        self.other.add_argument('-o', '--output', metavar='',
-                                help="The output path where the config file is to be generated",
+        self.other.add_argument('-o', '--output', help="The output path where the config file is to be generated",
                                 default=f"{os.getcwd()}/gras.ini")
-        self.other.add_argument('-v', '--version', metavar='', help="The version of GRAS installed", const=True,
-                                type=bool,
-                                nargs='?', default=False)
 
     def _validate(self):
         args = self.args
@@ -370,9 +319,18 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
             print("\n\n", "=" * 100, "\n", json.dumps(result, indent=4, sort_keys=True), "\n", "=" * 100)
 
-        if self.args.identity_merging:
-            im = IdentityMerging(args=self.args)
-            im.process()
+        if self.args.mine:
+            if self.args.interface == "github":
+                gm = GithubMiner(args=self.args)
+                gm.process()
+            elif self.args.interface == "git":
+                git = GitMiner(args=self.args)
+                git.process()
+            elif self.args.interface == "identity-merging":
+                im = IdentityMiner(args=self.args)
+                im.process()
+            else:
+                raise NotImplementedError
 
     def _create_config(self):
         cfg = configparser.RawConfigParser()
