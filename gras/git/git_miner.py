@@ -2,6 +2,7 @@ import asyncio
 import concurrent.futures
 import logging
 import multiprocessing as mp
+import pickle
 from datetime import datetime
 
 from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository
@@ -269,9 +270,18 @@ class GitMiner(BaseMiner):
         return oid
 
     def _fetch_commit_ids(self):
-        commits = list()
+        try:
+            with open(f"{self.repo_name}_commits.txt", "rb") as fp:
+                commits = pickle.load(fp)
+
+            logger.info(f"TOTAL COMMITS: {len(commits)}")
+            return commits
+        except FileNotFoundError:
+            logger.error("Commits file not present, dumping...")
+
+        commits, index = list(), 1
         for branch, target in self.branches.items():
-            logger.info(f"Ongoing Branch {branch}...")
+            logger.info(f"Index: {index} -> Ongoing Branch {branch}...")
 
             for commit in self.repo.walk(target, GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME):
                 if commit.oid not in commits:
@@ -280,6 +290,9 @@ class GitMiner(BaseMiner):
                     break
 
         logger.info(f"TOTAL COMMITS: {len(commits)}")
+        with open(f"{self.repo_name}_commits.txt", "wb") as fp:
+            pickle.dump(commits, fp)
+
         return commits
 
     @timing(name="commits", is_stage=True)
@@ -349,7 +362,7 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            # self._parse_commits()
+            self._parse_commits()
             self._parse_code_change()
 
     def __del__(self):

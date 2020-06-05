@@ -11,7 +11,7 @@ from yandex.Translater import Translater, TranslaterError
 
 from gras.base_miner import BaseMiner
 from gras.errors import YandexError, YandexKeyError
-from gras.identity_merging.utils import damerau_levenshtein, monge_elkan
+from gras.identity_merging.utils import damerau_levenshtein as dl, get_domain_extensions, monge_elkan
 from gras.utils import exception_handler
 
 logger = logging.getLogger("main")
@@ -44,18 +44,21 @@ class Alias:
     :type is_anonymous: int
     """
 
-    def __init__(self, id_, login, name, email, location=None, is_anonymous=0):
+    def __init__(self, id_, login, name, email, extensions, location=None, is_anonymous=0):
         self.id_ = id_
         self.contributor_id = None
 
-        self.original_login = login.strip() if login is not None else None
-        self.original_name = name.strip() if name is not None else None
-        self.original_email = email.strip() if email is not None else None
+        self.original_login = login.strip().lower() if login is not None else None
+        self.original_name = name.strip().lower() if name is not None else None
+        self.original_email = email.strip().lower() if email is not None else None
 
         self.login = self.normalize_unicode_to_ascii(login) if login is not None else None
         self.name = self.normalize_unicode_to_ascii(name) if name is not None else None
         self.location = self.normalize_unicode_to_ascii(location) if location is not None else None
         self.is_anonymous = is_anonymous
+
+        self.first_name = None
+        self.last_name = None
 
         if self.login is not None:
             if not self.login.strip():
@@ -64,6 +67,9 @@ class Alias:
         if self.name is not None:
             if not self.name.strip():
                 self.name = None
+            else:
+                self.first_name = name.split()[0].lower()
+                self.last_name = name.split()[-1].lower()
 
         if self.location is not None:
             if not self.location.strip():
@@ -77,6 +83,7 @@ class Alias:
                     self.email = None
                     self.prefix = None
                     self.domain = None
+                    self.domain_ref = None
                 else:
                     self.email = self.__get_email(email)
                     self.prefix = self.normalize_unicode_to_ascii(self.email.split("@")[0]).replace(' ', '').strip()
@@ -84,6 +91,9 @@ class Alias:
 
                     if self.domain.strip() == '':
                         self.domain = None
+                        self.domain_ref = None
+                    else:
+                        self.domain_ref = self.__refactor_domain(self.domain, extensions)
 
                     if self.prefix.strip() == '':
                         self.prefix = None
@@ -91,10 +101,12 @@ class Alias:
                 self.email = None
                 self.prefix = None
                 self.domain = None
+                self.domain_ref = None
         else:
             self.email = None
             self.prefix = None
             self.domain = None
+            self.domain_ref = None
 
     @staticmethod
     def __is_english(s):
@@ -104,6 +116,12 @@ class Alias:
             return False
         else:
             return True
+
+    @staticmethod
+    def __refactor_domain(domain, extensions):
+        tokens = domain.split('.')
+        new_domain = " ".join([x for x in tokens if x not in extensions])
+        return new_domain
 
     @staticmethod
     def sort_words(words):
@@ -142,7 +160,7 @@ class Alias:
         if not val.strip():
             val = None
 
-        return self.sort_words(val).strip() if val is not None else None
+        return self.sort_words(val).strip().lower() if val is not None else None
 
     @staticmethod
     def __get_email(str_):
@@ -185,6 +203,9 @@ class IdentityMiner(BaseMiner):
         self.anon_contributors = []
         self.non_anon_contributors = []
 
+        # TODO: The statement is for sqlite, do for other db's
+        self._conn.execute("PRAGMA foreign_keys=ON;")
+
         if self.yandex_key:
             translator.set_key(self.yandex_key)
             translator.set_to_lang('en')
@@ -204,154 +225,6 @@ class IdentityMiner(BaseMiner):
             """
         )
 
-    def __update_issue_tracker_tables(self, min_id, id_):
-        self._conn.execute(
-            f"""
-            UPDATE issues
-            SET reporter_id = {min_id}
-            WHERE reporter_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE issue_comments
-            SET commenter_id = {min_id}
-            WHERE commenter_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE issue_assignees
-            SET assignee_id = {min_id}
-            WHERE assignee_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE issue_events
-            SET who = {min_id}
-            WHERE who = {id_}
-            """
-        )
-
-    def __update_pull_tracker_tables(self, min_id, id_):
-        self._conn.execute(
-            f"""
-            UPDATE pull_requests
-            SET author_id = {min_id}
-            WHERE author_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE pull_requests
-            SET merged_by = {min_id}
-            WHERE merged_by = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE pull_request_assignees
-            SET assignee_id = {min_id}
-            WHERE assignee_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE pull_request_comments
-            SET commenter_id = {min_id}
-            WHERE commenter_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE pull_request_events
-            SET who = {min_id}
-            WHERE who = {id_}
-            """
-        )
-
-    def __update_commit_tables(self, min_id, id_):
-        self._conn.execute(
-            f"""
-            UPDATE commits
-            SET author_id = {min_id}
-            WHERE author_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE commits
-            SET committer_id = {min_id}
-            WHERE committer_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE commit_comments
-            SET commenter_id = {min_id}
-            WHERE commenter_id = {id_}
-            """
-        )
-
-    def __update_other_tables(self, min_id, id_):
-        self._conn.execute(
-            f"""
-            UPDATE forks
-            SET user_id = {min_id}
-            WHERE user_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE milestones
-            SET creator_id = {min_id}
-            WHERE creator_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE releases
-            SET creator_id = {min_id}
-            WHERE creator_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE milestones
-            SET creator_id = {min_id}
-            WHERE creator_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE stargazers
-            SET user_id = {min_id}
-            WHERE user_id = {id_}
-            """
-        )
-
-        self._conn.execute(
-            f"""
-            UPDATE watchers
-            SET user_id = {min_id}
-            WHERE user_id = {id_}
-            """
-        )
-
     def __update_contributors(self, cluster):
         min_id = min(cluster)
 
@@ -366,11 +239,6 @@ class IdentityMiner(BaseMiner):
                     WHERE contributor_id = {id_}
                     """
                 )
-
-                self.__update_issue_tracker_tables(min_id=min_id, id_=id_)
-                self.__update_pull_tracker_tables(min_id=min_id, id_=id_)
-                self.__update_commit_tables(min_id=min_id, id_=id_)
-                self.__update_other_tables(min_id=min_id, id_=id_)
 
     def refactor_contributors(self, field):
         res = self._conn.execute(
@@ -407,11 +275,12 @@ class IdentityMiner(BaseMiner):
         for clu in clusters.values():
             self.__update_contributors(clu)
 
-    def __delete_contributor(self, contributor_id):
+    def __delete_contributor(self, id_):
+        logger.debug(f"Deleting contributor {id_}...")
         self._conn.execute(
             f"""
             DELETE FROM contributors
-            WHERE contributor_id={contributor_id}
+            WHERE id={id_}
             """
         )
 
@@ -421,7 +290,7 @@ class IdentityMiner(BaseMiner):
 
         res = self._conn.execute(
             f"""
-            SELECT min(contributor_id), login, name, email
+            SELECT min(id), login, name, email
             FROM contributors
             GROUP BY login, name, email
             HAVING COUNT(*) > 1
@@ -433,15 +302,15 @@ class IdentityMiner(BaseMiner):
 
         res = self._conn.execute(
             f"""
-            SELECT tc.contributor_id, tc.login, tc.name, tc.email
+            SELECT tc.id, tc.login, tc.name, tc.email
             FROM (
-                SELECT dup, t.contributor_id, t.login, t.name, t.email
+                SELECT dup, t.id, t.login, t.name, t.email
                 FROM contributors t
                 INNER JOIN (
-                    SELECT contributor_id, RANK() OVER (PARTITION BY login, name, email ORDER BY contributor_id) AS dup
+                    SELECT id, RANK() OVER (PARTITION BY login, name, email ORDER BY id) AS dup
                     FROM contributors
                 ) c
-                ON t.contributor_id = c.contributor_id
+                ON t.id = c.id
             ) AS tc
             WHERE dup > 1;
             """
@@ -449,66 +318,70 @@ class IdentityMiner(BaseMiner):
 
         for row in res:
             self.__update_contributors([row[0], cont_id[Contributor(login=row[1], name=row[2], email=row[3])]])
-            self.__delete_contributor(contributor_id=row[0])
+            self.__delete_contributor(id_=row[0])
 
     def process(self):
         self.__init_contributor_id()
 
-        # self._delete_duplicates()
+        self._delete_duplicates()
+
+        logger.info("Forming exact contributor clusters...")
+        self.refactor_contributors(field='login')
+        self.refactor_contributors(field='email')
+
+        # extensions = get_domain_extensions(path="data/domain_ext.csv")
+
+        # res = self._conn.execute(
+        #     """
+        #     SELECT DISTINCT contributor_id, name, email
+        #     FROM contributors
+        #     WHERE is_anonymous=1
+        #     """
+        # ).fetchall()
         #
-        # logger.info("Forming exact contributor clusters...")
-        # self.refactor_contributors(field='login')
-        # self.refactor_contributors(field='email')
-
-        res = self._conn.execute(
-            """
-            SELECT DISTINCT contributor_id, name, email
-            FROM contributors
-            WHERE is_anonymous=1
-            """
-        ).fetchall()
-
-        for r in res:
-            self.anon_contributors.append(Alias(
-                id_=r[0],
-                login=None,
-                name=r[1],
-                email=r[2],
-                is_anonymous=1,
-            ))
-
-        res = self._conn.execute(
-            """
-            SELECT DISTINCT contributor_id, login, name, email, location
-            FROM contributors
-            WHERE is_anonymous=0
-            """
-        ).fetchall()
-
-        for r in res:
-            self.non_anon_contributors.append(Alias(
-                id_=r[0],
-                login=r[1],
-                name=r[2],
-                email=r[3],
-                location=r[4],
-                is_anonymous=0
-            ))
-
-        print(TOTAL_TRANSLATED)
-
-        file = open(f"{self.repo_name}-result.csv", "a")
-
-        writer = csv.writer(file)
-        writer.writerow(['id-1', 'login', 'name-email', 'id-2', 'login', 'name-email', 'score'])
-
-        it = 1
-        for pair in self.__generate_pairs(self.anon_contributors, self.anon_contributors):
-            print(f"Ongoing Pair: {it}")
-            self._dump_pair(writer=writer, pair=pair)
-            it += 1
-
-        file.close()
+        # for r in res:
+        #     self.anon_contributors.append(Alias(
+        #         id_=r[0],
+        #         login=None,
+        #         name=r[1],
+        #         email=r[2],
+        #         is_anonymous=1,
+        #         extensions=extensions
+        #     ))
+        #
+        # res = self._conn.execute(
+        #     """
+        #     SELECT DISTINCT contributor_id, login, name, email, location
+        #     FROM contributors
+        #     WHERE is_anonymous=0
+        #     """
+        # ).fetchall()
+        #
+        # for r in res:
+        #     self.non_anon_contributors.append(Alias(
+        #         id_=r[0],
+        #         login=r[1],
+        #         name=r[2],
+        #         email=r[3],
+        #         location=r[4],
+        #         is_anonymous=0,
+        #         extensions=extensions
+        #     ))
+        #
+        # print(TOTAL_TRANSLATED)
+        #
+        # file = open(f"{self.repo_name}-result.csv", "a")
+        #
+        # writer = csv.writer(file)
+        # writer.writerow(['id-1', 'login', 'name-email', 'id-2', 'login', 'name-email', 'score'])
+        #
+        # it = 1
+        # for pair in self.__generate_pairs(self.anon_contributors, self.anon_contributors):
+        #     print(f"Ongoing Pair: {it}")
+        #     self._dump_pair(writer=writer, pair=pair)
+        #     it += 1
+        #
+        # file.close()
 
     def _dump_pair(self, writer, pair):
         c1: Alias = pair[0]
@@ -534,14 +407,14 @@ class IdentityMiner(BaseMiner):
         :return: Final score
         :rtype: int
         """
-        name_name = max(damerau_levenshtein(c1.name, c2.name), monge_elkan(c1.name, c2.name))
-        name_prefix = max(damerau_levenshtein(c1.name, c1.prefix), damerau_levenshtein(c1.prefix, c2.name))
-        prefix_prefix = damerau_levenshtein(c1.prefix, c2.prefix)
-        login_name = max(damerau_levenshtein(c1.login, c2.name), damerau_levenshtein(c1.name, c2.login))
-        login_prefix = max(damerau_levenshtein(c1.login, c2.prefix), damerau_levenshtein(c1.prefix, c2.login))
+        name_name = max(dl(c1.name, c2.name), monge_elkan(c1.name, c2.name))
+        name_prefix = max(dl(c1.name, c1.prefix), dl(c1.prefix, c2.name))
+        prefix_prefix = dl(c1.prefix, c2.prefix)
+        login_name = max(dl(c1.login, c2.name), dl(c1.name, c2.login))
+        login_prefix = max(dl(c1.login, c2.prefix), dl(c1.prefix, c2.login))
 
         if inverse:
-            login_login = damerau_levenshtein(c1.login, c2.login)
+            login_login = dl(c1.login, c2.login)
             return sum([name_name, name_prefix, prefix_prefix, login_name, login_prefix, login_login]) / 6
         else:
             return sum([name_name, name_prefix, prefix_prefix, login_name, login_prefix]) / 5
@@ -553,76 +426,3 @@ class IdentityMiner(BaseMiner):
             for pair in temp:
                 if pair[0].id_ != pair[1].id_:
                     yield pair
-
-
-def train_data():
-    file = open("ground_truth.csv", "r")
-
-    pairs = []
-    emails = set()
-
-    reader = csv.reader(file)
-    for row in reader:
-        if reader.line_num == 1:
-            continue
-
-        row = [int(x) if x.isdigit() else x if x else None for x in row]
-        login_1, name_email_1, login_2, name_email_2, result = row
-
-        pattern = re.compile(r'(?<=<)(.*?)(?=>)')
-
-        name_1 = name_email_1.split('<')[0]
-        email_1 = pattern.search(name_email_1).group(0)
-
-        if email_1 == "None":
-            email_1 = None
-        else:
-            emails.add(email_1)
-
-        name_2 = name_email_2.split('<')[0]
-        email_2 = pattern.search(name_email_2).group(0)
-
-        if email_2 == "None":
-            email_2 = None
-        else:
-            emails.add(email_2)
-
-        alias_1 = Alias(
-            id_=None,
-            login=login_1,
-            name=name_1,
-            email=email_1,
-            location=None,
-            is_anonymous=1 if login_1 is None else 0
-        )
-
-        alias_2 = Alias(
-            id_=None,
-            login=login_2,
-            name=name_2,
-            email=email_2,
-            location=None,
-            is_anonymous=1 if login_2 is None else 0
-        )
-
-        pairs.append((alias_1, alias_2, result))
-
-    file.close()
-
-    domain_count = {}
-    for email in emails:
-        domain = email.split('@')[0]
-        domain = re.sub('[^A-Za-z0-9 ]+', '', domain)
-        domain = re.sub(' +', '', domain)
-        if domain in domain_count:
-            domain_count[domain] += 1
-        else:
-            domain_count[domain] = 1
-
-    items = sorted(domain_count.items(), key=lambda x: x[1], reverse=True)
-    from pprint import pprint
-    pprint(items)
-
-
-if __name__ == '__main__':
-    train_data()

@@ -1,3 +1,7 @@
+import csv
+from numpy import nan
+
+
 def wfi_levenshtein(string_1, string_2):
     """
     Calculates the Levenshtein distance between two strings. This version uses an iterative version of the
@@ -18,7 +22,7 @@ def wfi_levenshtein(string_1, string_2):
         >>> wfi_levenshtein('kitten', 'kitten')
         1
         >>> wfi_levenshtein('', '')
-        0
+        nan
     """
     if string_1 == string_2:
         return 1
@@ -26,11 +30,8 @@ def wfi_levenshtein(string_1, string_2):
     len_1 = len(string_1)
     len_2 = len(string_2)
 
-    if len_1 == 0:
-        return len_2
-
-    if len_2 == 0:
-        return len_1
+    if len_1 == 0 or len_2 == 0:
+        return nan
 
     if len_1 > len_2:
         string_2, string_1 = string_1, string_2
@@ -77,13 +78,13 @@ def damerau_levenshtein(string_1, string_2):
         >>> damerau_levenshtein('kitten', 'kittne')
         0.83
         >>> damerau_levenshtein('', '')
-        0
+        nan
     """
     if string_1 is None or string_2 is None:
-        return 0
+        return nan
 
     if not string_1.strip() or not string_2.strip():
-        return 0
+        return nan
 
     if string_1 == string_2:
         return 1
@@ -91,11 +92,8 @@ def damerau_levenshtein(string_1, string_2):
     len_1 = len(string_1)
     len_2 = len(string_2)
 
-    if len_1 == 0:
-        return len_2
-
-    if len_2 == 0:
-        return len_1
+    if len_1 == 0 or len_2 == 0:
+        return nan
 
     if len_1 > len_2:
         string_2, string_1 = string_1, string_2
@@ -148,7 +146,7 @@ def monge_elkan(string_1, string_2, method=damerau_levenshtein):
     :return:
     """
     if string_1 is None or string_2 is None or len(string_1.split()) == 0:
-        return 0
+        return nan
 
     if string_1 == string_2:
         return 1
@@ -191,5 +189,18 @@ def dice_coefficient(a, b):
     return dice_coeff
 
 
+def get_domain_extensions(path):
+    ext = []
+
+    file = open(path)
+    reader = csv.reader(file)
+    for row in reader:
+        ext.append(row[0])
+
+    file.close()
+
+    return ext
+
+
 if __name__ == '__main__':
-    print(damerau_levenshtein('mahen', ''))
+    print(damerau_levenshtein('', ''))

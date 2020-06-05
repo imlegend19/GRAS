@@ -132,10 +132,10 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Pull Tracker Stage', is_stage=True)
     def _pull_tracker_miner(self):
-        # try:
-        #     self._dump_pull_requests()
-        # finally:
-        #     self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
+        try:
+            self._dump_pull_requests()
+        finally:
+            self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
 
         self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
@@ -1154,7 +1154,7 @@ class GithubMiner(BaseMiner):
 
         for prs in self.__get_pull_requests('pull_request_events'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
-                process = {executor.submit(self._dump_issue_events, pr): pr for pr in prs}
+                process = {executor.submit(self._dump_pull_request_events, pr): pr for pr in prs}
                 for future in concurrent.futures.as_completed(process):
                     number = process[future]
                     future.result()
