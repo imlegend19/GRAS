@@ -1,17 +1,19 @@
 from gras.base_model import BaseModel
 
 
-class ProjectModel(BaseModel):
-    def __init__(self, name, total_loc, total_files, total_classes, total_functions, total_global_variables, files):
+class DirectoryModel(BaseModel):
+    def __init__(self, name, files, directories, total_loc, total_files, total_classes, total_functions,
+                 total_global_variables):
         super().__init__()
 
         self.name = name
+        self.files = files
+        self.directories = directories
         self.total_loc = total_loc
         self.total_files = total_files
         self.total_classes = total_classes
         self.total_functions = total_functions
         self.total_global_variables = total_global_variables
-        self.files = files
 
     def object_decoder(self, **kwargs):
         ...

@@ -280,7 +280,7 @@ class GitMiner(BaseMiner):
 
     def _fetch_commit_ids(self):
         try:
-            with open(f"{self.repo_name}_commits.txt", "rb") as fp:
+            with open(f"/home/mahen/PycharmProjects/GRAS/{self.repo_name}_commits.txt", "rb") as fp:
                 self.commits = pickle.load(fp)
 
             self.commits = [Oid(hex=x) for x in self.commits]
@@ -371,9 +371,8 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            pass
-            # self._parse_commits()
-            # self._parse_code_change()
+            self._parse_commits()
+            self._parse_code_change()
 
     def __del__(self):
         if self.aio:

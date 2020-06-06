@@ -2,9 +2,9 @@ import ast
 import os
 
 from gras.base_miner import BaseMiner
-from gras.file_dependency.python.models import FileModel, ProjectModel
+from gras.file_dependency.python.models import FileModel, DirectoryModel
 from gras.file_dependency.python.node_parser import FileAnalyzer
-from gras.file_dependency.utils import is_python_file, lines_of_code_counter
+from gras.file_dependency.utils import lines_of_code_counter
 
 
 class PythonMiner(BaseMiner):
@@ -26,10 +26,10 @@ class PythonMiner(BaseMiner):
             print(obj.variables)
 
         if self.project_dir:
-            obj = self.parse_dir()
+            obj = self.project_walker(self.project_dir)
             print(obj)
 
-    def _load_from_file(self, file):
+    def load_from_file(self, file):
         pass
 
     def dump_to_file(self, path):
@@ -58,40 +58,66 @@ class PythonMiner(BaseMiner):
 
         return file
 
-    def parse_dir(self):
+    @staticmethod
+    def parse_directory(path):
+        files = [os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        directories = [os.path.join(path, d) for d in os.listdir(path)
+                       if os.path.isdir(os.path.join(path, d)) and d != '__pycache__']
+
+        return files, directories
+
+    def project_walker(self, path):
         """
         Function to parse the project directory to generate a file dependency dictionary.
 
         :return: dictionary of file dependency data
         :rtype: dict
         """
-        project = None
-        for root, dirname, files in os.walk(self.project_dir):
-            if os.path.basename(root) != "__pycache__":
-                files_in_dir = []
-                for file in files:
-                    if is_python_file(os.path.join(root, file)) and file != "__init__.py":
-                        with open(os.path.join(root, file), "r") as fp:
-                            content = fp.read()
+        files, directories = self.parse_directory(path)
 
-                        file_object = self.parse_file(content=content, path=fp.name)
-                        files_in_dir.append(file_object)
+        model = DirectoryModel(
+            name=os.path.basename(path),
+            files=[
+                _ for _ in files  # TODO: Added FileModel object
+            ],
+            directories=[
+                self.project_walker(dir_path) for dir_path in directories
+            ],
+            total_loc=None,
+            total_files=None,
+            total_classes=None,
+            total_functions=None,
+            total_global_variables=0,
+        )
 
-                project = ProjectModel(
-                    name=os.path.basename(root),
-                    total_loc=sum([x.loc for x in files_in_dir]),
-                    total_files=len(files_in_dir),
-                    total_classes=sum([x.total_classes for x in files_in_dir]),
-                    total_functions=sum([x.total_functions for x in files_in_dir]),
-                    total_global_variables=0,
-                    files=files_in_dir
-                )
+        # TODO: Refer the previous implementation to init the values for other parameters
 
-        return project
+        return model
+
+        # for root, dirname, files in os.walk(self.project_dir):
+        #     if os.path.basename(root) != "__pycache__":
+        #         files_in_dir = []
+        #         for file in files:
+        #             if is_python_file(os.path.join(root, file)) and file != "__init__.py":
+        #                 with open(os.path.join(root, file), "r") as fp:
+        #                     content = fp.read()
+        #
+        #                 file_object = self.parse_file(content=content, path=fp.name)
+        #                 files_in_dir.append(file_object)
+        #
+        #         project = ProjectModel(
+        #             name=os.path.basename(root),
+        #             total_loc=sum([x.loc for x in files_in_dir]),
+        #             total_files=len(files_in_dir),
+        #             total_classes=sum([x.total_classes for x in files_in_dir]),
+        #             total_functions=sum([x.total_functions for x in files_in_dir]),
+        #             total_global_variables=0,
+        #             files=files_in_dir
+        #         )
 
     def process(self):
         pass
 
 
 if __name__ == '__main__':
-    PythonMiner(args=None, project_dir=None, file_path="/home/mahen/PycharmProjects/GRAS/tests/data/test_defs.py")
+    PythonMiner(args=None, project_dir="/home/mahen/PycharmProjects/GRAS/gras/file_dependency", file_path=None)
