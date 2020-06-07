@@ -1,0 +1,8 @@
+file-dependency: ["gras/file_dependency/*"]
+github-miner: ["gras/github/*"]
+git-miner: ["gras/git/*"]
+identity-miner: ["gras/identity_merging/*"]
+pipermail: ["gras/pipermail/*"]
+gras-cli: ["main.py"]
+documentation: ["docs/*"]
+build: ["Dockerfile", "*.sh", ".github/*"]
