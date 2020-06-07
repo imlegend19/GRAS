@@ -7,11 +7,18 @@ import unicodedata
 from collections import namedtuple
 
 import requests
+from joblib import load
+from numpy import isnan
 from yandex.Translater import Translater, TranslaterError
+from sklearn.ensemble import RandomForestClassifier
 
 from gras.base_miner import BaseMiner
+from gras.db.db_models import DBSchema
 from gras.errors import YandexError, YandexKeyError
-from gras.identity_merging.utils import damerau_levenshtein as dl, get_domain_extensions, monge_elkan
+from gras.identity_merging.utils import (
+    CONTRIBUTOR_TEMPLATE, damerau_levenshtein as dl, gen_count_dict, gen_feature_vector, get_domain_extensions,
+    monge_elkan
+)
 from gras.utils import exception_handler
 
 logger = logging.getLogger("main")
@@ -30,8 +37,8 @@ class Alias:
     """
     Represents an alias of a contributor.
 
-    :param id_: ID allotted to the contributor (PRIMARY KEY of `contributors` table)
-    :type id_: int or None
+    :param contributor_id: ID allotted to the contributor (PRIMARY KEY of `contributors` table)
+    :type contributor_id: int or None
     :param login: `login` of the contributor
     :type login: str or None
     :param name: `name` of the contributor
@@ -44,9 +51,8 @@ class Alias:
     :type is_anonymous: int
     """
 
-    def __init__(self, id_, login, name, email, extensions, location=None, is_anonymous=0):
-        self.id_ = id_
-        self.contributor_id = None
+    def __init__(self, contributor_id, login, name, email, extensions, location=None, is_anonymous=0):
+        self.contributor_id = contributor_id
 
         self.original_login = login.strip().lower() if login is not None else None
         self.original_name = name.strip().lower() if name is not None else None
@@ -199,12 +205,16 @@ class IdentityMiner(BaseMiner):
         super().__init__(args=args)
 
         self._engine, self._conn = self._connect_to_db()
+
+        self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
+        self.db_schema.create_tables()
+
         self.yandex_key = args.yandex_key
         self.anon_contributors = []
         self.non_anon_contributors = []
 
         # TODO: The statement is for sqlite, do for other db's
-        self._conn.execute("PRAGMA foreign_keys=ON;")
+        self._conn.execute("PRAGMA foreign_keys=ON")
 
         if self.yandex_key:
             translator.set_key(self.yandex_key)
@@ -271,6 +281,7 @@ class IdentityMiner(BaseMiner):
         for k, v in cont_index.items():
             clusters.setdefault(v, []).append(k)
 
+        print(clusters)
         logger.info("Updating contributors...")
         for clu in clusters.values():
             self.__update_contributors(clu)
@@ -320,68 +331,111 @@ class IdentityMiner(BaseMiner):
             self.__update_contributors([row[0], cont_id[Contributor(login=row[1], name=row[2], email=row[3])]])
             self.__delete_contributor(id_=row[0])
 
+    def make_dataset(self, lst1, lst2):
+        file = open(f"{self.repo_name}-result.csv", "a")
+
+        writer = csv.writer(file)
+        writer.writerow(['id-1', 'login', 'name-email', 'id-2', 'login', 'name-email', 'score'])
+
+        it = 1
+        for pair in self.__generate_pairs(lst1, lst2):
+            print(f"Ongoing Pair: {it}")
+            self._dump_pair(writer=writer, pair=pair)
+            it += 1
+
+        file.close()
+
+    def init_contributors(self):
+        users = set()
+        extensions = get_domain_extensions(path="/home/mahen/PycharmProjects/GRAS/gras/identity_merging/data"
+                                                "/domain_ext.csv")
+
+        res = self._conn.execute(
+            """
+            SELECT DISTINCT contributor_id, name, email
+            FROM contributors
+            WHERE is_anonymous=1
+            """
+        ).fetchall()
+
+        for r in res:
+            alias = Alias(
+                contributor_id=r[0],
+                login=None,
+                name=r[1],
+                email=r[2],
+                is_anonymous=1,
+                extensions=extensions
+            )
+
+            self.anon_contributors.append(alias)
+
+            users.add(CONTRIBUTOR_TEMPLATE(name=alias.original_name, first_name=alias.first_name,
+                                           last_name=alias.last_name, prefix=alias.prefix, domain=alias.domain))
+
+        res = self._conn.execute(
+            """
+            SELECT DISTINCT contributor_id, login, name, email, location
+            FROM contributors
+            WHERE is_anonymous=0
+            """
+        ).fetchall()
+
+        for r in res:
+            alias = Alias(
+                contributor_id=r[0],
+                login=r[1],
+                name=r[2],
+                email=r[3],
+                location=r[4],
+                is_anonymous=0,
+                extensions=extensions
+            )
+
+            self.non_anon_contributors.append(alias)
+
+            users.add(CONTRIBUTOR_TEMPLATE(name=alias.original_name, first_name=alias.first_name,
+                                           last_name=alias.last_name, prefix=alias.prefix, domain=alias.domain))
+
+        logger.info(f"Total Translated: {TOTAL_TRANSLATED}")
+        return users
+
     def process(self):
-        self.__init_contributor_id()
+        # self.__init_contributor_id()
+        #
+        # self._delete_duplicates()
+        #
+        # logger.info("Forming exact contributor clusters...")
+        # self.refactor_contributors(field='login')
+        # self.refactor_contributors(field='email')
 
-        self._delete_duplicates()
+        users = self.init_contributors()
+        prefix_count, domain_count, first_count, last_count = gen_count_dict(users)
 
-        logger.info("Forming exact contributor clusters...")
-        self.refactor_contributors(field='login')
-        self.refactor_contributors(field='email')
+        model: RandomForestClassifier = load("/home/mahen/PycharmProjects/GRAS/gras/identity_merging/data/rf-model.pkl")
 
-        # extensions = get_domain_extensions(path="data/domain_ext.csv")
+        index = 1
+        file = open("model_rater.csv", "a")
+        writer = csv.writer(file)
+        writer.writerow(['login', 'name-email', 'login', 'name-email'])
 
-        # res = self._conn.execute(
-        #     """
-        #     SELECT DISTINCT contributor_id, name, email
-        #     FROM contributors
-        #     WHERE is_anonymous=1
-        #     """
-        # ).fetchall()
-        #
-        # for r in res:
-        #     self.anon_contributors.append(Alias(
-        #         id_=r[0],
-        #         login=None,
-        #         name=r[1],
-        #         email=r[2],
-        #         is_anonymous=1,
-        #         extensions=extensions
-        #     ))
-        #
-        # res = self._conn.execute(
-        #     """
-        #     SELECT DISTINCT contributor_id, login, name, email, location
-        #     FROM contributors
-        #     WHERE is_anonymous=0
-        #     """
-        # ).fetchall()
-        #
-        # for r in res:
-        #     self.non_anon_contributors.append(Alias(
-        #         id_=r[0],
-        #         login=r[1],
-        #         name=r[2],
-        #         email=r[3],
-        #         location=r[4],
-        #         is_anonymous=0,
-        #         extensions=extensions
-        #     ))
-        #
-        # print(TOTAL_TRANSLATED)
-        #
-        # file = open(f"{self.repo_name}-result.csv", "a")
-        #
-        # writer = csv.writer(file)
-        # writer.writerow(['id-1', 'login', 'name-email', 'id-2', 'login', 'name-email', 'score'])
-        #
-        # it = 1
-        # for pair in self.__generate_pairs(self.anon_contributors, self.anon_contributors):
-        #     print(f"Ongoing Pair: {it}")
-        #     self._dump_pair(writer=writer, pair=pair)
-        #     it += 1
-        #
-        # file.close()
+        for pair in self.__generate_pairs(self.non_anon_contributors, self.non_anon_contributors):
+            if pair[0].contributor_id != pair[1].contributor_id:
+                # print(f"Ongoing pair: {index}")
+                # index += 1
+
+                fv = gen_feature_vector(c1=pair[0], c2=pair[1], prefix_count=prefix_count, domain_count=domain_count,
+                                        first_count=first_count, last_count=last_count)
+
+                fv = [x if not isnan(x) else -1 for x in fv]
+
+                result = model.predict([fv])[0]
+
+                if result == 1:
+                    writer.writerow([pair[0].login, f"{pair[0].name} <{pair[0].email}>", pair[1].login,
+                                     f"{pair[1].name} <{pair[1].email}>"])
+
+        file.close()
 
     def _dump_pair(self, writer, pair):
         c1: Alias = pair[0]
@@ -389,13 +443,13 @@ class IdentityMiner(BaseMiner):
         score = self.__get_score(c1, c2)
 
         if score > 0.3:
-            writer.writerow([c1.id_, c1.login, f"{c1.name} <{c1.email}>", c2.id_, c2.login,
+            writer.writerow([c1.contributor_id, c1.login, f"{c1.name} <{c1.email}>", c2.contributor_id, c2.login,
                              f"{c2.name} <{c2.email}>", score])
 
     @staticmethod
     def __get_score(c1, c2, inverse=True):
         """
-        Calculates the aggregate score for 2 strings.
+        Calculates the aggregate score for 2 Aliases.
 
         :param c1: Contributor 1
         :type c1: Alias
@@ -424,5 +478,5 @@ class IdentityMiner(BaseMiner):
         for ele in lst1:
             temp = list(itertools.product([ele], lst2))
             for pair in temp:
-                if pair[0].id_ != pair[1].id_:
+                if pair[0].contributor_id != pair[1].contributor_id:
                     yield pair

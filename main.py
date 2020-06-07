@@ -158,12 +158,12 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self.other = self.add_argument_group('OTHER')
 
     def _add_gras_commands(self):
-        self.gras_commands.add_argument('-s', '--stats', help="View the stats of the repository", default=False,
-                                        type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-g', '--generate', help="Generate a config file template", default=False,
                                         type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-m', '--mine', help="Mine the repository", default=False, type=bool,
                                         const=True, nargs='?')
+        self.gras_commands.add_argument('-s', '--stats', help="View the stats of the repository", default=False,
+                                        type=bool, const=True, nargs='?')
         self.gras_commands.add_argument('-B', '--basic', help="Mining Stage 1-A: Basic", const=True, type=bool,
                                         nargs='?', default=False)
         self.gras_commands.add_argument('-BE', '--basic-extra', help="Mining Stage 1-B: Basic Extra", const=True,

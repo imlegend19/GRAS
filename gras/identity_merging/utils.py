@@ -1,5 +1,11 @@
 import csv
+from collections import Counter, namedtuple
+
 from numpy import nan
+import numpy as np
+
+
+CONTRIBUTOR_TEMPLATE = namedtuple("Contributor", ["name", "first_name", "last_name", "prefix", "domain"])
 
 
 def wfi_levenshtein(string_1, string_2):
@@ -202,5 +208,91 @@ def get_domain_extensions(path):
     return ext
 
 
-if __name__ == '__main__':
-    print(damerau_levenshtein('', ''))
+def frequency_score(o1, o2, dic):
+    try:
+        if dic[o1] != 0 and dic[o2] != 0:
+            den = np.log10(dic[o1] * dic[o2])
+            if den == 0:
+                return 1
+            else:
+                return 1 / den
+        else:
+            return -1
+    except KeyError:
+        return -1
+
+
+def gen_count_dict(users):
+    prefixes, domains, firsts, lasts = [], [], [], []
+
+    for u in users:
+        if u.prefix:
+            prefixes.append(u.prefix)
+
+        if u.domain:
+            domains.append(u.domain)
+
+        if u.first_name:
+            firsts.append(u.first_name)
+
+        if u.last_name:
+            lasts.append(u.last_name)
+
+    prefix_count = dict(Counter(prefixes))
+    domain_count = dict(Counter(domains))
+    first_count = dict(Counter(firsts))
+    last_count = dict(Counter(lasts))
+
+    return prefix_count, domain_count, first_count, last_count
+
+
+def gen_feature_vector(c1, c2, prefix_count, first_count, last_count, domain_count, label=None):
+    """
+    Generates a feature vector for 2 aliases
+
+    :param c1: Contributor 1
+    :type c1: Alias
+    :param c2: Contributor 2
+    :type c2: Alias
+    :param prefix_count: Prefix count dictionary
+    :type prefix_count: dict
+    :param first_count: First name count dictionary
+    :type first_count: dict
+    :param last_count: Last Name count dictionary
+    :type last_count: dict
+    :param domain_count: Domain count dictionary
+    :type domain_count: dict
+    :param label: 0 or 1 whether the contributors are same or not
+    :type label: int
+
+    :return: Feature Vector
+    :rtype: list
+    """
+
+    fv = [
+        damerau_levenshtein(c1.login, c2.login),
+        damerau_levenshtein(c1.name, c2.name),
+        damerau_levenshtein(c1.first_name, c2.first_name),
+        damerau_levenshtein(c1.last_name, c2.last_name),
+        damerau_levenshtein(c1.prefix, c2.prefix),
+        damerau_levenshtein(c1.domain, c2.domain),
+        damerau_levenshtein(c1.login, c2.name),
+        damerau_levenshtein(c1.name, c2.login),
+        damerau_levenshtein(c1.first_name, c2.last_name),
+        damerau_levenshtein(c1.last_name, c2.first_name),
+        damerau_levenshtein(c1.login, c2.prefix),
+        damerau_levenshtein(c1.prefix, c2.login),
+        damerau_levenshtein(c1.domain_ref, c2.name),
+        damerau_levenshtein(c1.name, c2.domain_ref),
+        damerau_levenshtein(c1.domain_ref, c2.login),
+        damerau_levenshtein(c1.login, c2.domain_ref),
+        frequency_score(c1.first_name, c2.first_name, first_count),
+        frequency_score(c2.last_name, c2.last_name, last_count),
+        frequency_score(c1.prefix, c2.prefix, prefix_count),
+        frequency_score(c1.domain, c2.domain, domain_count)
+    ]
+
+    if label:
+        fv.append(label)
+
+    return fv

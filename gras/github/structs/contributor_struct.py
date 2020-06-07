@@ -446,6 +446,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             query_params=dict(name=repo_name, owner=repo_owner, oid=oid),
         )
 
+        self.is_author = is_author
         self.oid = oid
         self.name = name
         self.email = email
@@ -473,7 +474,8 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         """
 
         generator = self._generator()
-        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
+        user_type = CommitStatic.AUTHOR if self.is_author else CommitStatic.COMMITTER
+        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][user_type][
             UserStatic.USER]
 
     def process(self):

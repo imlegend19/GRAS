@@ -173,6 +173,19 @@ class BaseMiner(metaclass=ABCMeta):
         except IntegrityError as e:
             logger.debug(f"Caught Integrity Error: {e}")
             pass
+        except Exception as e:
+            raise e
+
+    def _serial_insert(self, object_, param):
+        try:
+            if param:
+                inserted = self._conn.execute(object_, param)
+                logger.debug(f"Affected Rows: {inserted.rowcount}")
+        except IntegrityError as e:
+            logger.debug(f"Caught Integrity Error: {e}")
+            pass
+        except Exception as e:
+            raise e
 
     def _set_repo_id(self):
         res = self._conn.execute(
@@ -192,7 +205,7 @@ class BaseMiner(metaclass=ABCMeta):
     def init_worker():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-    def _dump_anon_user_object(self, name, email, object_):
+    def _dump_anon_user_object(self, name, email, object_, locked_insert=True):
         logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")
 
         obj = self.db_schema.contributors_object(
@@ -207,11 +220,14 @@ class BaseMiner(metaclass=ABCMeta):
             is_anonymous=1
         )
 
-        self._insert(object_, obj)
+        if locked_insert:
+            self._insert(object_, obj)
+        else:
+            self._serial_insert(object_, obj)
 
         return True
 
-    def _dump_user_object(self, login, object_, user_object=None):
+    def _dump_user_object(self, login, object_, user_object=None, locked_insert=True):
         if login:
             try:
                 user = UserStruct(
@@ -250,7 +266,10 @@ class BaseMiner(metaclass=ABCMeta):
             )
 
             # logger.debug(f"Dumping User with login: {login}")
-            self._insert(object_, obj)
+            if locked_insert:
+                self._insert(object_, obj)
+            else:
+                self._serial_insert(object_, obj)
         elif user_object:
             obj = self.db_schema.contributors_object(
                 user_type=user_object.user_type,
@@ -265,7 +284,10 @@ class BaseMiner(metaclass=ABCMeta):
             )
 
             logger.debug(f"Dumping User with login: {user_object.login}")
-            self._insert(object_, obj)
+            if locked_insert:
+                self._insert(object_, obj)
+            else:
+                self._serial_insert(object_, obj)
         else:
             raise GithubMinerError(msg="`_dump_users()` exception! Please consider reporting this error to the team.")
 

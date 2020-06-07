@@ -1,33 +1,17 @@
-import numpy as np
-import pandas as pd
-from collections import namedtuple, Counter
 import csv
 import re
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import train_test_split
+
+import numpy as np
+import pandas as pd
+from joblib import dump
+from sklearn.ensemble import RandomForestClassifier
 
 from gras.identity_merging.identity_miner import Alias
-from gras.identity_merging.utils import damerau_levenshtein as dl, get_domain_extensions
-
-
-def frequency_score(o1, o2, dic):
-    try:
-        if dic[o1] != 0 and dic[o2] != 0:
-            den = np.log10(dic[o1] * dic[o2])
-            if den == 0:
-                return 1
-            else:
-                return 1 / den
-        else:
-            return '?'
-    except KeyError:
-        return '?'
+from gras.identity_merging.utils import gen_count_dict, gen_feature_vector, get_domain_extensions, CONTRIBUTOR_TEMPLATE
 
 
 def generate_train_data():
     file = open("data/ground_truth.csv", "r")
-
-    cont = namedtuple("Cont", ["name", "first_name", "last_name", "prefix", "domain"])
 
     pairs = []
     users = set()
@@ -57,7 +41,7 @@ def generate_train_data():
         extensions = get_domain_extensions(path="data/domain_ext.csv")
 
         alias_1 = Alias(
-            id_=None,
+            contributor_id=None,
             login=login_1,
             name=name_1,
             email=email_1,
@@ -67,7 +51,7 @@ def generate_train_data():
         )
 
         alias_2 = Alias(
-            id_=None,
+            contributor_id=None,
             login=login_2,
             name=name_2,
             email=email_2,
@@ -76,27 +60,16 @@ def generate_train_data():
             extensions=extensions
         )
 
-        users.add(cont(name=alias_1.original_name, first_name=alias_1.first_name, last_name=alias_1.last_name,
-                       prefix=alias_1.prefix, domain=alias_1.domain))
-        users.add(cont(name=alias_2.original_name, first_name=alias_2.first_name, last_name=alias_2.last_name,
-                       prefix=alias_2.prefix, domain=alias_2.domain))
+        users.add(CONTRIBUTOR_TEMPLATE(name=alias_1.original_name, first_name=alias_1.first_name,
+                                       last_name=alias_1.last_name, prefix=alias_1.prefix, domain=alias_1.domain))
+        users.add(CONTRIBUTOR_TEMPLATE(name=alias_2.original_name, first_name=alias_2.first_name,
+                                       last_name=alias_2.last_name, prefix=alias_2.prefix, domain=alias_2.domain))
 
         pairs.append((alias_1, alias_2, result))
 
     file.close()
 
-    prefixes, domains, firsts, lasts = [], [], [], []
-
-    for u in users:
-        prefixes.append(u.prefix)
-        domains.append(u.domain)
-        firsts.append(u.first_name)
-        lasts.append(u.last_name)
-
-    prefix_count = dict(Counter(prefixes))
-    domain_count = dict(Counter(domains))
-    first_count = dict(Counter(firsts))
-    last_count = dict(Counter(lasts))
+    prefix_count, domain_count, first_count, last_count = gen_count_dict(users)
 
     data = []
 
@@ -126,29 +99,8 @@ def generate_train_data():
 
     for p in pairs:
         c1, c2, label = p
-        fv = [
-            dl(c1.login, c2.login),
-            dl(c1.name, c2.name),
-            dl(c1.first_name, c2.first_name),
-            dl(c1.last_name, c2.last_name),
-            dl(c1.prefix, c2.prefix),
-            dl(c1.domain, c2.domain),
-            dl(c1.login, c2.name),
-            dl(c1.name, c2.login),
-            dl(c1.first_name, c2.last_name),
-            dl(c1.last_name, c2.first_name),
-            dl(c1.login, c2.prefix),
-            dl(c1.prefix, c2.login),
-            dl(c1.domain_ref, c2.name),
-            dl(c1.name, c2.domain_ref),
-            dl(c1.domain_ref, c2.login),
-            dl(c1.login, c2.domain_ref),
-            frequency_score(c1.first_name, c2.first_name, first_count),
-            frequency_score(c2.last_name, c2.last_name, last_count),
-            frequency_score(c1.prefix, c2.prefix, prefix_count),
-            frequency_score(c1.domain, c2.domain, domain_count),
-            label
-        ]
+        fv = gen_feature_vector(c1=c1, c2=c2, label=label, prefix_count=prefix_count, first_count=first_count,
+                                last_count=last_count, domain_count=domain_count)
 
         data.append(fv)
 
@@ -157,23 +109,18 @@ def generate_train_data():
 
 
 def build_model():
-    data = np.genfromtxt('train.csv', delimiter=',', skip_header=True, filling_values=0)
-    columns = np.loadtxt('train.csv', delimiter=',', max_rows=1, dtype=np.str).tolist()[:-1]
+    data = np.genfromtxt('data/train.csv', delimiter=',', skip_header=True, filling_values=-1)
+    columns = np.loadtxt('data/train.csv', delimiter=',', max_rows=1, dtype=np.str).tolist()[:-1]
 
     y = data[:, -1]
     data = np.delete(data, -1, axis=1)
 
     df = pd.DataFrame(data, columns=columns)
-    X_train, X_test, y_train, y_test = train_test_split(df, y, test_size=0.2)
 
-    print(X_train.shape, y_train.shape)
-    print(X_test.shape, y_test.shape)
+    model = RandomForestClassifier(criterion='entropy', random_state=0, n_estimators=100)
+    model.fit(df, y)
 
-    model = DecisionTreeClassifier(criterion='entropy', splitter='best', random_state=0)
-    model.fit(X_train, y_train)
-
-    predictions = model.predict(X_test)
-    print(model.score(X_test, y_test))
+    dump(model, 'data/rf-model.pkl')
 
 
 if __name__ == '__main__':
