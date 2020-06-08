@@ -86,7 +86,7 @@ class AssignableUserStruct(GithubInterface, UserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
             :return: A :class:`gras.github.entity.github_models.UserModel` object
             :rtype: class
         """
@@ -178,7 +178,7 @@ class UserNodesStruct(GithubInterface, UserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
             :return: A :class:`gras.github.entity.github_models.UserModel` object
             :rtype: class
         """
@@ -240,7 +240,7 @@ class ContributorList(GithubInterface, AnonContributorModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.AnonContributorModel` object representing the
+            Generates a :class:`gras.github.entity.github_models.AnonContributorModel` object representing the
             fetched data.
             :return: A :class:`gras.github.entity.github_models.AnonContributorModel` object
             :rtype: class
@@ -268,13 +268,15 @@ class UserStructV3(GithubInterface, UserModel):
         :type login: str
     """
 
-    def __init__(self, login):
+    def __init__(self, login, is_bot=False):
         """Constructor Method"""
         super().__init__(
             query=None,
             url=f"https://api.github.com/users/{login}",
             query_params=None
         )
+
+        self.is_bot = is_bot
 
     def iterator(self):
         """
@@ -297,7 +299,7 @@ class UserStructV3(GithubInterface, UserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
             :return: A :class:`gras.github.entity.github_models.UserModel` object
             :rtype: class
         """
@@ -306,7 +308,12 @@ class UserStructV3(GithubInterface, UserModel):
         if not user:
             return None
 
-        return self.object_decoder(user)
+        user_obj = self.object_decoder(user)
+
+        if self.is_bot:
+            user_obj.login = user_obj.login.replace("[bot]", "")
+
+        return user_obj
 
 
 class UserStruct(GithubInterface, UserModel):
@@ -359,7 +366,7 @@ class UserStruct(GithubInterface, UserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
             :return: A :class:`gras.github.entity.github_models.UserModel` object
             :rtype: class
         """
@@ -480,7 +487,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
             
             :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
             :rtype: CommitUserModel
@@ -497,7 +504,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
 
     async def async_process(self):
         """
-            generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
             
             :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
             :rtype: CommitUserModel

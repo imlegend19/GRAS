@@ -238,9 +238,16 @@ class BaseMiner(metaclass=ABCMeta):
                     user = UserStructV3(
                         login=login
                     ).process()
-                except Exception as e:
-                    logger.error(e)
-                    return False
+                except Exception:
+                    # User may be a bot
+                    try:
+                        user = UserStructV3(
+                            login=login + "[bot]",
+                            is_bot=True
+                        ).process()
+                    except Exception as e:
+                        logger.error(e)
+                        return False
 
                 if not user:
                     return False
