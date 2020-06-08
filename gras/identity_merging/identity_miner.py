@@ -5,18 +5,19 @@ import re
 import sys
 import unicodedata
 from collections import namedtuple
+import networkx as nx
 
 import requests
 from joblib import load
 from numpy import isnan
-from yandex.Translater import Translater, TranslaterError
 from sklearn.ensemble import RandomForestClassifier
+from yandex.Translater import Translater, TranslaterError
 
 from gras.base_miner import BaseMiner
 from gras.db.db_models import DBSchema
 from gras.errors import YandexError, YandexKeyError
 from gras.identity_merging.utils import (
-    CONTRIBUTOR_TEMPLATE, damerau_levenshtein as dl, gen_count_dict, gen_feature_vector, get_domain_extensions,
+    damerau_levenshtein as dl, gen_count_dict, gen_feature_vector, get_domain_extensions,
     monge_elkan
 )
 from gras.utils import exception_handler
@@ -51,7 +52,8 @@ class Alias:
     :type is_anonymous: int
     """
 
-    def __init__(self, contributor_id, login, name, email, extensions, location=None, is_anonymous=0):
+    def __init__(self, id_, contributor_id, login, name, email, extensions, location=None, is_anonymous=0):
+        self.id_ = id_
         self.contributor_id = contributor_id
 
         self.original_login = login.strip().lower() if login is not None else None
@@ -199,6 +201,13 @@ class Alias:
 
         return str_
 
+    def __str__(self):
+        return f"({self.original_login}, {self.original_name}, {self.original_email})"
+
+    @property
+    def dataset_str(self):
+        return [self.id_, self.original_login, f"{self.original_name} <{self.original_email}>"]
+
 
 class IdentityMiner(BaseMiner):
     def __init__(self, args):
@@ -345,85 +354,18 @@ class IdentityMiner(BaseMiner):
 
         file.close()
 
-    def init_contributors(self):
-        users = set()
-        extensions = get_domain_extensions(path="/home/mahen/PycharmProjects/GRAS/gras/identity_merging/data"
-                                                "/domain_ext.csv")
-
-        res = self._conn.execute(
-            """
-            SELECT DISTINCT contributor_id, name, email
-            FROM contributors
-            WHERE is_anonymous=1
-            """
-        ).fetchall()
-
-        for r in res:
-            alias = Alias(
-                contributor_id=r[0],
-                login=None,
-                name=r[1],
-                email=r[2],
-                is_anonymous=1,
-                extensions=extensions
-            )
-
-            self.anon_contributors.append(alias)
-
-            users.add(CONTRIBUTOR_TEMPLATE(name=alias.original_name, first_name=alias.first_name,
-                                           last_name=alias.last_name, prefix=alias.prefix, domain=alias.domain))
-
-        res = self._conn.execute(
-            """
-            SELECT DISTINCT contributor_id, login, name, email, location
-            FROM contributors
-            WHERE is_anonymous=0
-            """
-        ).fetchall()
-
-        for r in res:
-            alias = Alias(
-                contributor_id=r[0],
-                login=r[1],
-                name=r[2],
-                email=r[3],
-                location=r[4],
-                is_anonymous=0,
-                extensions=extensions
-            )
-
-            self.non_anon_contributors.append(alias)
-
-            users.add(CONTRIBUTOR_TEMPLATE(name=alias.original_name, first_name=alias.first_name,
-                                           last_name=alias.last_name, prefix=alias.prefix, domain=alias.domain))
-
-        logger.info(f"Total Translated: {TOTAL_TRANSLATED}")
-        return users
-
-    def process(self):
-        # self.__init_contributor_id()
-        #
-        # self._delete_duplicates()
-        #
-        # logger.info("Forming exact contributor clusters...")
-        # self.refactor_contributors(field='login')
-        # self.refactor_contributors(field='email')
-
-        users = self.init_contributors()
+    def make_dataset_using_model(self, model_path):
+        users = set(self.anon_contributors).union(self.non_anon_contributors)
         prefix_count, domain_count, first_count, last_count = gen_count_dict(users)
 
-        model: RandomForestClassifier = load("/home/mahen/PycharmProjects/GRAS/gras/identity_merging/data/rf-model.pkl")
+        model: RandomForestClassifier = load(model_path)
 
-        index = 1
-        file = open("model_rater.csv", "a")
+        file = open("node_matches.csv", "a")
         writer = csv.writer(file)
         writer.writerow(['login', 'name-email', 'login', 'name-email'])
 
         for pair in self.__generate_pairs(self.non_anon_contributors, self.non_anon_contributors):
             if pair[0].contributor_id != pair[1].contributor_id:
-                # print(f"Ongoing pair: {index}")
-                # index += 1
-
                 fv = gen_feature_vector(c1=pair[0], c2=pair[1], prefix_count=prefix_count, domain_count=domain_count,
                                         first_count=first_count, last_count=last_count)
 
@@ -436,6 +378,150 @@ class IdentityMiner(BaseMiner):
                                      f"{pair[1].name} <{pair[1].email}>"])
 
         file.close()
+
+    def init_contributors(self):
+        extensions = get_domain_extensions(path="/home/mahen/PycharmProjects/GRAS/gras/identity_merging/data"
+                                                "/domain_ext.csv")
+
+        res = self._conn.execute(
+            """
+            SELECT DISTINCT id, contributor_id, name, email
+            FROM contributors
+            WHERE is_anonymous=1
+            """
+        ).fetchall()
+
+        for r in res:
+            alias = Alias(
+                id_=r[0],
+                contributor_id=r[1],
+                login=None,
+                name=r[2],
+                email=r[3],
+                is_anonymous=1,
+                extensions=extensions
+            )
+
+            self.anon_contributors.append(alias)
+
+        res = self._conn.execute(
+            """
+            SELECT DISTINCT id, contributor_id, login, name, email, location
+            FROM contributors
+            WHERE is_anonymous=0
+            """
+        ).fetchall()
+
+        for r in res:
+            alias = Alias(
+                id_=r[0],
+                contributor_id=r[1],
+                login=r[2],
+                name=r[3],
+                email=r[4],
+                location=r[5],
+                is_anonymous=0,
+                extensions=extensions
+            )
+
+            self.non_anon_contributors.append(alias)
+
+        logger.info(f"Total Translated: {TOTAL_TRANSLATED}")
+
+    @staticmethod
+    def evaluate_fields(f1, f2):
+        if f1 is not None and f2 is not None:
+            return f1 == f2
+        else:
+            return False
+
+    def generate_exact_matches(self):
+        file = open(f"{self.repo_name}_matches.csv", "a")
+        writer = csv.writer(file)
+        writer.writerow(['id', 'login', 'name-email', 'id', 'login', 'name-email'])
+
+        for pair in self.__generate_pairs(self.anon_contributors, self.non_anon_contributors):
+            lst = []
+            if self.evaluate_fields(pair[0].login, pair[1].login) or self.evaluate_fields(pair[0].email, pair[1].email):
+                # same
+                lst.extend(pair[0].dataset_str)
+                lst.extend(pair[1].dataset_str)
+                print("CASE 1:", str(pair[0]), str(pair[1]))
+            elif self.evaluate_fields(pair[0].prefix, pair[1].prefix):
+                # slightly ambiguous
+                lst.extend(pair[0].dataset_str)
+                lst.extend(pair[1].dataset_str)
+                print("CASE 2:", str(pair[0]), str(pair[1]))
+            elif self.evaluate_fields(pair[0].login, pair[1].prefix) or \
+                    self.evaluate_fields(pair[0].login, pair[1].domain) or \
+                    self.evaluate_fields(pair[0].prefix, pair[1].login) or \
+                    self.evaluate_fields(pair[0].domain, pair[1].login):
+                # slightly ambiguous
+                lst.extend(pair[0].dataset_str)
+                lst.extend(pair[1].dataset_str)
+                print("CASE 3:", str(pair[0]), str(pair[1]))
+            elif self.evaluate_fields(pair[0].name, pair[1].prefix) or \
+                    self.evaluate_fields(pair[0].name, pair[1].domain) or \
+                    self.evaluate_fields(pair[0].prefix, pair[1].name) or \
+                    self.evaluate_fields(pair[0].domain, pair[1].name):
+                # slightly ambiguous
+                lst.extend(pair[0].dataset_str)
+                lst.extend(pair[1].dataset_str)
+                print("CASE 4:", str(pair[0]), str(pair[1]))
+            elif self.evaluate_fields(pair[0].name, pair[1].login) or \
+                    self.evaluate_fields(pair[0].login, pair[1].name) or \
+                    self.evaluate_fields(pair[0].name, pair[1].name):
+                lst.extend(pair[0].dataset_str)
+                lst.extend(pair[1].dataset_str)
+                print("CASE 5:", str(pair[0]), str(pair[1]))
+
+            if lst:
+                writer.writerow(lst)
+
+        file.close()
+
+    def evaluate_exact_matches(self):
+        file = open(f"{self.repo_name}_matches.csv")
+        reader = csv.reader(file)
+
+        edges = set()
+        for row in reader:
+            if reader.line_num == 1:
+                continue
+
+            if int(row[-1]) == 1:
+                edges.add((int(row[0]), int(row[3])))
+
+        graph = nx.Graph()
+        graph.add_edges_from(list(edges))
+
+        for cluster in nx.connected_components(graph):
+            print(tuple(cluster))
+            lst = []
+            for id_ in cluster:
+                res = self._conn.execute(
+                    f"""
+                    SELECT contributor_id
+                    FROM contributors
+                    WHERE id={id_}
+                    """
+                ).fetchone()
+
+                lst.append(res[0])
+
+            self.__update_contributors(lst)
+
+    def process(self):
+        # self.__init_contributor_id()
+        #
+        # self._delete_duplicates()
+        #
+        # logger.info("Forming exact contributor clusters...")
+        # self.refactor_contributors(field='login')
+        # self.refactor_contributors(field='email')
+
+        self.init_contributors()
+        self.evaluate_exact_matches()
 
     def _dump_pair(self, writer, pair):
         c1: Alias = pair[0]

@@ -112,12 +112,12 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
-        # try:
-        #     self._dump_issues()
-        # finally:
-        #     self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+        try:
+            self._dump_issues()
+        finally:
+            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
 
-        # self._fetch_issue_events()
+        self._fetch_issue_events()
         self._fetch_issue_comments()
 
     @timing(name='Commit Stage', is_stage=True)
@@ -509,9 +509,23 @@ class GithubMiner(BaseMiner):
 
             if self.full:
                 logger.info("Dumping Issues...")
+
+                res = self._conn.execute(
+                    f"""
+                    SELECT max(created_at)
+                    FROM issues
+                    """
+                ).fetchone()
+
+                if res:
+                    since = res[0]
+                else:
+                    since = None
+
                 issues = IssueStruct(
                     name=self.repo_name,
-                    owner=self.repo_owner
+                    owner=self.repo_owner,
+                    since=since
                 )
             else:
                 logger.info("Dumping Issues using Search API...")
@@ -542,7 +556,7 @@ class GithubMiner(BaseMiner):
                         closed_at=node.closed_at,
                         title=node.title,
                         body=node.body,
-                        reporter_id=self._get_user_id(login=None, user_object=node.author),
+                        reporter_id=self._get_user_id(login=None, user_object=node.author) if node.author else None,
                         milestone_id=self._get_table_id(table='milestones', field='number',
                                                         value=node.milestone_number),
                         positive_reaction_count=node.positive_reaction_count,

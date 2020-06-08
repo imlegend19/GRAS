@@ -230,7 +230,7 @@ def gen_count_dict(users):
             prefixes.append(u.prefix)
 
         if u.domain:
-            domains.append(u.domain)
+            domains.append(u.domain_ref)
 
         if u.first_name:
             firsts.append(u.first_name)

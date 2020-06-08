@@ -303,7 +303,8 @@ class IssueStruct(GithubInterface, IssueModel):
     QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
-                issues(first: 100, orderBy: {{ field: CREATED_AT, direction: ASC }}, after: {after}) {{
+                issues(first: 100, orderBy: {{ field: CREATED_AT, direction: ASC }}, filterBy: {{ since: {since} }}, 
+                after: {after}) {{
                     pageInfo {{
                         hasNextPage
                         endCursor
@@ -355,11 +356,11 @@ class IssueStruct(GithubInterface, IssueModel):
         }}
     """
 
-    def __init__(self, name, owner):
+    def __init__(self, name, owner, since):
         """Constructor Method"""
         super().__init__(
             query=self.QUERY,
-            query_params=dict(owner=owner, name=name, after="null")
+            query_params=dict(owner=owner, name=name, since=f'"{since}"' if since else "null", after="null")
         )
 
     def iterator(self):
