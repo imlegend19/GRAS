@@ -1,11 +1,14 @@
 import ast
 from ast import (
     Assign, Attribute, Call, ClassDef, Expr, FunctionDef, Global, Import, ImportFrom, Name, Nonlocal, Pass,
-    Tuple
-)
+    Tuple,
+    )
 from collections import namedtuple
 
-from gras.file_dependency.python.models import ArgModel, DecoratorModel, DefModel, ImportModel, KwargModel
+from gras.file_dependency.python.models import (
+    ArgModel, DecoratorModel, DefModel, ImportModel, KwargModel,
+    VariableModel,
+    )
 from gras.file_dependency.python.node_types import AttributeTree, CallTree, Class, Function
 
 Template = namedtuple('Template', 'type name decorators docstring')
@@ -39,12 +42,39 @@ class FileAnalyzer(ast.NodeVisitor):
             if isinstance(base, Name):
                 arguments.append(
                     ArgModel(
-                        subtype=Class,
-                        name=node.name
+                        subtype=Name,
+                        name=node.name,
+                        value=None
+                        )
                     )
-                )
+            elif isinstance(base, Attribute):
+                if isinstance(base.value, Name):
+                    arguments.append(
+                        ArgModel(
+                            subtype=Attribute,
+                            name=base.attr,
+                            value=base.value.id
+                            )
+                        )
+                else:
+                    arguments.append(
+                        ArgModel(
+                            subtype=AttributeTree,
+                            name=base.attr,
+                            value=AttributeTree(node=base)
+                            )
+                        )
+            elif isinstance(base, Call):
+                if isinstance(base.func, Attribute):
+                    arguments.append(
+                        ArgModel(
+                            subtype=Call,
+                            name=base.func.attr,
+                            value=base.func.value.id
+                            )
+                        )
+
             else:
-                # TODO: Implement Call and Attribute types
                 raise NotImplementedError
 
         for kwarg in node.keywords:
@@ -59,8 +89,8 @@ class FileAnalyzer(ast.NodeVisitor):
                     subtype=Class,
                     name=kwarg.arg,
                     value=value
+                    )
                 )
-            )
 
         functions, classes, imports, variables = [], [], [], []
 
@@ -72,7 +102,11 @@ class FileAnalyzer(ast.NodeVisitor):
             elif isinstance(obj, ImportFrom):
                 imports.extend(self.visit_ImportFrom(node=obj, return_=True))
             elif isinstance(obj, FunctionDef):
-                functions.append(self.visit_FunctionDef(node=obj, return_=True))
+                func: DefModel = self.visit_FunctionDef(node=obj, return_=True)
+                for var in func.variables:
+                    if var.subtype == "self":
+                        variables.append(var)
+                functions.append(func)
             elif isinstance(obj, ClassDef):
                 classes.append(self.visit_ClassDef(node=obj, return_=True))
             elif isinstance(obj, Global):
@@ -82,12 +116,13 @@ class FileAnalyzer(ast.NodeVisitor):
                 for nm in obj.names:
                     variables.append(nm)
             elif isinstance(obj, Assign):
-                variables.extend(self.visit_Assign(node=obj, return_=True))
+                variables.extend(self.visit_Assign(node=obj, scope="Global", return_=True))
             elif isinstance(obj, Pass):
                 pass
             else:
                 # TODO: Implement various types
-                print(type(obj), "Not Implemented")
+                #print(type(obj), "Not Implemented")
+                pass
 
         class_obj = DefModel(
             subtype=Class,
@@ -100,7 +135,7 @@ class FileAnalyzer(ast.NodeVisitor):
             variables=list(set(variables)),
             docstring=docstring,
             line=line
-        )
+            )
 
         if return_:
             return class_obj
@@ -121,33 +156,37 @@ class FileAnalyzer(ast.NodeVisitor):
             arguments.append(
                 ArgModel(
                     subtype=Function,
-                    name=arg.arg
+                    name=arg.arg,
+                    value=None
+                    )
                 )
-            )
 
         if node.args.kwarg:
             arguments.append(
                 ArgModel(
                     subtype=Function,
-                    name=node.args.kwarg.arg
+                    name=node.args.kwarg.arg,
+                    value=None
+                    )
                 )
-            )
 
         for kwarg in node.args.kwonlyargs:
             arguments.append(
                 ArgModel(
                     subtype=Function,
-                    name=kwarg.arg
+                    name=kwarg.arg,
+                    value=None
+                    )
                 )
-            )
 
         if node.args.vararg:
             arguments.append(
                 ArgModel(
                     subtype=Function,
-                    name=node.args.vararg.arg
+                    name=node.args.vararg.arg,
+                    value=None
+                    )
                 )
-            )
 
         functions, classes, imports, variables = [], [], [], []
 
@@ -171,12 +210,13 @@ class FileAnalyzer(ast.NodeVisitor):
                 for nm in obj.names:
                     variables.append(nm)
             elif isinstance(obj, Assign):
-                variables.extend(self.visit_Assign(node=obj, return_=True))
+                variables.extend(self.visit_Assign(node=obj, scope="Local", return_=True))
             elif isinstance(obj, Pass):
                 pass
             else:
                 # TODO: Implement various types
-                print(type(obj), "Not Implemented")
+                # print(type(obj), "Not Implemented")
+                pass
 
         function_obj = DefModel(
             subtype=Function,
@@ -189,7 +229,7 @@ class FileAnalyzer(ast.NodeVisitor):
             variables=list(set(variables)),
             docstring=docstring,
             line=line
-        )
+            )
 
         if return_:
             return function_obj
@@ -206,8 +246,8 @@ class FileAnalyzer(ast.NodeVisitor):
                     name=alias.name,
                     as_name=alias.asname,
                     line=node.lineno
+                    )
                 )
-            )
         if return_:
             return objs
         else:
@@ -224,8 +264,8 @@ class FileAnalyzer(ast.NodeVisitor):
                     name=alias.name,
                     as_name=alias.asname,
                     line=node.lineno
+                    )
                 )
-            )
 
         if return_:
             return objs
@@ -237,17 +277,49 @@ class FileAnalyzer(ast.NodeVisitor):
     def visit_Global(self, node: Global):
         pass
 
-    def visit_Assign(self, node: Assign, return_=False):
+    def visit_Assign(self, node: Assign, scope="Global", return_=False):
+        # TODO: update subtype
         variables = []
         for alias in node.targets:
             if isinstance(alias, Tuple):
                 for name in alias.elts:
                     if name.id not in self.global_variables:
-                        variables.append(name.id)
+                        variables.append(
+                            VariableModel(
+                                name=name.id,
+                                subtype=None,
+                                scope=scope,
+                                line=node.lineno
+                                )
+                            )
             elif isinstance(alias, Attribute):
-                variables.append(alias.attr)
+                if alias.value.id == "self":
+                    variables.append(
+                        VariableModel(
+                            name=alias.attr,
+                            subtype="self",  # TODO: maybe better way to write this
+                            scope=scope,
+                            line=node.lineno
+                            )
+                        )
+                else:
+                    variables.append(
+                        VariableModel(
+                            name=alias.attr,
+                            subtype=None,
+                            scope=scope,
+                            line=node.lineno
+                            )
+                        )
             else:
-                variables.append(alias.id)
+                variables.append(
+                    VariableModel(
+                        name=alias,
+                        subtype=None,
+                        scope=scope,
+                        line=node.lineno
+                        )
+                    )
 
         if return_:
             return variables
@@ -260,7 +332,7 @@ class FileAnalyzer(ast.NodeVisitor):
             "classes"  : self.classes,
             "variables": self.global_variables,
             "imports"  : self.imports
-        }
+            }
 
     @staticmethod
     def __parse_decorators(lst):
@@ -274,8 +346,8 @@ class FileAnalyzer(ast.NodeVisitor):
                         name=decorator.id,
                         value=None,
                         line=decorator.lineno
+                        )
                     )
-                )
             elif isinstance(decorator, Call):
                 # @deco()-> Call
                 # @a.deco() -> CallTree
@@ -286,8 +358,8 @@ class FileAnalyzer(ast.NodeVisitor):
                             name=decorator.func.attr,
                             value=CallTree(node=decorator),
                             line=decorator.lineno
+                            )
                         )
-                    )
                 else:
                     objects.append(
                         DecoratorModel(
@@ -297,8 +369,8 @@ class FileAnalyzer(ast.NodeVisitor):
                             value=None,
                             total_args=decorator.args.__len__(),
                             total_kwargs=decorator.keywords.__len__()
+                            )
                         )
-                    )
             elif isinstance(decorator, Attribute):
                 objects.append(
                     DecoratorModel(
@@ -306,8 +378,8 @@ class FileAnalyzer(ast.NodeVisitor):
                         name=decorator.attr,
                         value=AttributeTree(node=decorator),
                         line=decorator.lineno,
+                        )
                     )
-                )
             else:
                 raise NotImplementedError
 

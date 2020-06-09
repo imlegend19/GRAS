@@ -29,22 +29,11 @@ class FileModel(BaseModel):
         self.functions = functions
         self.variables = variables
         self.imports = imports
-
-    @property
-    def total_classes(self):
-        return len(self.classes)
-
-    @property
-    def total_functions(self):
-        return len(self.functions)
-
-    @property
-    def total_variables(self):
-        return len(self.variables)
-
-    @property
-    def total_imports(self):
-        return len(self.imports)
+        self.import_list = [import_.module for import_ in imports]
+        self.total_classes = len(self.classes)
+        self.total_functions = len(self.functions)
+        self.total_variables = len(self.variables)
+        self.total_imports = len(self.imports)
 
     def object_decoder(self, **kwargs):
         ...
@@ -64,26 +53,11 @@ class DefModel(BaseModel):
         self.variables = variables
         self.docstring = docstring
         self.line = line
-
-    @property
-    def total_decorators(self):
-        return len(self.decorators)
-
-    @property
-    def total_functions(self):
-        return len(self.functions)
-
-    @property
-    def total_classes(self):
-        return len(self.classes)
-
-    @property
-    def total_imports(self):
-        return len(self.imports)
-
-    @property
-    def total_variables(self):
-        return len(self.variables)
+        self.total_classes = len(self.classes)
+        self.total_functions = len(self.functions)
+        self.total_variables = len(self.variables)
+        self.total_imports = len(self.imports)
+        self.total_decorators = len(self.decorators)
 
     def object_decoder(self, **kwargs):
         ...
@@ -118,11 +92,12 @@ class DecoratorModel(BaseModel):
 
 
 class ArgModel(BaseModel):
-    def __init__(self, subtype, name):
+    def __init__(self, subtype, name, value):
         super().__init__()
 
         self.subtype = subtype
         self.name = name
+        self.value = value
 
     def object_decoder(self, **kwargs):
         ...
