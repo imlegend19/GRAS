@@ -112,20 +112,20 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
-        try:
-            self._dump_issues()
-        finally:
-            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+        # try:
+        #     self._dump_issues()
+        # finally:
+        #     self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
 
-        self._fetch_issue_events()
+        # self._fetch_issue_events()
         self._fetch_issue_comments()
 
     @timing(name='Commit Stage', is_stage=True)
     def _commit_miner(self):
-        try:
-            self._dump_commits()
-        finally:
-            self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
+        # try:
+        #     self._dump_commits()
+        # finally:
+        #     self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
 
         self._dump_commit_comments()
         self._fetch_code_change()
@@ -518,7 +518,7 @@ class GithubMiner(BaseMiner):
                 ).fetchone()
 
                 if res:
-                    since = res[0]
+                    since = "T".join(res[0].split())
                 else:
                     since = None
 

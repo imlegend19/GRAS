@@ -53,7 +53,7 @@ class BaseMiner(metaclass=ABCMeta):
         self.__dict__[attr] = value
 
     @abstractmethod
-    def load_from_file(self, **kwargs):
+    def load_from_file(self, file):
         """
         :func: `abc.abstractmethod` to load the settings from a .cfg file and instantiate the
         :class:`gras.base_miner.BaseMiner` class.
@@ -67,7 +67,7 @@ class BaseMiner(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def dump_to_file(self, **kwargs):
+    def dump_to_file(self, path):
         """
         Method to dump the :class:`gras.base_miner.BaseMiner` object to a .cfg (config) file
         
