@@ -29,7 +29,7 @@ class FileModel(BaseModel):
         self.functions = functions
         self.variables = variables
         self.imports = imports
-        self.import_list = [import_.module for import_ in imports]
+        self.import_list = [import_.name for import_ in imports]
         self.total_classes = len(self.classes)
         self.total_functions = len(self.functions)
         self.total_variables = len(self.variables)
@@ -46,7 +46,9 @@ class DefModel(BaseModel):
         self.subtype = subtype
         self.name = name
         self.decorators = decorators
+        self.decorator_list = [decorator.name for decorator in decorators]
         self.arguments = arguments
+        self.argument_list = [argument.name for argument in arguments]
         self.functions = functions
         self.classes = classes
         self.imports = imports
@@ -116,13 +118,12 @@ class KwargModel(BaseModel):
 
 
 class VariableModel(BaseModel):
-    def __init__(self, scope, subtype, name, line):
+    def __init__(self, scope, subtype, name):
         super().__init__()
 
         self.scope = scope
         self.subtype = subtype
         self.name = name
-        self.line = line
 
     def object_decoder(self, **kwargs):
         ...

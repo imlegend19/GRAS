@@ -29,6 +29,7 @@ class FileAnalyzer(ast.NodeVisitor):
         self.functions = []
         self.classes = []
         self.imports = []
+        self.all_variables = []
         self.global_variables = []
 
     def visit_ClassDef(self, node, return_=False):
@@ -102,10 +103,13 @@ class FileAnalyzer(ast.NodeVisitor):
             elif isinstance(obj, ImportFrom):
                 imports.extend(self.visit_ImportFrom(node=obj, return_=True))
             elif isinstance(obj, FunctionDef):
-                func: DefModel = self.visit_FunctionDef(node=obj, return_=True)
+                func = self.visit_FunctionDef(node=obj, return_=True)
                 for var in func.variables:
-                    if var.subtype == "self":
-                        variables.append(var)
+                    if isinstance(var, str):
+                        pass
+                    else:
+                        if var.subtype == "self":
+                            variables.append(var)
                 functions.append(func)
             elif isinstance(obj, ClassDef):
                 classes.append(self.visit_ClassDef(node=obj, return_=True))
@@ -121,7 +125,7 @@ class FileAnalyzer(ast.NodeVisitor):
                 pass
             else:
                 # TODO: Implement various types
-                #print(type(obj), "Not Implemented")
+                # print(type(obj), "Not Implemented")
                 pass
 
         class_obj = DefModel(
@@ -206,6 +210,7 @@ class FileAnalyzer(ast.NodeVisitor):
             elif isinstance(obj, Global):
                 for nm in obj.names:
                     variables.append(nm)
+
             elif isinstance(obj, Nonlocal):
                 for nm in obj.names:
                     variables.append(nm)
@@ -283,55 +288,52 @@ class FileAnalyzer(ast.NodeVisitor):
         for alias in node.targets:
             if isinstance(alias, Tuple):
                 for name in alias.elts:
-                    if name.id not in self.global_variables:
+                    if name not in self.all_variables:
                         variables.append(
                             VariableModel(
                                 name=name.id,
-                                subtype=None,
-                                scope=scope,
-                                line=node.lineno
+                                subtype="Tuple",
+                                scope=scope
                                 )
                             )
             elif isinstance(alias, Attribute):
-                if alias.value.id == "self":
+                if alias.value == "self":
                     variables.append(
                         VariableModel(
                             name=alias.attr,
                             subtype="self",  # TODO: maybe better way to write this
-                            scope=scope,
-                            line=node.lineno
+                            scope=scope
                             )
                         )
                 else:
                     variables.append(
                         VariableModel(
                             name=alias.attr,
-                            subtype=None,
-                            scope=scope,
-                            line=node.lineno
+                            subtype="attribute",
+                            scope=scope
                             )
                         )
             else:
                 variables.append(
                     VariableModel(
-                        name=alias,
-                        subtype=None,
-                        scope=scope,
-                        line=node.lineno
+                        name=alias.id,
+                        subtype="Name",
+                        scope=scope
                         )
                     )
 
         if return_:
             return variables
         else:
-            self.global_variables.extend(variables)
+            self.all_variables.extend(variables)
 
     def process(self):
         return {
-            "functions": self.functions,
-            "classes"  : self.classes,
-            "variables": self.global_variables,
-            "imports"  : self.imports
+            "functions"    : self.functions,
+            "classes"      : self.classes,
+            "all_variables": self.all_variables,
+            "variables"    : self.global_variables,
+            "imports"      : self.imports
             }
 
     @staticmethod
