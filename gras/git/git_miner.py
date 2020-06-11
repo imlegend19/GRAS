@@ -2,16 +2,16 @@ import asyncio
 import concurrent.futures
 import logging
 import multiprocessing as mp
+import os
 import pickle
 from datetime import datetime
 
 from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository, Oid
 
 from gras.base_miner import BaseMiner
-from gras.db.db_models import DBSchema
 from gras.github.structs.contributor_struct import CommitUserStruct
 from gras.github.structs.repository_struct import RepositoryStruct
-from gras.utils import locked, timing
+from gras.utils import timing
 
 try:
     import uvloop
@@ -33,10 +33,8 @@ class GitMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args)
 
-        self._engine, self._conn = self._connect_to_db()
-        self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
+        self._initialise_db()
 
-        self.db_schema.create_tables()
         self._dump_repository()
 
         self.aio = args.aio
@@ -60,29 +58,40 @@ class GitMiner(BaseMiner):
     def _dump_repository(self):
         logger.info("Dumping Repository...")
 
-        repo = RepositoryStruct(
-            name=self.repo_name,
-            owner=self.repo_owner
-        ).process()
+        res = self.execute_query(
+            f"""
+            SELECT repo_id 
+            FROM repository
+            WHERE name="{self.repo_name}" and owner="{self.repo_owner}"
+            """
+        ).fetchone()
 
-        obj = self.db_schema.repository_object(
-            name=self.repo_name,
-            owner=self.repo_owner,
-            created_at=repo.created_at,
-            updated_at=repo.updated_at,
-            description=repo.description,
-            disk_usage=repo.disk_usage,
-            fork_count=repo.fork_count,
-            url=repo.url,
-            homepage_url=repo.homepage_url,
-            primary_language=repo.primary_language,
-            total_stargazers=repo.stargazer_count,
-            total_watchers=repo.watcher_count,
-            forked_from=repo.forked_from
-        )
+        if res:
+            self._set_repo_id(res[0])
+        else:
+            repo = RepositoryStruct(
+                name=self.repo_name,
+                owner=self.repo_owner
+            ).process()
 
-        self._insert(self.db_schema.repository.insert(), obj)
-        self._set_repo_id()
+            obj = self.db_schema.repository_object(
+                name=self.repo_name,
+                owner=self.repo_owner,
+                created_at=repo.created_at,
+                updated_at=repo.updated_at,
+                description=repo.description,
+                disk_usage=repo.disk_usage,
+                fork_count=repo.fork_count,
+                url=repo.url,
+                homepage_url=repo.homepage_url,
+                primary_language=repo.primary_language,
+                total_stargazers=repo.stargazer_count,
+                total_watchers=repo.watcher_count,
+                forked_from=repo.forked_from
+            )
+
+            self._insert(self.db_schema.repository.insert(), obj)
+            self._set_repo_id()
 
     def _fetch_references(self):
         self.tags, self.branches = [], {}
@@ -113,9 +122,8 @@ class GitMiner(BaseMiner):
         else:
             return None
 
-    @locked
     def __get_commit_id(self, oid):
-        res = self._conn.execute(
+        res = self.execute_query(
             f"""
             SELECT id
             FROM commits
@@ -129,10 +137,7 @@ class GitMiner(BaseMiner):
             return None
 
     def __check_user_id(self, email):
-        if LOCKED:
-            lock.acquire()
-
-        res = self._conn.execute(
+        res = self.execute_query(
             f"""
             SELECT id, login, name
             FROM contributors
@@ -140,27 +145,18 @@ class GitMiner(BaseMiner):
             """
         ).fetchone()
 
-        if LOCKED:
-            lock.release()
-
         return res
 
     def __update_contributor(self, name, id_):
-        if LOCKED:
-            lock.acquire()
-
         name = name.replace('"', '""')
 
-        self._conn.execute(
+        self.execute_query(
             f"""
             UPDATE contributors
             SET name="{name}"
             WHERE id={id_}
             """
         )
-
-        if LOCKED:
-            lock.release()
 
     def __get_user_id(self, name, email, oid, is_author):
         if not email:
@@ -319,19 +315,20 @@ class GitMiner(BaseMiner):
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
             process = {executor.submit(self.__fetch_branch_commits, branch_target): branch_target for branch_target
                        in self.branches.items()}
+
             for future in concurrent.futures.as_completed(process):
                 branch_target = process[future]
                 logger.info(f"Fetched for {branch_target}")
 
         logger.info(f"TOTAL COMMITS: {len(self.commits)}")
-        with open(f"{self.repo_name}_commits.txt", "wb") as fp:
+        with open(f"/home/mahen/PycharmProjects/GRAS/{self.repo_name}_commits.txt", "wb") as fp:
             temp = [x.hex for x in self.commits]
             pickle.dump(temp, fp)
             del temp
 
     @timing(name="commits", is_stage=True)
     def _parse_commits(self):
-        res = self._conn.execute(
+        res = self.execute_query(
             f"""
             SELECT DISTINCT oid
             FROM commits
@@ -342,6 +339,7 @@ class GitMiner(BaseMiner):
         del res
 
         index = 1
+        exception = None
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
             process = {executor.submit(self._dump_commit, oid): oid for oid in self.commits if
                        oid.hex not in dumped_commits}
@@ -350,9 +348,18 @@ class GitMiner(BaseMiner):
                 logger.info(f"Dumped commit: {oid}, index: {index}")
                 index += 1
 
+                if future.exception():
+                    exception = future.exception()
+                    future.cancel()
+                    print(exception)
+                    os._exit(1)
+
+        if exception:
+            raise exception
+
     @timing(name="code change", is_stage=True)
     def _parse_code_change(self):
-        res = self._conn.execute(
+        res = self.execute_query(
             f"""
             SELECT oid 
             FROM commits
@@ -394,7 +401,7 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            # self._parse_commits()
+            self._parse_commits()
             self._parse_code_change()
 
     def __del__(self):

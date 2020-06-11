@@ -1,6 +1,7 @@
 import logging
 
 from requests import exceptions
+from itertools import zip_longest
 
 from gras.errors import ObjectDoesNotExistError
 from gras.github.entity.api_static import APIStaticV3, APIStaticV4, CommitStatic, UserStatic
@@ -519,3 +520,45 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
                 return self.oid, user
         except exceptions.RequestException:
             return None
+
+
+class ContributorEmailSearch(GithubInterface):
+    def __init__(self, login, max_pages=3, github_token=None):
+        super().__init__(
+            query=None,
+            url=f"https://api.github.com/search/commits?q=author:{login}",
+            additional_headers=dict(Accept="application/vnd.github.cloak-preview"),
+            query_params=None,
+            github_token=github_token
+        )
+
+        self.max_pages = max_pages
+
+    def iterator(self):
+        generator = self._generator()
+        hasNextPage = True
+
+        pairs = set()
+
+        while hasNextPage and self.max_pages > 0:
+            response = next(generator)
+
+            try:
+                next_url = response.links["next"]["url"]
+            except KeyError:
+                break
+
+            self.url = next_url
+
+            response = response.json()["items"]
+
+            for commit_obj in response:
+                commit = commit_obj["commit"]
+                name, email = commit["author"]["name"], commit["author"]["email"]
+
+                pairs.add((name, email))
+
+            hasNextPage = True if next_url is not None else False
+            self.max_pages -= 1
+
+        return list(pairs)
