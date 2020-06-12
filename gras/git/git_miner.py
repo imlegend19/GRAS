@@ -358,26 +358,31 @@ class GitMiner(BaseMiner):
 
     @timing(name="code change", is_stage=True)
     def _parse_code_change(self):
-        res = self.execute_query(
+        id_oid = self.execute_query(
             f"""
-            SELECT oid 
+            SELECT id, oid
             FROM commits
-            WHERE id in (
-                SELECT DISTINCT commit_id
-                FROM code_change
-            )           
             """
-        )
+        ).fetchall()
 
-        dumped_commits = [x[0] for x in res]
-        del res
+        dumped_ids = self.execute_query(
+            f"""
+            SELECT DISTINCT commit_id
+            FROM code_change       
+            """
+        ).fetchall()
+
+        dumped_ids = [x[0] for x in dumped_ids]
+
+        not_dumped_commits = [x[1] for x in id_oid if x[0] not in dumped_ids]
+        del dumped_ids
+        del id_oid
 
         index = 1
-        for oid in self.commits:
-            if oid.hex not in dumped_commits:
-                self._dump_code_change(oid=oid)
-                logger.info(f"Dumped Code Change for commit: {oid}, index: {index}")
-                index += 1
+        for oid in not_dumped_commits:
+            self._dump_code_change(oid=oid)
+            logger.info(f"Dumped Code Change for commit: {oid}, index: {index}")
+            index += 1
 
     @timing(name="async -> commits", is_stage=True)
     async def _async_parse_commits(self):
@@ -400,7 +405,7 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            self._parse_commits()
+            # self._parse_commits()
             self._parse_code_change()
 
     def __del__(self):
