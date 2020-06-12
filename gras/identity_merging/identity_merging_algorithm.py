@@ -4,7 +4,7 @@ import string
 import numpy as np
 import pandas as pd
 
-from gras.identity_merging.utils import normalised_levenshtein
+from gras.identity_merging.utils import damerau_levenshtein
 
 TERMS = ["jr", "junior", "senior", "sr", "2nd", "ii", "iii", "iv", "v", "vi", "dr", "mr", "mrs", "ms", "phd", "prof",
          "professor", "miss", "mx", "sir", "mme", "msgr", "md", "server", "fake", "none", "null", "anonymous",
@@ -61,18 +61,18 @@ class IMA:
                 data.append(row[0])
                 data.append(row[1])
 
-                data.append(normalised_levenshtein(c1.name, c2.name))
-                data.append(sum([normalised_levenshtein(c1.first, c2.first),
-                                 normalised_levenshtein(c1.last, c2.last)]) / 2)
-                data.append(sum([normalised_levenshtein(c1.first, c2.last),
-                                 normalised_levenshtein(c1.last, c2.first)]) / 2)
-                data.append(normalised_levenshtein(c1.prefix, c2.prefix))
-                data.append(max(normalised_levenshtein(c1.first, c2.prefix),
-                                normalised_levenshtein(c1.prefix, c2.first),
-                                normalised_levenshtein(c1.last, c2.prefix),
-                                normalised_levenshtein(c1.prefix, c2.last),
-                                normalised_levenshtein(c1.name, c2.prefix),
-                                normalised_levenshtein(c1.prefix, c2.name)))
+                data.append(damerau_levenshtein(c1.name, c2.name))
+                data.append(sum([damerau_levenshtein(c1.first, c2.first),
+                                 damerau_levenshtein(c1.last, c2.last)]) / 2)
+                data.append(sum([damerau_levenshtein(c1.first, c2.last),
+                                 damerau_levenshtein(c1.last, c2.first)]) / 2)
+                data.append(damerau_levenshtein(c1.prefix, c2.prefix))
+                data.append(max(damerau_levenshtein(c1.first, c2.prefix),
+                                damerau_levenshtein(c1.prefix, c2.first),
+                                damerau_levenshtein(c1.last, c2.prefix),
+                                damerau_levenshtein(c1.prefix, c2.last),
+                                damerau_levenshtein(c1.name, c2.prefix),
+                                damerau_levenshtein(c1.prefix, c2.name)))
 
                 lst = [x for x in data[2:] if x is not None]
                 average = sum(lst) / len(lst)

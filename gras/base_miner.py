@@ -1,11 +1,13 @@
 import concurrent.futures
 import logging
+import os
 import signal
 from abc import ABCMeta, abstractmethod
 
 from sqlalchemy import create_engine
-from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
+from gras.db.db_models import DBSchema
 from gras.errors import GithubMinerError, InvalidTokenError
 from gras.github.structs.contributor_struct import UserStruct, UserStructV3
 from gras.github.structs.rate_limit import RateLimitStruct
@@ -53,7 +55,7 @@ class BaseMiner(metaclass=ABCMeta):
         self.__dict__[attr] = value
 
     @abstractmethod
-    def load_from_file(self, **kwargs):
+    def load_from_file(self, file):
         """
         :func: `abc.abstractmethod` to load the settings from a .cfg file and instantiate the
         :class:`gras.base_miner.BaseMiner` class.
@@ -67,7 +69,7 @@ class BaseMiner(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def dump_to_file(self, **kwargs):
+    def dump_to_file(self, path):
         """
         Method to dump the :class:`gras.base_miner.BaseMiner` object to a .cfg (config) file
         
@@ -84,25 +86,30 @@ class BaseMiner(metaclass=ABCMeta):
     def process(self):
         pass
 
-    def _connect_to_db(self):
+    def _connect_to_engine(self):
+        self._engine, self._conn = self.engine, self.engine.connect()
+        self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
+        self.db_schema.create_tables()
+
+    def _initialise_db(self):
         # dialect+driver://username:password@db_host:db_port/database
 
         try:
             if self.dbms == "sqlite":
-                engine = create_engine(
+                self.engine = create_engine(
                     f'sqlite:///{self.db_output}', echo=self.db_log, pool_pre_ping=True,
                     connect_args={
                         'check_same_thread': False
                     })
             elif self.dbms == 'mysql':
-                engine = create_engine(
+                self.engine = create_engine(
                     f'mysql+pymysql://{self.db_username}:{self.db_password}@{self.db_host}:'
                     f'{self.db_port}/{self.db_name}?charset=utf8mb4', echo=self.db_log, pool_pre_ping=True,
                     connect_args={
                         'check_same_thread': False
                     })
             elif self.dbms == 'postgresql':
-                engine = create_engine(
+                self.engine = create_engine(
                     f'postgresql+psycopg2://{self.db_username}:{self.db_password}@{self.db_host}:'
                     f'{self.db_port}/{self.db_name}', echo=self.db_log, pool_pre_ping=True,
                     connect_args={
@@ -111,7 +118,7 @@ class BaseMiner(metaclass=ABCMeta):
             else:
                 raise NotImplementedError
 
-            return engine, engine.connect()
+            self._connect_to_engine()
         except ProgrammingError as e:
             if 'Access denied' in str(e):
                 logger.error(f"Access denied! Please check your password for {self.db_username}.")
@@ -165,25 +172,69 @@ class BaseMiner(metaclass=ABCMeta):
             self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
 
     @locked
-    def _insert(self, object_, param):
+    def _insert(self, object_, param, tries=1):
+        try:
+            if param:
+                inserted = self._conn.execute(object_, param)
+                logger.debug(f"Try 1: Affected Rows = {inserted.rowcount}")
+        except IntegrityError as e:
+            logger.debug(f"Caught Integrity Error: {e}")
+        except OperationalError as e:
+            if tries > 3:
+                logger.error(f"Maximum tries exceeded. Cannot connect to database. Error: {e}")
+                os._exit(1)
+            logger.debug(f"Caught Operational Error! Try: {tries + 1}")
+            self._connect_to_engine()
+            self._insert(object_, param, tries + 1)
+        except Exception as e:
+            logger.error(e)
+
+    def _serial_insert(self, object_, param, tries=1):
         try:
             if param:
                 inserted = self._conn.execute(object_, param)
                 logger.debug(f"Affected Rows: {inserted.rowcount}")
         except IntegrityError as e:
             logger.debug(f"Caught Integrity Error: {e}")
-            pass
+        except OperationalError as e:
+            if tries > 3:
+                logger.error(f"Maximum tries exceeded. Cannot connect to database. Error: {e}")
+                os._exit(1)
+            logger.debug(f"Caught Operational Error! Try: {tries + 1}")
+            self._connect_to_engine()
+            self._insert(object_, param, tries + 1)
+        except Exception as e:
+            raise e
 
-    def _set_repo_id(self):
-        res = self._conn.execute(
-            f"""
-            SELECT repo_id
-            FROM repository
-            WHERE name="{self.repo_name}" AND owner="{self.repo_owner}"
-            """
-        ).fetchone()
+    @locked
+    def execute_query(self, query, tries=1):
+        try:
+            res = self._conn.execute(query)
+        except OperationalError as e:
+            if tries > 3:
+                logger.error(f"Maximum tries exceeded. Cannot connect to database. Error: {e}")
+                os._exit(1)
+            logger.debug(f"Caught Operational Error! Try: {tries + 1}")
+            self._connect_to_engine()
+            res = self.execute_query(query, tries + 1)
+        except Exception as e:
+            raise e
 
-        self.repo_id = res[0]
+        return res
+
+    def _set_repo_id(self, id_=None):
+        if not id_:
+            res = self._conn.execute(
+                f"""
+                SELECT repo_id
+                FROM repository
+                WHERE name="{self.repo_name}" AND owner="{self.repo_owner}"
+                """
+            ).fetchone()
+
+            self.repo_id = res[0]
+        else:
+            self.repo_id = id_
 
     def _close_the_db(self):
         self._conn.close()
@@ -192,7 +243,7 @@ class BaseMiner(metaclass=ABCMeta):
     def init_worker():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-    def _dump_anon_user_object(self, name, email, object_):
+    def _dump_anon_user_object(self, name, email, object_, locked_insert=True):
         logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")
 
         obj = self.db_schema.contributors_object(
@@ -207,11 +258,14 @@ class BaseMiner(metaclass=ABCMeta):
             is_anonymous=1
         )
 
-        self._insert(object_, obj)
+        if locked_insert:
+            self._insert(object_, obj)
+        else:
+            self._serial_insert(object_, obj)
 
         return True
 
-    def _dump_user_object(self, login, object_, user_object=None):
+    def _dump_user_object(self, login, object_, user_object=None, locked_insert=True):
         if login:
             try:
                 user = UserStruct(
@@ -222,9 +276,16 @@ class BaseMiner(metaclass=ABCMeta):
                     user = UserStructV3(
                         login=login
                     ).process()
-                except Exception as e:
-                    logger.error(e)
-                    return False
+                except Exception:
+                    # User may be a bot
+                    try:
+                        user = UserStructV3(
+                            login=login + "[bot]",
+                            is_bot=True
+                        ).process()
+                    except Exception as e:
+                        logger.error(e)
+                        return False
 
                 if not user:
                     return False
@@ -249,8 +310,12 @@ class BaseMiner(metaclass=ABCMeta):
                 is_anonymous=0
             )
 
-            # logger.debug(f"Dumping User with login: {login}")
-            self._insert(object_, obj)
+            logger.debug(f"Dumping User with login: {login}")
+            print(obj.__dict__)
+            if locked_insert:
+                self._insert(object_, obj)
+            else:
+                self._serial_insert(object_, obj)
         elif user_object:
             obj = self.db_schema.contributors_object(
                 user_type=user_object.user_type,
@@ -265,7 +330,11 @@ class BaseMiner(metaclass=ABCMeta):
             )
 
             logger.debug(f"Dumping User with login: {user_object.login}")
-            self._insert(object_, obj)
+            print(user_object.__dict__)
+            if locked_insert:
+                self._insert(object_, obj)
+            else:
+                self._serial_insert(object_, obj)
         else:
             raise GithubMinerError(msg="`_dump_users()` exception! Please consider reporting this error to the team.")
 

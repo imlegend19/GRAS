@@ -201,16 +201,19 @@ class IssueModel(BaseModel):
             author = None
         else:
             user = dic[IssueStatic.AUTHOR]
-            author = UserModel(
-                user_type=user[APIStaticV4.TYPE],
-                login=user[UserStatic.LOGIN],
-                name=user[UserStatic.NAME],
-                email=user[UserStatic.EMAIL],
-                created_at=user[APIStaticV4.CREATED_AT],
-                location=user[UserStatic.LOCATION],
-                updated_at=user[APIStaticV4.UPDATED_AT],
-                total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
-            )
+            if user == {}:
+                author = None
+            else:
+                author = UserModel(
+                    user_type=user[APIStaticV4.TYPE],
+                    login=user[UserStatic.LOGIN],
+                    name=user[UserStatic.NAME],
+                    email=user[UserStatic.EMAIL],
+                    created_at=user[APIStaticV4.CREATED_AT],
+                    location=user[UserStatic.LOCATION],
+                    updated_at=user[APIStaticV4.UPDATED_AT],
+                    total_followers=user[UserStatic.FOLLOWERS][APIStaticV4.TOTAL_COUNT]
+                )
 
         obj = IssueModel(
             created_at=dic[APIStaticV4.CREATED_AT],

@@ -3,7 +3,6 @@ import logging
 import multiprocessing as mp
 
 from gras.base_miner import BaseMiner
-from gras.db.db_models import DBSchema
 from gras.github.entity.github_models import AnonContributorModel
 from gras.github.structs.branch_struct import BranchStruct
 from gras.github.structs.comment_struct import CommentStruct
@@ -41,8 +40,7 @@ class GithubMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args=args)
 
-        self._engine, self._conn = self._connect_to_db()
-        self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
+        self._initialise_db()
 
     def load_from_file(self, file):
         pass
@@ -122,12 +120,14 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Commit Stage', is_stage=True)
     def _commit_miner(self):
-        try:
-            self._dump_commits()
-        finally:
-            self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
+        # try:
+        #     self._dump_commits()
+        # finally:
+        #     self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
 
-        self._dump_commit_comments()
+        # self._dump_commit_comments()
+        # self._refactor_table(id_='id', table='commit_comments', group_by='repo_id, commenter_id, commit_id, created_at')
+
         self._fetch_code_change()
 
     @timing(name='Pull Tracker Stage', is_stage=True)
@@ -509,9 +509,23 @@ class GithubMiner(BaseMiner):
 
             if self.full:
                 logger.info("Dumping Issues...")
+
+                res = self._conn.execute(
+                    f"""
+                    SELECT max(created_at)
+                    FROM issues
+                    """
+                ).fetchone()
+
+                if res:
+                    since = "T".join(res[0].split())
+                else:
+                    since = None
+
                 issues = IssueStruct(
                     name=self.repo_name,
-                    owner=self.repo_owner
+                    owner=self.repo_owner,
+                    since=since
                 )
             else:
                 logger.info("Dumping Issues using Search API...")
@@ -542,7 +556,7 @@ class GithubMiner(BaseMiner):
                         closed_at=node.closed_at,
                         title=node.title,
                         body=node.body,
-                        reporter_id=self._get_user_id(login=None, user_object=node.author),
+                        reporter_id=self._get_user_id(login=None, user_object=node.author) if node.author else None,
                         milestone_id=self._get_table_id(table='milestones', field='number',
                                                         value=node.milestone_number),
                         positive_reaction_count=node.positive_reaction_count,
@@ -1024,7 +1038,8 @@ class GithubMiner(BaseMiner):
                         merged=node.merged,
                         merged_at=node.merged_at,
                         merged_by=self._get_user_id(login=None, user_object=node.merged_by),
-                        milestone_id=self._get_table_id(table='milestones', field='number', value=node.milestone_number),
+                        milestone_id=self._get_table_id(table='milestones', field='number',
+                                                        value=node.milestone_number),
                         positive_reaction_count=node.positive_reaction_count,
                         negative_reaction_count=node.negative_reaction_count,
                         ambiguous_reaction_count=node.ambiguous_reaction_count,
@@ -1324,8 +1339,12 @@ class GithubMiner(BaseMiner):
     def __get_commit_oids(self):
         res = self._conn.execute(
             f"""
-            SELECT DISTINCT oid
+            SELECT DISTINCT oid, id
             FROM commits
+            WHERE id NOT IN (
+                SELECT DISTINCT commit_id
+                FROM code_change
+            )       
             """
         ).fetchall()
 

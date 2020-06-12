@@ -203,7 +203,8 @@ class DBSchema:
             total_watchers INTEGER DEFAULT '0' NOT NULL,
             forked_from VARCHAR(255),
             
-            PRIMARY KEY (repo_id)
+            PRIMARY KEY (repo_id),
+            CONSTRAINT name_owner_ind UNIQUE (name, owner)
         )
         """
         self.repository = Table(
@@ -221,7 +222,8 @@ class DBSchema:
             Column('primary_language', UNICODE, nullable=False),
             Column('total_stargazers', INTEGER, server_default='0', nullable=False),
             Column('total_watchers', INTEGER, server_default='0', nullable=False),
-            Column('forked_from', UNICODE)
+            Column('forked_from', UNICODE),
+            UniqueConstraint('name', 'owner')
         )
 
         self.repository.create(bind=self.conn, checkfirst=True)

@@ -1,6 +1,7 @@
 import logging
 
 from requests import exceptions
+from itertools import zip_longest
 
 from gras.errors import ObjectDoesNotExistError
 from gras.github.entity.api_static import APIStaticV3, APIStaticV4, CommitStatic, UserStatic
@@ -86,7 +87,7 @@ class AssignableUserStruct(GithubInterface, UserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
             :return: A :class:`gras.github.entity.github_models.UserModel` object
             :rtype: class
         """
@@ -178,7 +179,7 @@ class UserNodesStruct(GithubInterface, UserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
             :return: A :class:`gras.github.entity.github_models.UserModel` object
             :rtype: class
         """
@@ -240,7 +241,7 @@ class ContributorList(GithubInterface, AnonContributorModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.AnonContributorModel` object representing the
+            Generates a :class:`gras.github.entity.github_models.AnonContributorModel` object representing the
             fetched data.
             :return: A :class:`gras.github.entity.github_models.AnonContributorModel` object
             :rtype: class
@@ -268,13 +269,15 @@ class UserStructV3(GithubInterface, UserModel):
         :type login: str
     """
 
-    def __init__(self, login):
+    def __init__(self, login, is_bot=False):
         """Constructor Method"""
         super().__init__(
             query=None,
             url=f"https://api.github.com/users/{login}",
             query_params=None
         )
+
+        self.is_bot = is_bot
 
     def iterator(self):
         """
@@ -297,7 +300,7 @@ class UserStructV3(GithubInterface, UserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
             :return: A :class:`gras.github.entity.github_models.UserModel` object
             :rtype: class
         """
@@ -306,7 +309,12 @@ class UserStructV3(GithubInterface, UserModel):
         if not user:
             return None
 
-        return self.object_decoder(user)
+        user_obj = self.object_decoder(user)
+
+        if self.is_bot:
+            user_obj.login = user_obj.login.replace("[bot]", "")
+
+        return user_obj
 
 
 class UserStruct(GithubInterface, UserModel):
@@ -359,7 +367,7 @@ class UserStruct(GithubInterface, UserModel):
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.UserModel` object representing the fetched data.
             :return: A :class:`gras.github.entity.github_models.UserModel` object
             :rtype: class
         """
@@ -446,6 +454,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
             query_params=dict(name=repo_name, owner=repo_owner, oid=oid),
         )
 
+        self.is_author = is_author
         self.oid = oid
         self.name = name
         self.email = email
@@ -473,12 +482,13 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         """
 
         generator = self._generator()
-        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][CommitStatic.AUTHOR][
+        user_type = CommitStatic.AUTHOR if self.is_author else CommitStatic.COMMITTER
+        return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][user_type][
             UserStatic.USER]
 
     def process(self):
         """
-            generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
             
             :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
             :rtype: CommitUserModel
@@ -495,7 +505,7 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
 
     async def async_process(self):
         """
-            generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
+            Generates a :class:`gras.github.entity.github_models.CommitUserModel` object representing the fetched data.
             
             :return: A :class:`gras.github.entity.github_models.CommitUserModel` object
             :rtype: CommitUserModel
@@ -510,3 +520,45 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
                 return self.oid, user
         except exceptions.RequestException:
             return None
+
+
+class ContributorEmailSearch(GithubInterface):
+    def __init__(self, login, max_pages=3, github_token=None):
+        super().__init__(
+            query=None,
+            url=f"https://api.github.com/search/commits?q=author:{login}",
+            additional_headers=dict(Accept="application/vnd.github.cloak-preview"),
+            query_params=None,
+            github_token=github_token
+        )
+
+        self.max_pages = max_pages
+
+    def iterator(self):
+        generator = self._generator()
+        hasNextPage = True
+
+        pairs = set()
+
+        while hasNextPage and self.max_pages > 0:
+            response = next(generator)
+
+            try:
+                next_url = response.links["next"]["url"]
+            except KeyError:
+                break
+
+            self.url = next_url
+
+            response = response.json()["items"]
+
+            for commit_obj in response:
+                commit = commit_obj["commit"]
+                name, email = commit["author"]["name"], commit["author"]["email"]
+
+                pairs.add((name, email))
+
+            hasNextPage = True if next_url is not None else False
+            self.max_pages -= 1
+
+        return list(pairs)

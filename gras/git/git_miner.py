@@ -2,16 +2,16 @@ import asyncio
 import concurrent.futures
 import logging
 import multiprocessing as mp
+import os
 import pickle
 from datetime import datetime
 
 from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository, Oid
 
 from gras.base_miner import BaseMiner
-from gras.db.db_models import DBSchema
 from gras.github.structs.contributor_struct import CommitUserStruct
 from gras.github.structs.repository_struct import RepositoryStruct
-from gras.utils import locked, timing
+from gras.utils import timing
 
 try:
     import uvloop
@@ -25,16 +25,16 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
 THREADS = min(32, mp.cpu_count() + 4)
 MAX_INSERT_OBJECTS = 100
+LOCKED = True
+lock = mp.Lock()
 
 
 class GitMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args)
 
-        self._engine, self._conn = self._connect_to_db()
-        self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
+        self._initialise_db()
 
-        self.db_schema.create_tables()
         self._dump_repository()
 
         self.aio = args.aio
@@ -58,29 +58,40 @@ class GitMiner(BaseMiner):
     def _dump_repository(self):
         logger.info("Dumping Repository...")
 
-        repo = RepositoryStruct(
-            name=self.repo_name,
-            owner=self.repo_owner
-        ).process()
+        res = self.execute_query(
+            f"""
+            SELECT repo_id 
+            FROM repository
+            WHERE name="{self.repo_name}" and owner="{self.repo_owner}"
+            """
+        ).fetchone()
 
-        obj = self.db_schema.repository_object(
-            name=self.repo_name,
-            owner=self.repo_owner,
-            created_at=repo.created_at,
-            updated_at=repo.updated_at,
-            description=repo.description,
-            disk_usage=repo.disk_usage,
-            fork_count=repo.fork_count,
-            url=repo.url,
-            homepage_url=repo.homepage_url,
-            primary_language=repo.primary_language,
-            total_stargazers=repo.stargazer_count,
-            total_watchers=repo.watcher_count,
-            forked_from=repo.forked_from
-        )
+        if res:
+            self._set_repo_id(res[0])
+        else:
+            repo = RepositoryStruct(
+                name=self.repo_name,
+                owner=self.repo_owner
+            ).process()
 
-        self._insert(self.db_schema.repository.insert(), obj)
-        self._set_repo_id()
+            obj = self.db_schema.repository_object(
+                name=self.repo_name,
+                owner=self.repo_owner,
+                created_at=repo.created_at,
+                updated_at=repo.updated_at,
+                description=repo.description,
+                disk_usage=repo.disk_usage,
+                fork_count=repo.fork_count,
+                url=repo.url,
+                homepage_url=repo.homepage_url,
+                primary_language=repo.primary_language,
+                total_stargazers=repo.stargazer_count,
+                total_watchers=repo.watcher_count,
+                forked_from=repo.forked_from
+            )
+
+            self._insert(self.db_schema.repository.insert(), obj)
+            self._set_repo_id()
 
     def _fetch_references(self):
         self.tags, self.branches = [], {}
@@ -111,9 +122,8 @@ class GitMiner(BaseMiner):
         else:
             return None
 
-    @locked
     def __get_commit_id(self, oid):
-        res = self._conn.execute(
+        res = self.execute_query(
             f"""
             SELECT id
             FROM commits
@@ -121,11 +131,13 @@ class GitMiner(BaseMiner):
             """
         ).fetchone()
 
-        return res[0]
+        if res:
+            return res[0]
+        else:
+            return None
 
-    @locked
     def __check_user_id(self, email):
-        res = self._conn.execute(
+        res = self.execute_query(
             f"""
             SELECT id, login, name
             FROM contributors
@@ -135,11 +147,10 @@ class GitMiner(BaseMiner):
 
         return res
 
-    @locked
     def __update_contributor(self, name, id_):
         name = name.replace('"', '""')
 
-        self._conn.execute(
+        self.execute_query(
             f"""
             UPDATE contributors
             SET name="{name}"
@@ -148,6 +159,12 @@ class GitMiner(BaseMiner):
         )
 
     def __get_user_id(self, name, email, oid, is_author):
+        if not email:
+            email = None
+
+        if not name:
+            name = None
+
         res = self.__check_user_id(email)
 
         if not res:
@@ -161,9 +178,11 @@ class GitMiner(BaseMiner):
             ).process()
 
             if user is None:
-                self._dump_anon_user_object(name=name, email=email, object_=self.db_schema.contributors.insert())
+                self._dump_anon_user_object(name=name, email=email, object_=self.db_schema.contributors.insert(),
+                                            locked_insert=LOCKED)
             else:
-                self._dump_user_object(login=None, user_object=user, object_=self.db_schema.contributors.insert())
+                self._dump_user_object(login=None, user_object=user, object_=self.db_schema.contributors.insert(),
+                                       locked_insert=LOCKED)
 
             return self.__get_user_id(name=name, email=email, oid=oid, is_author=is_author)
         else:
@@ -229,7 +248,8 @@ class GitMiner(BaseMiner):
 
         author_name = commit.author.name
         author_email = commit.author.email
-        author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid, is_author=True)
+        author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid.hex, is_author=True) if \
+            author_email.strip() else None
         authored_date = datetime.fromtimestamp(commit.author.time)
 
         committer_name = commit.committer.name
@@ -238,7 +258,8 @@ class GitMiner(BaseMiner):
         if committer_email == "noreply@github.com":
             committer_id = author_id
         else:
-            committer_id = self.__get_user_id(name=committer_name, email=committer_email, oid=oid, is_author=False)
+            committer_id = self.__get_user_id(name=committer_name, email=committer_email, oid=oid.hex,
+                                              is_author=False) if committer_email.strip() else None
 
         committed_date = datetime.fromtimestamp(commit.commit_time)
 
@@ -251,7 +272,7 @@ class GitMiner(BaseMiner):
 
         obj = self.db_schema.commits_object(
             repo_id=self.repo_id,
-            oid=str(oid),
+            oid=oid.hex,
             additions=additions,
             deletions=deletions,
             author_id=author_id,
@@ -263,7 +284,7 @@ class GitMiner(BaseMiner):
             is_merge=is_merge
         )
 
-        logger.debug(f"Inserting for {oid}...")
+        logger.debug(f"Inserting for commit: {oid.hex}...")
         self._insert(object_=self.db_schema.commits.insert(), param=obj)
         logger.debug("Inserted!")
 
@@ -294,19 +315,20 @@ class GitMiner(BaseMiner):
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
             process = {executor.submit(self.__fetch_branch_commits, branch_target): branch_target for branch_target
                        in self.branches.items()}
+
             for future in concurrent.futures.as_completed(process):
                 branch_target = process[future]
                 logger.info(f"Fetched for {branch_target}")
 
         logger.info(f"TOTAL COMMITS: {len(self.commits)}")
-        with open(f"{self.repo_name}_commits.txt", "wb") as fp:
+        with open(f"/home/mahen/PycharmProjects/GRAS/{self.repo_name}_commits.txt", "wb") as fp:
             temp = [x.hex for x in self.commits]
             pickle.dump(temp, fp)
             del temp
 
     @timing(name="commits", is_stage=True)
     def _parse_commits(self):
-        res = self._conn.execute(
+        res = self.execute_query(
             f"""
             SELECT DISTINCT oid
             FROM commits
@@ -317,6 +339,7 @@ class GitMiner(BaseMiner):
         del res
 
         index = 1
+        exception = None
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
             process = {executor.submit(self._dump_commit, oid): oid for oid in self.commits if
                        oid.hex not in dumped_commits}
@@ -325,30 +348,41 @@ class GitMiner(BaseMiner):
                 logger.info(f"Dumped commit: {oid}, index: {index}")
                 index += 1
 
+                if future.exception():
+                    exception = future.exception()
+                    logger.error(exception)
+                    os._exit(1)
+
+        if exception:
+            raise exception
+
     @timing(name="code change", is_stage=True)
     def _parse_code_change(self):
-        res = self._conn.execute(
+        id_oid = self.execute_query(
             f"""
-            SELECT oid 
+            SELECT id, oid
             FROM commits
-            WHERE id in (
-                SELECT DISTINCT commit_id
-                FROM code_change 
-            )           
             """
-        )
+        ).fetchall()
 
-        dumped_commits = [x[0] for x in res]
-        del res
+        dumped_ids = self.execute_query(
+            f"""
+            SELECT DISTINCT commit_id
+            FROM code_change       
+            """
+        ).fetchall()
+
+        dumped_ids = [x[0] for x in dumped_ids]
+
+        not_dumped_commits = [x[1] for x in id_oid if x[0] not in dumped_ids]
+        del dumped_ids
+        del id_oid
 
         index = 1
-        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
-            process = {executor.submit(self._dump_code_change, oid): oid for oid in self.commits if
-                       oid.hex not in dumped_commits}
-            for future in concurrent.futures.as_completed(process):
-                oid = process[future]
-                logger.info(f"Dumped Code Change for commit: {oid}, index: {index}")
-                index += 1
+        for oid in not_dumped_commits:
+            self._dump_code_change(oid=oid)
+            logger.info(f"Dumped Code Change for commit: {oid}, index: {index}")
+            index += 1
 
     @timing(name="async -> commits", is_stage=True)
     async def _async_parse_commits(self):
@@ -371,7 +405,7 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            self._parse_commits()
+            # self._parse_commits()
             self._parse_code_change()
 
     def __del__(self):

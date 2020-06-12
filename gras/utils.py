@@ -208,9 +208,8 @@ def locked(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        lock.acquire()
-        result = func(*args, **kwargs)
-        lock.release()
+        with lock:
+            result = func(*args, **kwargs)
 
         return result
 
