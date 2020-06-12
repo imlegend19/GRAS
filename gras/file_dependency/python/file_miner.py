@@ -1,10 +1,9 @@
-import ast
 import os
 
 from gras.base_miner import BaseMiner
-from gras.file_dependency.python.models import DirectoryModel, FileModel
+from gras.file_dependency.python.models import DirectoryModel
 from gras.file_dependency.python.node_parser import FileAnalyzer
-from gras.file_dependency.utils import is_python_file, lines_of_code_counter
+from gras.file_dependency.utils import is_python_file
 
 
 class PythonMiner(BaseMiner):
@@ -46,24 +45,10 @@ class PythonMiner(BaseMiner):
 
     @staticmethod
     def parse_file(content, path):
-        name = os.path.basename(path)
-        loc = lines_of_code_counter(content.split("\n"))
+        analyzer = FileAnalyzer(file_path=path, content=content)
+        file = analyzer.process()
 
-        analyzer = FileAnalyzer(file_name=path)
-        tree = ast.parse(content)
-        analyzer.visit(tree)
-
-        file_stats = analyzer.process()
         del analyzer
-
-        file = FileModel(
-            name=name,
-            loc=loc,
-            classes=file_stats["classes"],
-            functions=file_stats["functions"],
-            variables=file_stats["all_variables"],
-            imports=file_stats["imports"]
-        )
 
         return file
 

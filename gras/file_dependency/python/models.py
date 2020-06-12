@@ -20,10 +20,11 @@ class DirectoryModel(BaseModel):
 
 
 class FileModel(BaseModel):
-    def __init__(self, name, loc, classes, functions, variables, imports):
+    def __init__(self, name, path, loc, classes, functions, variables, imports):
         super().__init__()
 
         self.name = name
+        self.path = path
         self.loc = loc
         self.classes = classes
         self.functions = functions

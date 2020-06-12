@@ -1,14 +1,15 @@
 import ast
-import inspect
 import logging
+import os
 from ast import (
     Attribute, Call, ClassDef, FunctionDef, Global, Import, ImportFrom, Name, Nonlocal, arguments,
 )
 
 from gras.file_dependency.python.models import (
-    ArgModel, AttributeModel, CallModel, DecoratorModel, DefModel, ImportModel, VariableModel
+    ArgModel, AttributeModel, CallModel, DecoratorModel, DefModel, FileModel, ImportModel, VariableModel
 )
 from gras.file_dependency.python.node_types import Arg, Base, Class, Function, Kwarg
+from gras.file_dependency.utils import lines_of_code_counter
 
 logger = logging.getLogger("main")
 
@@ -246,14 +247,7 @@ class NodeParser(ast.NodeVisitor):
         )
 
 
-if __name__ == '__main__':
-    with open("/home/mahen/PycharmProjects/GRAS/tests/data/test_defs.py") as f:
-        tree = ast.parse(f.read())
-        for child in tree.body:
-            val = NodeParser(child).value
-
-
-class FileAnalyzer(ast.NodeVisitor):
+class FileAnalyzer:
     """
     `NodeVisitor` class that visits specifics Nodes in an abstract syntax tree and generates a dictionary.
     For more information,see `ast.NodeVisitor`_
@@ -262,21 +256,41 @@ class FileAnalyzer(ast.NodeVisitor):
         https://docs.python.org/3/library/ast.html#ast.NodeVisitor
     """
 
-    def __init__(self, file_name):
+    def __init__(self, file_path, content):
         """Constructor Method"""
 
-        self.file_name = file_name
+        self.file_path = file_path
+        self.content = content
+        self.loc = lines_of_code_counter(content.split("\n"))
 
-        self.functions = []
-        self.classes = []
-        self.imports = []
-        self.global_variables = []
+    def process(self):
+        classes, functions, variables, imports = [], [], [], []
 
-        self.supported_node_types = []
+        tree = ast.parse(self.content)
+        for child in tree.body:
+            value = NodeParser(child).value
 
-        self.__init_base_functions()
+            if isinstance(value, DefModel):
+                if isinstance(value.subtype, Class):
+                    classes.append(value)
+                else:
+                    functions.append(value)
+            elif isinstance(value, list):
+                if isinstance(value[0], VariableModel):
+                    variables.extend(value)
+                elif isinstance(value[0], ImportModel):
+                    imports.extend(value)
+            elif isinstance(value, VariableModel):
+                variables.append(value)
+            elif isinstance(value, ImportModel):
+                imports.append(value)
 
-    def __init_base_functions(self):
-        for func in inspect.getmembers(self.__class__, predicate=inspect.isfunction):
-            if 'visit_' in func[1].__name__:
-                self.supported_node_types.append(func[1].__name__[6:])
+        return FileModel(
+            name=os.path.basename(self.file_path),
+            path=self.file_path,
+            loc=self.loc,
+            classes=classes,
+            functions=functions,
+            variables=variables,
+            imports=imports,
+        )
