@@ -180,22 +180,19 @@ class NodeParser(ast.NodeVisitor):
             if not value:
                 continue
 
-            print(type(value))
-            print(isinstance(value, DefModel))
-
             if isinstance(value, list):
                 if isinstance(value[0], ImportModel):
                     imports.extend(value)
                 elif isinstance(value[0], VariableModel):
                     variables.extend(value)
-            elif isinstance(value, DefModel) and isinstance(value.subtype, Function):
+            elif isinstance(value, DefModel) and value.subtype.__name__ == 'Function':
                 functions.append(value)
-            elif isinstance(value, DefModel) and isinstance(value.subtype, Class):
+            elif isinstance(value, DefModel) and value.subtype.__name__ == 'Class':
                 classes.append(value)
             elif isinstance(value, VariableModel):
                 variables.append(value)
             else:
-                print(type(obj), ": Not Implemented")
+                logger.error(f"{type(obj)}: Not Implemented")
 
         self.value = DefModel(
             subtype=Class,
@@ -224,14 +221,14 @@ class NodeParser(ast.NodeVisitor):
                     imports.extend(value)
                 elif isinstance(value[0], VariableModel):
                     variables.extend(value)
-            elif isinstance(value, DefModel) and isinstance(value.subtype, Function):
+            elif isinstance(value, DefModel) and value.subtype.__name__ == 'Function':
                 functions.append(value)
-            elif isinstance(value, DefModel) and isinstance(value.subtype, Class):
+            elif isinstance(value, DefModel) and value.subtype.__name__ == 'Class':
                 classes.append(value)
             elif isinstance(value, VariableModel):
                 variables.append(value)
             else:
-                print(type(obj), ": Not Implemented")
+                logger.error(f"{type(obj)}: Not Implemented")
 
         self.value = DefModel(
             subtype=self.subtype if self.subtype else Function,
@@ -256,12 +253,15 @@ class FileAnalyzer:
         https://docs.python.org/3/library/ast.html#ast.NodeVisitor
     """
 
-    def __init__(self, file_path, content):
+    def __init__(self, file_path):
         """Constructor Method"""
 
         self.file_path = file_path
-        self.content = content
-        self.loc = lines_of_code_counter(content.split("\n"))
+
+        with open(file_path, "r") as fp:
+            self.content = fp.read()
+
+        self.loc = lines_of_code_counter(self.content.split("\n"))
 
     def process(self):
         classes, functions, variables, imports = [], [], [], []
@@ -294,3 +294,7 @@ class FileAnalyzer:
             variables=variables,
             imports=imports,
         )
+
+
+if __name__ == '__main__':
+    FileAnalyzer(file_path="/home/mahen/PycharmProjects/GRAS/gras/file_dependency/python/node_parser.py").process()

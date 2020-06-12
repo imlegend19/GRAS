@@ -17,11 +17,7 @@ class PythonMiner(BaseMiner):
         self.file_path = file_path
 
         if self.file_path:
-            with open(file_path, "r") as fp:
-                content = fp.read()
-                path = fp.name
-
-            self.obj = self.parse_file(content=content, path=path)
+            self.obj = self.parse_file(path=self.file_path)
 
         if self.project_dir:
             self.obj = self.project_walker(self.project_dir)
@@ -45,7 +41,7 @@ class PythonMiner(BaseMiner):
 
     @staticmethod
     def parse_file(content, path):
-        analyzer = FileAnalyzer(file_path=path, content=content)
+        analyzer = FileAnalyzer(file_path=path)
         file = analyzer.process()
 
         del analyzer

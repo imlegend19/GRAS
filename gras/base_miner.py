@@ -4,11 +4,14 @@ import os
 import signal
 from abc import ABCMeta, abstractmethod
 
+from neo4j._exceptions import BoltError
+from neo4j.exceptions import ServiceUnavailable
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
+from neo4j import GraphDatabase
 
 from gras.db.db_models import DBSchema
-from gras.errors import GithubMinerError, InvalidTokenError
+from gras.errors import DatabaseError, GithubMinerError, InvalidTokenError
 from gras.github.structs.contributor_struct import UserStruct, UserStructV3
 from gras.github.structs.rate_limit import RateLimitStruct
 from gras.utils import locked, to_iso_format
@@ -101,6 +104,7 @@ class BaseMiner(metaclass=ABCMeta):
                     connect_args={
                         'check_same_thread': False
                     })
+                self._connect_to_engine()
             elif self.dbms == 'mysql':
                 self.engine = create_engine(
                     f'mysql+pymysql://{self.db_username}:{self.db_password}@{self.db_host}:'
@@ -108,6 +112,7 @@ class BaseMiner(metaclass=ABCMeta):
                     connect_args={
                         'check_same_thread': False
                     })
+                self._connect_to_engine()
             elif self.dbms == 'postgresql':
                 self.engine = create_engine(
                     f'postgresql+psycopg2://{self.db_username}:{self.db_password}@{self.db_host}:'
@@ -115,15 +120,35 @@ class BaseMiner(metaclass=ABCMeta):
                     connect_args={
                         'check_same_thread': False
                     })
+                self._connect_to_engine()
+            elif self.dbms == 'neo4j':
+                self.engine = None
+
+                try:
+                    self._conn = GraphDatabase.driver(
+                        uri=f"bolt://{self.db_host}:{self.db_port}", auth=(self.db_username, self.db_password)
+                    )
+                except ServiceUnavailable as e:
+                    logger.error("Failed to establish connection to the database!")
+                    raise DatabaseError(msg=e)
+                except BoltError:
+                    try:
+                        self._conn = GraphDatabase.driver(
+                            uri=f"bolt://{self.db_host}:{self.db_port}", auth=(self.db_username, self.db_password),
+                            encrypted=False
+                        )
+                    except Exception as e:
+                        raise DatabaseError(msg=e)
             else:
                 raise NotImplementedError
-
-            self._connect_to_engine()
         except ProgrammingError as e:
             if 'Access denied' in str(e):
                 logger.error(f"Access denied! Please check your password for {self.db_username}.")
             else:
                 logger.error(str(e))
+        except Exception as e:
+            logger.error("Failed to establish connection to the database!")
+            raise DatabaseError(msg=e)
 
     @staticmethod
     def __get_not_null_clause(clause):

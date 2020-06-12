@@ -22,7 +22,7 @@ class Method(BaseType):
 
 
 class GlobalVariable(BaseType):
-    __name__ = "Global Variable"
+    __name__ = "GlobalVariable"
 
 
 class Arg(BaseType):
@@ -38,7 +38,8 @@ class Base(BaseType):
 
 
 if __name__ == '__main__':
-    import astpretty, ast
+    import astpretty
+    import ast
 
     s = """ 
 async def run():

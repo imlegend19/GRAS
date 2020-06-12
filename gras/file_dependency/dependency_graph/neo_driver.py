@@ -7,7 +7,7 @@ from gras.file_dependency.python.file_miner import PythonMiner
 
 class DependencyGraph(object):
     def __init__(self, uri, user, password, model):
-        self._driver = GraphDatabase.driver(uri, auth=(user, password), encrypted=False)
+        self._driver = GraphDatabase.driver(uri, auth=(user, password), encrypted=True)
         self.model = model
         self.session = self._driver.session()
 
@@ -189,7 +189,8 @@ class DependencyGraph(object):
                 self._create_directory_node(dir_node=dir_node)
 
     def process(self):
-        self._create_directory_node(dir_node=self.model)
+        pass
+        # self._create_directory_node(dir_node=self.model)
 
     def __del__(self):
         self.session.close()
