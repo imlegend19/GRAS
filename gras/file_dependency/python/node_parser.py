@@ -1,4 +1,5 @@
 import ast
+import inspect
 from ast import (
     Assign, Attribute, Call, ClassDef, Expr, FunctionDef, Global, Import, ImportFrom, Name, Nonlocal, Pass,
     Tuple,
@@ -14,6 +15,32 @@ from gras.file_dependency.python.node_types import AttributeTree, CallTree, Clas
 Template = namedtuple('Template', 'type name decorators docstring')
 
 
+class NodeParser(ast.NodeVisitor):
+    def __init__(self, node):
+        self.node = node
+        self.base_type = node.__class__.__name__.lower()
+
+    def visit(self, node):
+        """Visit a node."""
+        method = 'visit_' + node.__class__.__name__
+        visitor = getattr(self, method, getattr(self, 'generic_visit_' + self.base_type))
+        return visitor(node)
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        return DefModel(
+            subtype=Function,
+            name=node.name,
+            line=node.lineno,
+            decorators=
+        )
+
+
+if __name__ == '__main__':
+    with open("/home/mahen/PycharmProjects/GRAS/gras/file_dependency/python/file_miner.py") as f:
+        tree = ast.parse(f.read())
+        NodeParser(tree.body[-2])
+
+
 class FileAnalyzer(ast.NodeVisitor):
     """
     `NodeVisitor` class that visits specifics Nodes in an abstract syntax tree and generates a dictionary.
@@ -23,14 +50,55 @@ class FileAnalyzer(ast.NodeVisitor):
         https://docs.python.org/3/library/ast.html#ast.NodeVisitor
     """
 
-    def __init__(self):
+    def __init__(self, file_name):
         """Constructor Method"""
+
+        self.file_name = file_name
 
         self.functions = []
         self.classes = []
         self.imports = []
-        self.all_variables = []
         self.global_variables = []
+
+        self.supported_node_types = []
+
+        self.__init_base_functions()
+
+    def __init_base_functions(self):
+        for func in inspect.getmembers(self.__class__, predicate=inspect.isfunction):
+            if 'visit_' in func[1].__name__:
+                self.supported_node_types.append(func[1].__name__[6:])
+
+    def visit(self, node):
+        """Visit a node."""
+        method = 'visit_' + node.__class__.__name__
+
+        if node.__class__.__name__ == 'Module':
+            self.file_visitor(node)
+        else:
+            try:
+                visitor = getattr(self, method)
+                return visitor(node)
+            except AttributeError:
+                pass
+
+    def file_visitor(self, node):
+        """Called if no explicit visitor function exists for a node."""
+        for field, value in ast.iter_fields(node):
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, ast.AST):
+                        if item.__class__.__name__ in self.supported_node_types:
+                            model = self.visit(item)
+                            if isinstance(item, FunctionDef):
+                                self.functions.append(model)
+                            elif isinstance(item, ClassDef):
+                                self.classes.append(model)
+                            elif isinstance(item, Import) or isinstance(item, ImportFrom):
+                                self.imports.append(model)
+
+            else:
+                raise NotImplementedError
 
     def visit_ClassDef(self, node, return_=False):
         name = node.name
@@ -146,8 +214,6 @@ class FileAnalyzer(ast.NodeVisitor):
         else:
             self.classes.append(class_obj)
 
-        self.generic_visit(node)
-
     def visit_FunctionDef(self, node: FunctionDef, return_=False):
         name = node.name
         line = node.lineno
@@ -241,8 +307,6 @@ class FileAnalyzer(ast.NodeVisitor):
         else:
             self.functions.append(function_obj)
 
-        self.generic_visit(node)
-
     def visit_Import(self, node: Import, return_=False):
         objs = []
         for alias in node.names:
@@ -257,8 +321,6 @@ class FileAnalyzer(ast.NodeVisitor):
             return objs
         else:
             self.imports.extend(objs)
-
-        self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ImportFrom, return_=False):
         objs = []
@@ -276,8 +338,6 @@ class FileAnalyzer(ast.NodeVisitor):
             return objs
         else:
             self.imports.extend(objs)
-
-        self.generic_visit(node)
 
     def visit_Global(self, node: Global):
         pass

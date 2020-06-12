@@ -2,9 +2,9 @@ import ast
 import os
 
 from gras.base_miner import BaseMiner
-from gras.file_dependency.python.models import FileModel, DirectoryModel
+from gras.file_dependency.python.models import DirectoryModel, FileModel
 from gras.file_dependency.python.node_parser import FileAnalyzer
-from gras.file_dependency.utils import lines_of_code_counter, is_python_file
+from gras.file_dependency.utils import is_python_file, lines_of_code_counter
 
 
 class PythonMiner(BaseMiner):
@@ -24,10 +24,9 @@ class PythonMiner(BaseMiner):
 
             self.obj = self.parse_file(content=content, path=path)
 
-
         if self.project_dir:
             self.obj = self.project_walker(self.project_dir)
-            #self._print(obj=self.obj)
+            # self._print(obj=self.obj)
 
     def _print(self, obj):
         print("\n")
@@ -38,7 +37,6 @@ class PythonMiner(BaseMiner):
         if bool(obj.directories):
             for d in obj.directories:
                 self._print(d)
-
 
     def load_from_file(self, file):
         pass
@@ -51,7 +49,7 @@ class PythonMiner(BaseMiner):
         name = os.path.basename(path)
         loc = lines_of_code_counter(content.split("\n"))
 
-        analyzer = FileAnalyzer()
+        analyzer = FileAnalyzer(file_name=path)
         tree = ast.parse(content)
         analyzer.visit(tree)
 
@@ -65,7 +63,7 @@ class PythonMiner(BaseMiner):
             functions=file_stats["functions"],
             variables=file_stats["all_variables"],
             imports=file_stats["imports"]
-            )
+        )
 
         return file
 
@@ -99,13 +97,13 @@ class PythonMiner(BaseMiner):
             files=file_models,
             directories=[
                 self.project_walker(dir_path) for dir_path in directories
-                ],
+            ],
             total_loc=[sum(file_.loc for file_ in file_models)],
             total_files=len(file_models),
             total_classes=0,
             total_functions=0,
             total_global_variables=0,
-            )
+        )
 
         # TODO: Refer the previous implementation to init the values for other parameters
 
@@ -137,11 +135,5 @@ class PythonMiner(BaseMiner):
 
 
 if __name__ == '__main__':
-    # obj = PythonMiner(args=None, project_dir="/home/viper/dev/GRAS/gras", file_path=None).process()
-    #
-    #
     obj = PythonMiner(args=None, project_dir=None,
-                 file_path="/home/viper/dev/GRAS/gras/file_dependency/python/node_parser.py").process()
-    for var in obj.variables:
-        print(var.name)
-        #print(var.subtype)
+                      file_path="/home/mahen/PycharmProjects/GRAS/gras/file_dependency/python/node_parser.py").process()
