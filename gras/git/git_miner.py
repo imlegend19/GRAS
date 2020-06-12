@@ -350,8 +350,7 @@ class GitMiner(BaseMiner):
 
                 if future.exception():
                     exception = future.exception()
-                    future.cancel()
-                    print(exception)
+                    logger.error(exception)
                     os._exit(1)
 
         if exception:

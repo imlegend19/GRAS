@@ -511,5 +511,8 @@ if __name__ == '__main__':
 
     logger.info("Starting GRAS...")
 
-    main()
-    sys.exit(1)
+    try:
+        main()
+    except Exception as ex:
+        logger.error(ex)
+        os._exit(1)
