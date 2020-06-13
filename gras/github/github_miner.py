@@ -1,6 +1,7 @@
 import concurrent.futures
 import logging
 import multiprocessing as mp
+import os
 
 from gras.base_miner import BaseMiner
 from gras.github.entity.github_models import AnonContributorModel
@@ -49,7 +50,6 @@ class GithubMiner(BaseMiner):
         pass
 
     def process(self):
-        self.db_schema.create_tables()
         self._dump_repository()
 
         if self.basic:
@@ -110,23 +110,23 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
-        # try:
-        #     self._dump_issues()
-        # finally:
-        #     self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+        try:
+            self._dump_issues()
+        finally:
+            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
 
-        # self._fetch_issue_events()
+        self._fetch_issue_events()
         self._fetch_issue_comments()
 
     @timing(name='Commit Stage', is_stage=True)
     def _commit_miner(self):
-        # try:
-        #     self._dump_commits()
-        # finally:
-        #     self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
+        try:
+            self._dump_commits()
+        finally:
+            self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
 
-        # self._dump_commit_comments()
-        # self._refactor_table(id_='id', table='commit_comments', group_by='repo_id, commenter_id, commit_id, created_at')
+        self._dump_commit_comments()
+        self._refactor_table(id_='id', table='commit_comments', group_by='repo_id, commenter_id, commit_id, created_at')
 
         self._fetch_code_change()
 
@@ -517,7 +517,7 @@ class GithubMiner(BaseMiner):
                     """
                 ).fetchone()
 
-                if res:
+                if res[0]:
                     since = "T".join(res[0].split())
                 else:
                     since = None
@@ -697,6 +697,11 @@ class GithubMiner(BaseMiner):
                     number = process[future]
                     logger.debug(f"Inserted events for issue number: {number}")
 
+                    if future.exception():
+                        exception = future.exception()
+                        logger.error(exception)
+                        os._exit(1)
+
     def _comments_object_list(self, comments, id_, type_):
         obj_list = []
 
@@ -773,6 +778,11 @@ class GithubMiner(BaseMiner):
                     future.result()
                     logger.debug(f"Inserted comments for Issue number: {number}")
 
+                    if future.exception():
+                        exception = future.exception()
+                        logger.error(exception)
+                        os._exit(1)
+
     def _fetch_code_change(self):
         logger.info("Mining Code Change...")
 
@@ -783,6 +793,11 @@ class GithubMiner(BaseMiner):
                     oid = process[future]
                     future.result()
                     logger.debug(f"Inserted code change for oid: {oid}")
+
+                    if future.exception():
+                        exception = future.exception()
+                        logger.error(exception)
+                        os._exit(1)
 
     def _dump_commits(self, oid=None):
         if not oid:
@@ -1146,6 +1161,11 @@ class GithubMiner(BaseMiner):
                     future.result()
                     logger.debug(f"Inserted Commits for PR Number: {number}")
 
+                    if future.exception():
+                        exception = future.exception()
+                        logger.error(exception)
+                        os._exit(1)
+
     def _dump_pull_request_events(self, number):
         logger.debug(f"Dumping Pull Request Events for Pull Request Number: {number}...")
 
@@ -1175,6 +1195,11 @@ class GithubMiner(BaseMiner):
                     future.result()
                     logger.debug(f"Inserted Events for PR Number: {number}")
 
+                    if future.exception():
+                        exception = future.exception()
+                        logger.error(exception)
+                        os._exit(1)
+
     def _dump_pull_request_comments(self, number):
         logger.debug(f"Dumping Pull Request Comments for Pull Request Number: {number}...")
 
@@ -1202,6 +1227,11 @@ class GithubMiner(BaseMiner):
                     number = process[future]
                     future.result()
                     logger.debug(f"Inserted Comments for PR number: {number}")
+
+                    if future.exception():
+                        exception = future.exception()
+                        logger.error(exception)
+                        os._exit(1)
 
     @locked
     def __check_user(self, login, name=None, email=None):

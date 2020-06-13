@@ -311,7 +311,7 @@ class BaseMiner(metaclass=ABCMeta):
             )
 
             logger.debug(f"Dumping User with login: {login}")
-            print(obj.__dict__)
+
             if locked_insert:
                 self._insert(object_, obj)
             else:
@@ -330,7 +330,6 @@ class BaseMiner(metaclass=ABCMeta):
             )
 
             logger.debug(f"Dumping User with login: {user_object.login}")
-            print(user_object.__dict__)
             if locked_insert:
                 self._insert(object_, obj)
             else:
