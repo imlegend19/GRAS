@@ -13,4 +13,4 @@ tabulate==0.8.7
 uvloop==0.14.0
 networkx~=2.4
 astpretty~=2.0.0
-neo4j~=1.7.6
+neo4j~=4.0.0

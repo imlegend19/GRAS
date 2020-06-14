@@ -7,6 +7,7 @@ class DirectoryModel(BaseModel):
         super().__init__()
 
         self.name = name
+        self.label = "Directory"
         self.files = files
         self.directories = directories
         self.total_loc = total_loc
@@ -24,6 +25,7 @@ class FileModel(BaseModel):
         super().__init__()
 
         self.name = name
+        self.label = "File"
         self.path = path
         self.loc = loc
         self.classes = classes
@@ -56,11 +58,13 @@ class FileModel(BaseModel):
 
 
 class DefModel(BaseModel):
-    def __init__(self, subtype, name, decorators, arguments, functions, classes, imports, variables, docstring, lineno):
+    def __init__(self, subtype, name, decorators, arguments, functions, classes, imports, variables, docstring,
+                 lineno):
         super().__init__()
 
         self.subtype = subtype
         self.name = name
+        self.label = subtype.__name__
         self.decorators = decorators
         self.arguments = arguments
         self.functions = functions
@@ -87,6 +91,7 @@ class ImportModel(BaseModel):
         super().__init__()
 
         self.module = module
+        self.label = "Import"
         self.name = name
         self.as_name = as_name
         self.lineno = lineno
@@ -100,6 +105,7 @@ class DecoratorModel(BaseModel):
         super().__init__()
 
         self.name = name
+        self.label = "Decorator"
         self.value = value
         self.lineno = lineno
 
@@ -147,7 +153,7 @@ class CallModel(BaseModel):
 class VariableModel(BaseModel):
     def __init__(self, subtype, name):
         super().__init__()
-
+        self.label = "Variable"
         self.subtype = subtype
         self.name = name
 

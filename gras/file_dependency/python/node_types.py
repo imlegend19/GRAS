@@ -9,31 +9,31 @@ class BaseType(ABC):
         self.subtype = subtype
 
 
-class Class(BaseType):
+class Class:
     __name__ = "Class"
 
 
-class Function(BaseType):
+class Function:
     __name__ = "Function"
 
 
-class Method(BaseType):
+class Method:
     __name__ = "Method"
 
 
-class GlobalVariable(BaseType):
+class GlobalVariable:
     __name__ = "GlobalVariable"
 
 
-class Arg(BaseType):
+class Arg:
     __name__ = "Arg"
 
 
-class Kwarg(BaseType):
+class Kwarg:
     __name__ = "Kwarg"
 
 
-class Base(BaseType):
+class Base:
     __name__ = "Base"
 
 

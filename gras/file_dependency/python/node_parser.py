@@ -3,11 +3,11 @@ import logging
 import os
 from ast import (
     Attribute, Call, ClassDef, FunctionDef, Global, Import, ImportFrom, Name, Nonlocal, arguments,
-)
+    )
 
 from gras.file_dependency.python.models import (
-    ArgModel, AttributeModel, CallModel, DecoratorModel, DefModel, FileModel, ImportModel, VariableModel
-)
+    ArgModel, AttributeModel, CallModel, DecoratorModel, DefModel, FileModel, ImportModel, VariableModel,
+    )
 from gras.file_dependency.python.node_types import Arg, Base, Class, Function, Kwarg
 from gras.file_dependency.utils import lines_of_code_counter
 
@@ -58,8 +58,8 @@ class NodeParser(ast.NodeVisitor):
                     lineno=decorator.lineno,
                     name=name,
                     value=value
+                    )
                 )
-            )
 
         return objects
 
@@ -70,7 +70,7 @@ class NodeParser(ast.NodeVisitor):
             value=None,
             lineno=node.lineno,
             annotation=node.annotation.id if node.annotation else None
-        )
+            )
 
     def visit_arguments(self, node: arguments):
         self.value = []
@@ -96,7 +96,7 @@ class NodeParser(ast.NodeVisitor):
             value=NodeParser(node.value).value,
             annotation=None,
             lineno=node.value.lineno
-        )
+            )
 
     def visit_Import(self, node: Import):
         self.value = [
@@ -104,8 +104,8 @@ class NodeParser(ast.NodeVisitor):
                 name=alias.name,
                 as_name=alias.asname,
                 lineno=node.lineno
-            ) for alias in node.names
-        ]
+                ) for alias in node.names
+            ]
 
     def visit_ImportFrom(self, node: ImportFrom):
         self.value = [
@@ -114,24 +114,24 @@ class NodeParser(ast.NodeVisitor):
                 name=alias.name,
                 as_name=alias.asname,
                 lineno=node.lineno
-            ) for alias in node.names
-        ]
+                ) for alias in node.names
+            ]
 
     def visit_Global(self, node: Global):
         self.value = [
             VariableModel(
                 subtype=Global,
                 name=nm
-            ) for nm in node.names
-        ]
+                ) for nm in node.names
+            ]
 
     def visit_Nonlocal(self, node: Nonlocal):
         self.value = [
             VariableModel(
                 subtype=Nonlocal,
                 name=nm
-            ) for nm in node.names
-        ]
+                ) for nm in node.names
+            ]
 
     def visit_Name(self, node: Name):
         self.value = node.id
@@ -140,14 +140,14 @@ class NodeParser(ast.NodeVisitor):
         self.value = CallModel(
             lineno=node.lineno,
             func=NodeParser(node.func).value
-        )
+            )
 
     def visit_Attribute(self, node: Attribute):
         self.value = AttributeModel(
             name=node.attr,
             lineno=node.lineno,
             value=NodeParser(node.value).value
-        )
+            )
 
     def visit_ClassDef(self, node: ClassDef):
         classes, functions, imports, variables = [], [], [], []
@@ -171,8 +171,8 @@ class NodeParser(ast.NodeVisitor):
                     value=NodeParser(base).value if base else None,
                     lineno=node.lineno,
                     annotation=None
+                    )
                 )
-            )
 
         for obj in node.body:
             value = NodeParser(obj).value
@@ -205,7 +205,7 @@ class NodeParser(ast.NodeVisitor):
             functions=functions,
             imports=imports,
             variables=variables
-        )
+            )
 
     def visit_FunctionDef(self, node: FunctionDef):
         classes, functions, imports, variables = [], [], [], []
@@ -241,7 +241,7 @@ class NodeParser(ast.NodeVisitor):
             functions=functions,
             imports=imports,
             variables=variables
-        )
+            )
 
 
 class FileAnalyzer:
@@ -271,7 +271,7 @@ class FileAnalyzer:
             value = NodeParser(child).value
 
             if isinstance(value, DefModel):
-                if isinstance(value.subtype, Class):
+                if value.subtype.__name__ == 'Class':
                     classes.append(value)
                 else:
                     functions.append(value)
@@ -293,8 +293,9 @@ class FileAnalyzer:
             functions=functions,
             variables=variables,
             imports=imports,
-        )
+            )
 
 
 if __name__ == '__main__':
-    FileAnalyzer(file_path="/home/mahen/PycharmProjects/GRAS/gras/file_dependency/python/node_parser.py").process()
+    f = FileAnalyzer(file_path="/home/viper/dev/GRAS/gras/file_dependency/dependency_graph/neo_driver.py").process()
+    print(f)
