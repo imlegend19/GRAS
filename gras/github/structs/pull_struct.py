@@ -1,6 +1,9 @@
 from gras.github.entity.api_static import APIStaticV4, IssueStatic
 from gras.github.entity.github_models import PullRequestCommitModel, PullRequestModel, time_period_chunks
 from gras.github.github import GithubInterface
+import logging
+
+logger = logging.getLogger("main")
 
 
 class PullRequestDetailStruct(GithubInterface, PullRequestModel):
@@ -342,6 +345,22 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
         :type limit: int
     """
 
+    SKIP_QUERY = """
+        {{
+            repository(name: "{name}", owner: "{owner}") {{
+                pullRequests(first: 100, orderBy: {{ field: CREATED_AT, direction: ASC }}, after: {after}) {{
+                    pageInfo {{
+                        hasNextPage
+                        endCursor
+                    }}
+                    nodes {{
+                        number
+                    }}
+                }}                
+            }}
+        }}
+    """
+
     QUERY = """
         {{
             repository(name: "{name}", owner: "{owner}") {{
@@ -422,12 +441,44 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
         }}
     """
 
-    def __init__(self, name, owner, limit=100):
+    def __init__(self, name, owner, limit=100, after=None):
         """Constructor Method"""
         super().__init__(
             query=self.QUERY,
-            query_params=dict(owner=owner, name=name, limit=limit, after="null")
+            query_params=dict(owner=owner, name=name, limit=limit, after="null" if not after else f'"{after}"')
         )
+
+    def skip_iterator(self, skip_till_number):
+        generator = self._generator()
+        hasNextPage = True
+        final_cursor = None
+
+        while hasNextPage:
+            try:
+                response = next(generator)
+            except StopIteration:
+                break
+
+            endCursor = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUESTS][
+                APIStaticV4.PAGE_INFO][APIStaticV4.END_CURSOR]
+
+            nodes = response[APIStaticV4.DATA][APIStaticV4.REPOSITORY][IssueStatic.PULL_REQUESTS][APIStaticV4.NODES]
+
+            end = False
+            for dic in nodes:
+                if dic[APIStaticV4.NUMBER] == skip_till_number:
+                    end = True
+                    break
+                else:
+                    logger.debug(f"Skipped Pull Request: {dic[APIStaticV4.NUMBER]}")
+
+            if end:
+                break
+
+            self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
+            final_cursor = endCursor
+
+        return final_cursor
 
     def iterator(self):
         """

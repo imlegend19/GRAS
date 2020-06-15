@@ -251,9 +251,15 @@ def timing(func=None, *, name=None, is_stage=None):
         logger.info(f"Time taken to execute `{name}`: {total_time} sec")
 
         if not is_stage:
-            ELAPSED_TIME_ON_FUNCTIONS[name] = total_time
+            if name in ELAPSED_TIME_ON_FUNCTIONS:
+                ELAPSED_TIME_ON_FUNCTIONS[name] += total_time
+            else:
+                ELAPSED_TIME_ON_FUNCTIONS[name] = total_time
         else:
-            STAGE_WISE_TIME[name] = total_time
+            if name in STAGE_WISE_TIME:
+                STAGE_WISE_TIME[name] += total_time
+            else:
+                STAGE_WISE_TIME[name] = total_time
 
         return result
 

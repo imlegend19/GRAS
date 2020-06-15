@@ -132,10 +132,10 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Pull Tracker Stage', is_stage=True)
     def _pull_tracker_miner(self):
-        try:
-            self._dump_pull_requests()
-        finally:
-            self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
+        # try:
+        #     self._dump_pull_requests()
+        # finally:
+        #     self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
 
         self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
@@ -538,8 +538,6 @@ class GithubMiner(BaseMiner):
                 )
 
             obj_list = []
-            issue_assignees_lst = []
-            issue_labels_lst = []
             issue_list = []
 
             it = len(dumped_issues) + 1
@@ -565,8 +563,8 @@ class GithubMiner(BaseMiner):
                         state=node.state
                     )
 
-                    issue_assignees_lst.append((node.number, node.assignees))
-                    issue_labels_lst.append((node.number, node.labels))
+                    self._dump_issue_assignees(node.number, node.assignees)
+                    self._dump_issue_labels(node.number, node.labels)
 
                     if node.number not in issue_list:
                         issue_list.append(node.number)
@@ -583,44 +581,37 @@ class GithubMiner(BaseMiner):
             logger.info(f"Total Issues: {len(issue_list)}...")
             self._insert(self.db_schema.issues.insert(), obj_list)
 
-            self._dump_issue_assignees(issue_assignees_lst)
-            self._dump_issue_labels(issue_labels_lst)
-
     @timing(name='issue_assignees')
-    def _dump_issue_assignees(self, node_list):
+    def _dump_issue_assignees(self, number, assignees):
         logger.info("Dumping Issue Assignees...")
 
         obj_list = []
 
-        for node in node_list:
-            number = node[0]
-            for assignee_login in node[1]:
-                obj = self.db_schema.issue_assignees_object(
-                    repo_id=self.repo_id,
-                    issue_id=self._get_table_id(table="issues", field="number", value=number),
-                    assignee_id=self._get_user_id(login=assignee_login)
-                )
+        for assignee_login in assignees:
+            obj = self.db_schema.issue_assignees_object(
+                repo_id=self.repo_id,
+                issue_id=self._get_table_id(table="issues", field="number", value=number),
+                assignee_id=self._get_user_id(login=assignee_login)
+            )
 
-                obj_list.append(obj)
+            obj_list.append(obj)
 
         self._insert(self.db_schema.issue_assignees.insert(), obj_list)
 
     @timing(name='issue_labels')
-    def _dump_issue_labels(self, label_list):
+    def _dump_issue_labels(self, number, labels):
         logger.info("Dumping Issue Labels...")
 
         obj_list = []
 
-        for node in label_list:
-            number = node[0]
-            for label_name in node[1]:
-                obj = self.db_schema.issue_labels_object(
-                    repo_id=self.repo_id,
-                    issue_id=self._get_table_id(table="issues", field="number", value=number),
-                    label_id=self._get_table_id('labels', 'name', label_name)
-                )
+        for label_name in labels:
+            obj = self.db_schema.issue_labels_object(
+                repo_id=self.repo_id,
+                issue_id=self._get_table_id(table="issues", field="number", value=number),
+                label_id=self._get_table_id('labels', 'name', label_name)
+            )
 
-                obj_list.append(obj)
+            obj_list.append(obj)
 
         self._insert(self.db_schema.issue_labels.insert(), obj_list)
 
@@ -1005,11 +996,36 @@ class GithubMiner(BaseMiner):
 
             if self.full:
                 logger.info("Dumping Pull Requests...")
+
+                res = self._conn.execute(
+                    f"""
+                    SELECT MAX(number) 
+                    FROM pull_requests
+                    """
+                ).fetchone()
+
                 prs = PullRequestStruct(
                     name=self.repo_name,
                     owner=self.repo_owner,
                     limit=50
                 )
+
+                if res[0]:
+                    after = prs.skip_iterator(res[0])
+                    print(after)
+                    if after is None:
+                        after = "null"
+                else:
+                    after = None
+
+                print("AFTER:", after)
+                prs = PullRequestStruct(
+                    name=self.repo_name,
+                    owner=self.repo_owner,
+                    limit=50,
+                    after=after
+                )
+
             else:
                 logger.info("Dumping Pull Requests using Search API...")
                 prs = PullRequestSearchStruct(
@@ -1022,9 +1038,7 @@ class GithubMiner(BaseMiner):
                 )
 
             obj_list = []
-            pr_assignees_lst = []
-            pr_labels_lst = []
-            pr_list = []
+            total_prs = 0
 
             it = len(dumped_prs) + 1
             for node in prs.process():
@@ -1062,9 +1076,10 @@ class GithubMiner(BaseMiner):
                         review_decision=node.review_decision
                     )
 
-                    pr_assignees_lst.append((node.number, node.assignees))
-                    pr_labels_lst.append((node.number, node.labels))
-                    pr_list.append(node.number)
+                    self._dump_pull_request_assignees(node.number, node.assignees)
+                    self._dump_pull_request_labels(node.number, node.labels)
+
+                    total_prs += 1
 
                     obj_list.append(obj)
 
@@ -1074,23 +1089,31 @@ class GithubMiner(BaseMiner):
                         obj_list.clear()
                         logger.debug("Success!")
                 else:
-                    print("Skipped:", node.number)
+                    self._dump_pull_request_assignees(node.number, node.assignees)
+                    self._dump_pull_request_labels(node.number, node.labels)
 
-            logger.info(f"Total Pull Requests: {len(pr_list)}...")
+                    logger.debug(f"Skipped: {node.number}")
+
+            logger.info(f"Total Pull Requests: {total_prs}...")
             self._insert(self.db_schema.pull_requests.insert(), obj_list)
 
-            self._dump_pull_request_assignees(pr_assignees_lst)
-            self._dump_pull_request_labels(pr_labels_lst)
-
     @timing(name='pull_request_assignees')
-    def _dump_pull_request_assignees(self, node_list):
-        logger.info("Dumping Pull Request Assignees...")
+    def _dump_pull_request_assignees(self, number, assignees):
+        res = self._conn.execute(
+            f"""
+            SELECT id
+            FROM pull_request_assignees
+            WHERE pr_id = {number}
+            LIMIT 1
+            """
+        ).fetchone()
 
-        obj_list = []
+        if not res:
+            logger.info(f"Dumping Assignees for Pull Request: {number}...")
 
-        for node in node_list:
-            number = node[0]
-            for assignee_login in node[1]:
+            obj_list = []
+
+            for assignee_login in assignees:
                 obj = self.db_schema.pull_request_assignee_object(
                     repo_id=self.repo_id,
                     pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
@@ -1103,17 +1126,25 @@ class GithubMiner(BaseMiner):
                     self._insert(object_=self.db_schema.pull_request_assignees.insert(), param=obj_list)
                     obj_list.clear()
 
-        self._insert(self.db_schema.pull_request_assignees.insert(), obj_list)
+            self._insert(self.db_schema.pull_request_assignees.insert(), obj_list)
 
     @timing(name='pull_request_labels')
-    def _dump_pull_request_labels(self, label_lst):
-        logger.info("Dumping Pull Request Labels...")
+    def _dump_pull_request_labels(self, number, labels):
+        res = self._conn.execute(
+            f"""
+            SELECT id
+            FROM pull_request_labels
+            WHERE pr_id = {number}
+            LIMIT 1
+            """
+        ).fetchone()
 
-        obj_list = []
+        if not res:
+            logger.info(f"Dumping Labels for Pull Request: {number}...")
 
-        for node in label_lst:
-            number = node[0]
-            for label_name in node[1]:
+            obj_list = []
+
+            for label_name in labels:
                 obj = self.db_schema.pull_request_labels_object(
                     repo_id=self.repo_id,
                     pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
@@ -1126,7 +1157,7 @@ class GithubMiner(BaseMiner):
                     self._insert(object_=self.db_schema.pull_request_labels.insert(), param=obj_list)
                     obj_list.clear()
 
-        self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
+            self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
 
     def _dump_pull_request_commits(self, number):
         logger.debug(f"Dumping Pull Request Commits for Pull Request Number: {number}...")
@@ -1331,7 +1362,6 @@ class GithubMiner(BaseMiner):
                     self._dump_pull_requests(number=value)
             else:
                 logger.error(f"pk not found for table: {table}, field: {field}, value: {value}.")
-                # TODO: Implement remaining create objects (would have multiple if cases)
                 return None
         else:
             return res[0]

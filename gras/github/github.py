@@ -73,8 +73,8 @@ class GithubInterface(BaseInterface):
 
             raise ObjectDoesNotExistError(msg=f"Object does not exist! Url: {url}")
         except Exception as e:
-            # TODO: Raise exception
             logger.error(e)
+            raise e
 
         return response
 
@@ -127,8 +127,9 @@ class GithubInterface(BaseInterface):
 
                 content = req.json()
                 if "errors" in content:
-                    raise exceptions.RequestException(f"Problem with getting data via url {self.url} + "
-                                                      f"{self.query.format_map(self.query_params)}.")
+                    raise exceptions.RequestException(f"Problem with getting data via url {self.url} + \n "
+                                                      f"{self.query.format_map(self.query_params)} + \n Error:"
+                                                      f" {content}.")
 
                 if only_json:
                     return content
