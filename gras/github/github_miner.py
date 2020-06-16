@@ -539,6 +539,8 @@ class GithubMiner(BaseMiner):
 
             obj_list = []
             issue_list = []
+            assignee_list = []
+            label_list = []
 
             it = len(dumped_issues) + 1
             for node in issues.process():
@@ -563,18 +565,30 @@ class GithubMiner(BaseMiner):
                         state=node.state
                     )
 
-                    self._dump_issue_assignees(node.number, node.assignees)
-                    self._dump_issue_labels(node.number, node.labels)
-
                     if node.number not in issue_list:
                         issue_list.append(node.number)
                         obj_list.append(obj)
+
+                        if node.assignees:
+                            assignee_list.append((node.number, node.assignees))
+
+                        if node.labels:
+                            label_list.append((node.number, node.labels))
 
                     if len(obj_list) % MAX_INSERT_OBJECTS == 0:
                         logger.debug(f"Inserting {MAX_INSERT_OBJECTS} issues...")
                         self._insert(object_=self.db_schema.issues.insert(), param=obj_list)
                         obj_list.clear()
                         logger.debug("Success!")
+
+                        for number, assignees in assignee_list:
+                            self._dump_issue_assignees(number, assignees)
+
+                        for number, labels in label_list:
+                            self._dump_issue_labels(number, labels)
+
+                        assignee_list.clear()
+                        label_list.clear()
                 else:
                     print("Skipped:", node.number)
 
@@ -1038,6 +1052,8 @@ class GithubMiner(BaseMiner):
                 )
 
             obj_list = []
+            assignee_list = []
+            label_list = []
             total_prs = 0
 
             it = len(dumped_prs) + 1
@@ -1076,8 +1092,11 @@ class GithubMiner(BaseMiner):
                         review_decision=node.review_decision
                     )
 
-                    self._dump_pull_request_assignees(node.number, node.assignees)
-                    self._dump_pull_request_labels(node.number, node.labels)
+                    if node.assignees:
+                        assignee_list.append((node.number, node.assignees))
+
+                    if node.labels:
+                        label_list.append((node.number, node.labels))
 
                     total_prs += 1
 
@@ -1088,10 +1107,16 @@ class GithubMiner(BaseMiner):
                         self._insert(object_=self.db_schema.pull_requests.insert(), param=obj_list)
                         obj_list.clear()
                         logger.debug("Success!")
-                else:
-                    self._dump_pull_request_assignees(node.number, node.assignees)
-                    self._dump_pull_request_labels(node.number, node.labels)
 
+                        for number, assignees in assignee_list:
+                            self._dump_pull_request_assignees(number, assignees)
+
+                        for number, labels in label_list:
+                            self._dump_pull_request_labels(number, labels)
+
+                        assignee_list.clear()
+                        label_list.clear()
+                else:
                     logger.debug(f"Skipped: {node.number}")
 
             logger.info(f"Total Pull Requests: {total_prs}...")
