@@ -1,10 +1,14 @@
-class VariableModel:
-    def __init__(self, name, kind):
-        self.name = name
-        self.kind = kind
+from gras.base_model import BaseModel
 
 
-class FunctionModel:
-    def __init__(self, name, params):
+class ImportModel(BaseModel):
+    def __init__(self, name, asname, line, module=None):
+        super().__init__()
+
         self.name = name
-        self.params = params
+        self.asname = asname
+        self.module = module
+        self.line = line
+
+    def object_decoder(self, **kwargs):
+        ...
