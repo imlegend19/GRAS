@@ -74,4 +74,4 @@ class JavascriptMiner(BaseMiner):
 
 
 if __name__ == '__main__':
-    JavascriptMiner(args=None, project_dir=None, file_path="/home/mahen/PycharmProjects/GRAS/tests/data/test.js")
+    JavascriptMiner(args=None, project_dir=None, file_path="/tests/data/javascript/test.js")

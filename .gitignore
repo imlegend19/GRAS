@@ -137,3 +137,6 @@ time-log/
 custom_miners/*/data
 gras/file_dependency/javascript/node_modules
 *.db
+
+*_commits.txt
+*_matches.csv
