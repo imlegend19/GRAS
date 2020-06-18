@@ -1,10 +1,9 @@
-import ast
 import os
 
 from gras.base_miner import BaseMiner
-from gras.file_dependency.python.models import FileModel, DirectoryModel
+from gras.file_dependency.python.models import DirectoryModel
 from gras.file_dependency.python.node_parser import FileAnalyzer
-from gras.file_dependency.utils import lines_of_code_counter
+from gras.file_dependency.utils import is_python_file
 
 
 class PythonMiner(BaseMiner):
@@ -18,16 +17,21 @@ class PythonMiner(BaseMiner):
         self.file_path = file_path
 
         if self.file_path:
-            with open(file_path, "r") as fp:
-                content = fp.read()
-                path = fp.name
-
-            obj = self.parse_file(content=content, path=path)
-            print(obj.variables)
+            self.obj = self.parse_file(path=self.file_path)
 
         if self.project_dir:
-            obj = self.project_walker(self.project_dir)
-            print(obj)
+            self.obj = self.project_walker(self.project_dir)
+            # self._print(obj=self.obj)
+
+    def _print(self, obj):
+        print("\n")
+        print("dir: ", obj.name)
+        if obj.files:
+            for file in obj.files:
+                print(file.name)
+        if bool(obj.directories):
+            for d in obj.directories:
+                self._print(d)
 
     def load_from_file(self, file):
         pass
@@ -37,24 +41,10 @@ class PythonMiner(BaseMiner):
 
     @staticmethod
     def parse_file(content, path):
-        name = os.path.basename(path)
-        loc = lines_of_code_counter(content.split("\n"))
+        analyzer = FileAnalyzer(file_path=path)
+        file = analyzer.process()
 
-        analyzer = FileAnalyzer()
-        tree = ast.parse(content)
-        analyzer.visit(tree)
-
-        file_stats = analyzer.process()
         del analyzer
-
-        file = FileModel(
-            name=name,
-            loc=loc,
-            classes=file_stats["classes"],
-            functions=file_stats["functions"],
-            variables=file_stats["variables"],
-            imports=file_stats["imports"]
-        )
 
         return file
 
@@ -74,19 +64,25 @@ class PythonMiner(BaseMiner):
         :rtype: dict
         """
         files, directories = self.parse_directory(path)
+        file_models = []
+        for file_path in files:
+            if os.path.basename(file_path) != '__pycache__' and is_python_file(file_path):
+                with open(file_path, "r") as fp:
+                    content = fp.read()
+                    file_obj = self.parse_file(content=content, path=fp.name)
+                    file_models.append(file_obj)
+                    fp.close()
 
         model = DirectoryModel(
             name=os.path.basename(path),
-            files=[
-                _ for _ in files  # TODO: Added FileModel object
-            ],
+            files=file_models,
             directories=[
                 self.project_walker(dir_path) for dir_path in directories
             ],
-            total_loc=None,
-            total_files=None,
-            total_classes=None,
-            total_functions=None,
+            total_loc=[sum(file_.loc for file_ in file_models)],
+            total_files=len(file_models),
+            total_classes=0,
+            total_functions=0,
             total_global_variables=0,
         )
 
@@ -116,8 +112,9 @@ class PythonMiner(BaseMiner):
         #         )
 
     def process(self):
-        pass
+        return self.obj
 
 
 if __name__ == '__main__':
-    PythonMiner(args=None, project_dir="/home/mahen/PycharmProjects/GRAS/gras/file_dependency", file_path=None)
+    obj = PythonMiner(args=None, project_dir=None,
+                      file_path="/home/mahen/PycharmProjects/GRAS/gras/file_dependency/python/node_parser.py").process()

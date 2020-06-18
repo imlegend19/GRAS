@@ -1,17 +1,250 @@
 import ast
+import logging
+import os
 from ast import (
-    Assign, Attribute, Call, ClassDef, Expr, FunctionDef, Global, Import, ImportFrom, Name, Nonlocal, Pass,
-    Tuple
-)
-from collections import namedtuple
+    Attribute, Call, ClassDef, FunctionDef, Global, Import, ImportFrom, Name, Nonlocal, arguments,
+    )
 
-from gras.file_dependency.python.models import ArgModel, DecoratorModel, DefModel, ImportModel, KwargModel
-from gras.file_dependency.python.node_types import AttributeTree, CallTree, Class, Function
+from gras.file_dependency.python.models import (
+    ArgModel, AttributeModel, CallModel, DecoratorModel, DefModel, FileModel, ImportModel, VariableModel,
+    )
+from gras.file_dependency.python.node_types import Arg, Base, Class, Function, Kwarg
+from gras.file_dependency.utils import lines_of_code_counter
 
-Template = namedtuple('Template', 'type name decorators docstring')
+logger = logging.getLogger("main")
 
 
-class FileAnalyzer(ast.NodeVisitor):
+class NodeParser(ast.NodeVisitor):
+    def __init__(self, node, subtype=None):
+        self.node = node
+        self.subtype = subtype
+
+        self.base_type = node.__class__.__name__
+        self.value = None
+
+        self.visit(node)
+
+    def visit(self, node):
+        """Visit a node."""
+        method = 'visit_' + node.__class__.__name__
+
+        try:
+            visitor = getattr(self, method)
+            return visitor(node)
+        except AttributeError:
+            logger.error(f"Not Implemented: visit_{self.base_type}")
+
+    def __parse_decorators(self, lst):
+        objects = []
+
+        for decorator in lst:
+            value = NodeParser(decorator).value
+
+            if isinstance(value, str):
+                name = value
+                value = None
+            elif isinstance(decorator, Call):
+                if isinstance(decorator.func, Attribute):
+                    name = decorator.func.attr
+                else:
+                    name = decorator.func.id
+            elif isinstance(decorator, Attribute):
+                name = decorator.attr
+            else:
+                raise NotImplementedError
+
+            objects.append(
+                DecoratorModel(
+                    lineno=decorator.lineno,
+                    name=name,
+                    value=value
+                    )
+                )
+
+        return objects
+
+    def visit_arg(self, node):
+        self.value = ArgModel(
+            subtype=self.subtype,
+            name=node.arg,
+            value=None,
+            lineno=node.lineno,
+            annotation=node.annotation.id if node.annotation else None
+            )
+
+    def visit_arguments(self, node: arguments):
+        self.value = []
+
+        if node.args:
+            for arg in node.args:
+                self.value.append(NodeParser(arg, subtype=Arg).value)
+
+        if node.kwonlyargs:
+            for arg in node.kwonlyargs:
+                self.value.append(NodeParser(arg, subtype=Kwarg).value)
+
+        if node.kwarg:
+            self.value.append(NodeParser(node.kwarg, subtype=Kwarg).value)
+
+        if node.vararg:
+            self.value.append(NodeParser(node.vararg, subtype=Arg).value)
+
+    def visit_keyword(self, node):
+        self.value = ArgModel(
+            subtype=Class,
+            name=node.arg,
+            value=NodeParser(node.value).value,
+            annotation=None,
+            lineno=node.value.lineno
+            )
+
+    def visit_Import(self, node: Import):
+        self.value = [
+            ImportModel(
+                name=alias.name,
+                as_name=alias.asname,
+                lineno=node.lineno
+                ) for alias in node.names
+            ]
+
+    def visit_ImportFrom(self, node: ImportFrom):
+        self.value = [
+            ImportModel(
+                module=node.module,
+                name=alias.name,
+                as_name=alias.asname,
+                lineno=node.lineno
+                ) for alias in node.names
+            ]
+
+    def visit_Global(self, node: Global):
+        self.value = [
+            VariableModel(
+                subtype=Global,
+                name=nm
+                ) for nm in node.names
+            ]
+
+    def visit_Nonlocal(self, node: Nonlocal):
+        self.value = [
+            VariableModel(
+                subtype=Nonlocal,
+                name=nm
+                ) for nm in node.names
+            ]
+
+    def visit_Name(self, node: Name):
+        self.value = node.id
+
+    def visit_Call(self, node: Call):
+        self.value = CallModel(
+            lineno=node.lineno,
+            func=NodeParser(node.func).value
+            )
+
+    def visit_Attribute(self, node: Attribute):
+        self.value = AttributeModel(
+            name=node.attr,
+            lineno=node.lineno,
+            value=NodeParser(node.value).value
+            )
+
+    def visit_ClassDef(self, node: ClassDef):
+        classes, functions, imports, variables = [], [], [], []
+
+        args = []
+        for base in node.bases:
+            if isinstance(base, Name):
+                name = node.name
+                base = None
+            elif isinstance(base, Attribute):
+                name = base.attr
+            elif isinstance(base, Call):
+                name = base.func.attr
+            else:
+                raise NotImplementedError
+
+            args.append(
+                ArgModel(
+                    subtype=Base,
+                    name=name,
+                    value=NodeParser(base).value if base else None,
+                    lineno=node.lineno,
+                    annotation=None
+                    )
+                )
+
+        for obj in node.body:
+            value = NodeParser(obj).value
+
+            if not value:
+                continue
+
+            if isinstance(value, list):
+                if isinstance(value[0], ImportModel):
+                    imports.extend(value)
+                elif isinstance(value[0], VariableModel):
+                    variables.extend(value)
+            elif isinstance(value, DefModel) and value.subtype.__name__ == 'Function':
+                functions.append(value)
+            elif isinstance(value, DefModel) and value.subtype.__name__ == 'Class':
+                classes.append(value)
+            elif isinstance(value, VariableModel):
+                variables.append(value)
+            else:
+                logger.error(f"{type(obj)}: Not Implemented")
+
+        self.value = DefModel(
+            subtype=Class,
+            name=node.name,
+            lineno=node.lineno,
+            decorators=self.__parse_decorators(node.decorator_list),
+            docstring=ast.get_docstring(node),
+            arguments=args,
+            classes=classes,
+            functions=functions,
+            imports=imports,
+            variables=variables
+            )
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        classes, functions, imports, variables = [], [], [], []
+
+        for obj in node.body:
+            value = NodeParser(obj).value
+
+            if not value:
+                continue
+
+            if isinstance(value, list):
+                if isinstance(value[0], ImportModel):
+                    imports.extend(value)
+                elif isinstance(value[0], VariableModel):
+                    variables.extend(value)
+            elif isinstance(value, DefModel) and value.subtype.__name__ == 'Function':
+                functions.append(value)
+            elif isinstance(value, DefModel) and value.subtype.__name__ == 'Class':
+                classes.append(value)
+            elif isinstance(value, VariableModel):
+                variables.append(value)
+            else:
+                logger.error(f"{type(obj)}: Not Implemented")
+
+        self.value = DefModel(
+            subtype=self.subtype if self.subtype else Function,
+            name=node.name,
+            lineno=node.lineno,
+            decorators=self.__parse_decorators(node.decorator_list),
+            docstring=ast.get_docstring(node),
+            arguments=NodeParser(node.args).value,
+            classes=classes,
+            functions=functions,
+            imports=imports,
+            variables=variables
+            )
+
+
+class FileAnalyzer:
     """
     `NodeVisitor` class that visits specifics Nodes in an abstract syntax tree and generates a dictionary.
     For more information,see `ast.NodeVisitor`_
@@ -20,295 +253,49 @@ class FileAnalyzer(ast.NodeVisitor):
         https://docs.python.org/3/library/ast.html#ast.NodeVisitor
     """
 
-    def __init__(self):
+    def __init__(self, file_path):
         """Constructor Method"""
 
-        self.functions = []
-        self.classes = []
-        self.imports = []
-        self.global_variables = []
+        self.file_path = file_path
 
-    def visit_ClassDef(self, node, return_=False):
-        name = node.name
-        line = node.lineno
-        decorators = self.__parse_decorators(node.decorator_list)
-        docstring = ast.get_docstring(node)
+        with open(file_path, "r") as fp:
+            self.content = fp.read()
 
-        arguments = []
-        for base in node.bases:
-            if isinstance(base, Name):
-                arguments.append(
-                    ArgModel(
-                        subtype=Class,
-                        name=node.name
-                    )
-                )
-            else:
-                # TODO: Implement Call and Attribute types
-                raise NotImplementedError
-
-        for kwarg in node.keywords:
-            if isinstance(kwarg.value, Name):
-                value = kwarg.value.id
-            else:
-                # TODO: Implement for Call & Attribute type
-                raise NotImplementedError
-
-            arguments.append(
-                KwargModel(
-                    subtype=Class,
-                    name=kwarg.arg,
-                    value=value
-                )
-            )
-
-        functions, classes, imports, variables = [], [], [], []
-
-        for obj in node.body:
-            if isinstance(obj, Expr):
-                ...
-            elif isinstance(obj, Import):
-                imports.extend(self.visit_Import(node=obj, return_=True))
-            elif isinstance(obj, ImportFrom):
-                imports.extend(self.visit_ImportFrom(node=obj, return_=True))
-            elif isinstance(obj, FunctionDef):
-                functions.append(self.visit_FunctionDef(node=obj, return_=True))
-            elif isinstance(obj, ClassDef):
-                classes.append(self.visit_ClassDef(node=obj, return_=True))
-            elif isinstance(obj, Global):
-                for nm in obj.names:
-                    variables.append(nm)
-            elif isinstance(obj, Nonlocal):
-                for nm in obj.names:
-                    variables.append(nm)
-            elif isinstance(obj, Assign):
-                variables.extend(self.visit_Assign(node=obj, return_=True))
-            elif isinstance(obj, Pass):
-                pass
-            else:
-                # TODO: Implement various types
-                print(type(obj), "Not Implemented")
-
-        class_obj = DefModel(
-            subtype=Class,
-            name=name,
-            decorators=decorators,
-            arguments=arguments,
-            functions=functions,
-            classes=classes,
-            imports=imports,
-            variables=list(set(variables)),
-            docstring=docstring,
-            line=line
-        )
-
-        if return_:
-            return class_obj
-        else:
-            self.classes.append(class_obj)
-
-        self.generic_visit(node)
-
-    def visit_FunctionDef(self, node: FunctionDef, return_=False):
-        name = node.name
-        line = node.lineno
-        decorators = self.__parse_decorators(node.decorator_list)
-        docstring = ast.get_docstring(node)
-
-        arguments = []
-        # TODO: Add a special type of Model -> `ArgumentModel` should be made for arguments.
-        for arg in node.args.args:
-            arguments.append(
-                ArgModel(
-                    subtype=Function,
-                    name=arg.arg
-                )
-            )
-
-        if node.args.kwarg:
-            arguments.append(
-                ArgModel(
-                    subtype=Function,
-                    name=node.args.kwarg.arg
-                )
-            )
-
-        for kwarg in node.args.kwonlyargs:
-            arguments.append(
-                ArgModel(
-                    subtype=Function,
-                    name=kwarg.arg
-                )
-            )
-
-        if node.args.vararg:
-            arguments.append(
-                ArgModel(
-                    subtype=Function,
-                    name=node.args.vararg.arg
-                )
-            )
-
-        functions, classes, imports, variables = [], [], [], []
-
-        for obj in node.body:
-            if isinstance(obj, Expr):
-                ...
-            elif isinstance(obj, Import):
-                imports.extend(self.visit_Import(node=obj, return_=True))
-            elif isinstance(obj, ImportFrom):
-                imports.extend(self.visit_ImportFrom(node=obj, return_=True))
-            elif isinstance(obj, FunctionDef):
-                func = self.visit_FunctionDef(node=obj, return_=True)
-                if func:
-                    functions.append(func)
-            elif isinstance(obj, ClassDef):
-                classes.append(self.visit_ClassDef(node=obj, return_=True))
-            elif isinstance(obj, Global):
-                for nm in obj.names:
-                    variables.append(nm)
-            elif isinstance(obj, Nonlocal):
-                for nm in obj.names:
-                    variables.append(nm)
-            elif isinstance(obj, Assign):
-                variables.extend(self.visit_Assign(node=obj, return_=True))
-            elif isinstance(obj, Pass):
-                pass
-            else:
-                # TODO: Implement various types
-                print(type(obj), "Not Implemented")
-
-        function_obj = DefModel(
-            subtype=Function,
-            name=name,
-            decorators=decorators,
-            arguments=arguments,
-            functions=functions,
-            classes=classes,
-            imports=imports,
-            variables=list(set(variables)),
-            docstring=docstring,
-            line=line
-        )
-
-        if return_:
-            return function_obj
-        else:
-            self.functions.append(function_obj)
-
-        self.generic_visit(node)
-
-    def visit_Import(self, node: Import, return_=False):
-        objs = []
-        for alias in node.names:
-            objs.append(
-                ImportModel(
-                    name=alias.name,
-                    as_name=alias.asname,
-                    line=node.lineno
-                )
-            )
-        if return_:
-            return objs
-        else:
-            self.imports.extend(objs)
-
-        self.generic_visit(node)
-
-    def visit_ImportFrom(self, node: ImportFrom, return_=False):
-        objs = []
-        for alias in node.names:
-            objs.append(
-                ImportModel(
-                    module=node.module,
-                    name=alias.name,
-                    as_name=alias.asname,
-                    line=node.lineno
-                )
-            )
-
-        if return_:
-            return objs
-        else:
-            self.imports.extend(objs)
-
-        self.generic_visit(node)
-
-    def visit_Global(self, node: Global):
-        pass
-
-    def visit_Assign(self, node: Assign, return_=False):
-        variables = []
-        for alias in node.targets:
-            if isinstance(alias, Tuple):
-                for name in alias.elts:
-                    if name.id not in self.global_variables:
-                        variables.append(name.id)
-            elif isinstance(alias, Attribute):
-                variables.append(alias.attr)
-            else:
-                variables.append(alias.id)
-
-        if return_:
-            return variables
-        else:
-            self.global_variables.extend(variables)
+        self.loc = lines_of_code_counter(self.content.split("\n"))
 
     def process(self):
-        return {
-            "functions": self.functions,
-            "classes"  : self.classes,
-            "variables": self.global_variables,
-            "imports"  : self.imports
-        }
+        classes, functions, variables, imports = [], [], [], []
 
-    @staticmethod
-    def __parse_decorators(lst):
-        objects = []
+        tree = ast.parse(self.content)
+        for child in tree.body:
+            value = NodeParser(child).value
 
-        for decorator in lst:
-            if isinstance(decorator, Name):
-                objects.append(
-                    DecoratorModel(
-                        subtype=Name,
-                        name=decorator.id,
-                        value=None,
-                        line=decorator.lineno
-                    )
-                )
-            elif isinstance(decorator, Call):
-                # @deco()-> Call
-                # @a.deco() -> CallTree
-                if isinstance(decorator.func, Attribute):
-                    objects.append(
-                        DecoratorModel(
-                            subtype=CallTree,
-                            name=decorator.func.attr,
-                            value=CallTree(node=decorator),
-                            line=decorator.lineno
-                        )
-                    )
+            if isinstance(value, DefModel):
+                if value.subtype.__name__ == 'Class':
+                    classes.append(value)
                 else:
-                    objects.append(
-                        DecoratorModel(
-                            subtype=Call,
-                            name=decorator.func.id,
-                            line=decorator.lineno,
-                            value=None,
-                            total_args=decorator.args.__len__(),
-                            total_kwargs=decorator.keywords.__len__()
-                        )
-                    )
-            elif isinstance(decorator, Attribute):
-                objects.append(
-                    DecoratorModel(
-                        subtype=Attribute,
-                        name=decorator.attr,
-                        value=AttributeTree(node=decorator),
-                        line=decorator.lineno,
-                    )
-                )
-            else:
-                raise NotImplementedError
+                    functions.append(value)
+            elif isinstance(value, list):
+                if isinstance(value[0], VariableModel):
+                    variables.extend(value)
+                elif isinstance(value[0], ImportModel):
+                    imports.extend(value)
+            elif isinstance(value, VariableModel):
+                variables.append(value)
+            elif isinstance(value, ImportModel):
+                imports.append(value)
 
-        return objects
+        return FileModel(
+            name=os.path.basename(self.file_path),
+            path=self.file_path,
+            loc=self.loc,
+            classes=classes,
+            functions=functions,
+            variables=variables,
+            imports=imports,
+            )
+
+
+if __name__ == '__main__':
+    f = FileAnalyzer(file_path="/home/viper/dev/GRAS/gras/file_dependency/dependency_graph/neo_driver.py").process()
+    print(f)
