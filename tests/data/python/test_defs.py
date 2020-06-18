@@ -1,23 +1,45 @@
 import functools
+# noinspection PyUnresolvedReferences,PyPackageRequirements
+import asyncpg
+
+
+# noinspection PyUnusedLocal
+async def run():
+    conn = await asyncpg.connect(user='user', password='password',
+                                 database='database', host='127.0.0.1')
+    values = await conn.fetch('''SELECT * FROM mytable''')
+    await conn.close()
 
 
 # noinspection PyUnresolvedReferences
 async def af():
     return [i async for i in var]
 
+ 
+class AsyncClass:
+    def __init__(self): pass
+
+    async def async_method(self): pass
+
+    def normal_method(self): pass
+
+    @staticmethod
+    async def async_static_method(): pass
+
 
 # noinspection PyUnresolvedReferences
-def f(a: annotation = 2, b=1, c=2, *d, e, f=3, **g) -> annotation:
+def f(a: annotation = 2, b=1, c=2, *args, e, f=3, **kwargs) -> annotation:
     """doc for f()"""
     var = 1
 
     class A(base1, base2, metaclass=meta):
-        global lol
+        global var1, var2
 
         LOL = var + a + b + c + e + f;
         semi = 1
 
         def __init__(self, a: int):
+            nonlocal a
             self.a = a + self.LOL
 
         def f1(self):
