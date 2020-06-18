@@ -1,10 +1,10 @@
 import os
+import logging
 import xml.etree.ElementTree as Et
-
-from neo4j import GraphDatabase
 
 from gras.base_miner import BaseMiner
 from gras.db.neo_helper import create_node, create_relationship
+from gras.errors import GrasError
 
 NAME = "name"
 CLASSIFICATION = "classification"
@@ -12,15 +12,18 @@ VISIBILITY = "visibility"
 IS_ABSTRACT = "isAbstract"
 IS_FINAL = "isFinal"
 
+logger = logging.getLogger("main")
+
 
 class Cda2Neo4j(BaseMiner):
     def __init__(self, args):
-        # super().__init__(args=args)
+        super().__init__(args=args)
 
-        self.driver = GraphDatabase.driver(uri="bolt://localhost:7687", auth=("neo4j", "gras"), encrypted=False)
-        self.session = self.driver.session()
+        try:
+            tree = Et.parse(args.path)
+        except Et.ParseError:
+            raise GrasError(msg="Cannot parse the XML file!")
 
-        tree = Et.parse("../../../tests/data/java/mallet.odem")
         self.root = tree.getroot()
 
         self.context = self.root.find('context')
@@ -30,8 +33,6 @@ class Cda2Neo4j(BaseMiner):
         self.package_class = {}
         self.package_id = {}
 
-        self.parse_context()
-
     def load_from_file(self, file):
         pass
 
@@ -39,21 +40,48 @@ class Cda2Neo4j(BaseMiner):
         pass
 
     def process(self):
-        pass
+        self.parse_context()
+
+    def build_dependencies(self, container):
+        print("Building Dependencies...")
+        for package in container:
+            print(f"Ongoing Package: {package.attrib[NAME]}")
+            cls: Et.Element
+            for cls in package:
+                class_id, class_type = self.class_id[cls.attrib[NAME]]
+                dependencies = cls.find("dependencies")
+
+                print(f"\tOngoing Class: {cls.attrib[NAME]}")
+                print(f"\tTotal Dependencies: {dependencies.attrib['count']}")
+
+                for dep in dependencies:
+                    name = dep.attrib[NAME]
+                    relation = dep.attrib[CLASSIFICATION]
+
+                    try:
+                        dep_id, dep_type = self.class_id[name]
+                    except KeyError:
+                        out = self._conn.run(create_node(node_type="Builtin", name=name))
+                        dep_id = out.single()[0]
+                        dep_type = "Builtin"
+                        self.class_id[name] = dep_id, dep_type
+
+                    self._conn.run(create_relationship(id1=class_id, id2=dep_id, label1=class_type,
+                                                       label2=dep_type, relation=relation))
 
     def parse_package(self, package: Et.Element, container_id):
         name = package.attrib[NAME]
         classes = len(package)
 
         print(f"Ongoing package: {name}, Total Classes: {classes}")
-        out = self.session.run(create_node(node_type="Package", name=name, classes=classes))
+        out = self._conn.run(create_node(node_type="Package", name=name, classes=classes))
         package_id = out.single()[0]
 
         self.package_id[name] = package_id
 
         print("Creating Package Relationship...")
-        self.session.run(create_relationship(id1=package_id, id2=container_id, label1="Package", label2="Container",
-                                             relation="package_of"))
+        self._conn.run(create_relationship(id1=package_id, id2=container_id, label1="Package", label2="Container",
+                                           relation="is_package_of"))
 
         pkg_classes = []
 
@@ -66,15 +94,15 @@ class Cda2Neo4j(BaseMiner):
             is_final = True if IS_FINAL in cls.attrib else False
 
             print(f"\tDumping Class: {name}...")
-            out = self.session.run(create_node(node_type=type_.title(), name=name, type=type_, visibility=visibility,
-                                               is_abstract=is_abstract, is_final=is_final))
+            out = self._conn.run(create_node(node_type=type_.title(), name=name, type=type_, visibility=visibility,
+                                             is_abstract=is_abstract, is_final=is_final))
             class_id = out.single()[0]
-            self.class_id[name] = class_id
+            self.class_id[name] = class_id, type_.title()
 
             pkg_classes.append(name)
 
-            self.session.run(create_relationship(id1=class_id, id2=package_id, label1=type_.title(),
-                                                 label2="Package", relation="is_class_of"))
+            self._conn.run(create_relationship(id1=class_id, id2=package_id, label1=type_.title(),
+                                               label2="Package", relation=f"is_{type_}_of"))
 
         self.package_class[package_id] = pkg_classes
 
@@ -85,7 +113,7 @@ class Cda2Neo4j(BaseMiner):
         ext = container.attrib[CLASSIFICATION]
 
         print(f"Ongoing container: {name}")
-        out = self.session.run(create_node(node_type="Container", name=name, path=path, packages=packages, ext=ext))
+        out = self._conn.run(create_node(node_type="Container", name=name, path=path, packages=packages, ext=ext))
         container_id = out.single()[0]
 
         for package in container:
@@ -93,12 +121,9 @@ class Cda2Neo4j(BaseMiner):
 
         print("Packages:", self.package_id)
         print("Classes:", self.class_id)
-        print("Package-Class:", self.package_class)
+
+        self.build_dependencies(container)
 
     def parse_context(self):
         for container in self.context:
             self.parse_container(container)
-
-
-if __name__ == '__main__':
-    Cda2Neo4j(args=None)

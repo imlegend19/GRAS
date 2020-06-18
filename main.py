@@ -15,6 +15,7 @@ import pandas as pd
 from tabulate import tabulate
 
 from gras.errors import GrasArgumentParserError, GrasConfigError
+from gras.file_dependency.java.cda_to_neo4j import Cda2Neo4j
 from gras.git.git_miner import GitMiner
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
@@ -188,7 +189,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self.gras_settings.add_argument('-yk', '--yandex-key', help="Yandex Translator API Key ("
                                                                     "https://translate.yandex.com/developers/keys)")
         self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',
-                                        choices=['github', 'git', 'identity-merging'], required=False)
+                                        choices=['github', 'git', 'identity-merging', 'java-fda'], required=False)
         self.gras_settings.add_argument('-RO', '--repo-owner', help="Owner of the repository")
         self.gras_settings.add_argument('-RN', '--repo-name', help="Name of the repository")
         self.gras_settings.add_argument('-SD', '--start-date',
@@ -202,7 +203,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
 
     def _add_database_settings(self):
         self.database_settings.add_argument('-dbms', help="DBMS to dump the data into", default='mysql',
-                                            choices=["sqlite", "mysql", "postgresql"])
+                                            choices=["sqlite", "mysql", "postgresql", "neo4j"])
         self.database_settings.add_argument('-DB', '--db-name', help="Name of the database", default='gras')
         self.database_settings.add_argument('-U', '--db-username', help="The user name that is used to connect and "
                                                                         "operate the selected database")
@@ -329,6 +330,9 @@ class GrasArgumentParser(argparse.ArgumentParser):
             elif self.args.interface == "identity-merging":
                 im = IdentityMiner(args=self.args)
                 im.process()
+            elif self.args.interface == "java-fda":
+                c2n = Cda2Neo4j(args=self.args)
+                c2n.process()
             else:
                 raise NotImplementedError
 
