@@ -15,7 +15,7 @@ async def run():
 async def af():
     return [i async for i in var]
 
-
+ 
 class AsyncClass:
     def __init__(self): pass
 
@@ -40,7 +40,6 @@ def f(a: annotation = 2, b=1, c=2, *args, e, f=3, **kwargs) -> annotation:
 
         def __init__(self, a: int):
             nonlocal a
-
             self.a = a + self.LOL
 
         def f1(self):
