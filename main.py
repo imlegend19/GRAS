@@ -130,7 +130,10 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_other_arguments()
 
         try:
-            self.args = self.parse_args()
+            self.args = self.parse_args([
+                '-m', '-i', 'java-fda', '--path', '/home/mahen/PycharmProjects/GRAS/tests/data/java/mallet.odem',
+                '-dbms', 'neo4j', '-DB', 'mallet', '-U', 'neo4j', '-P', '-p', '7687'
+            ])
         except Exception as e:
             logger.error(e)
             sys.exit(1)
@@ -251,7 +254,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
             if not args.end_date and not args.full:
                 logger.warning(f"End data not provided, using default end date: {DEFAULT_END_DATE}.")
 
-            if not args.repo_name or not args.repo_owner:
+            if (not args.repo_name or not args.repo_owner) and 'fda' not in args.interface:
                 if not args.config:
                     raise GrasArgumentParserError(msg="Either Repo-name and Repo-owner or GrasConfig file should "
                                                       "be provided!")
@@ -269,7 +272,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                     "Database name not provided! GRAS will create the database with name `gras` if not exists.")
 
             if not args.basic and not args.basic_extra and not args.issue_tracker and not args.commit and \
-                    not args.pull_tracker:
+                    not args.pull_tracker and args.interface == 'github':
                 logger.warning("Stage name not specified, using `basic` by default.")
                 args.basic = True
 
