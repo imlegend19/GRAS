@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 from abc import ABCMeta, abstractmethod
+from collections import namedtuple
 
 from neo4j._exceptions import BoltError
 from neo4j.exceptions import ServiceUnavailable
@@ -23,6 +24,7 @@ class BaseMiner(metaclass=ABCMeta):
     """
     BaseMiner class to store parameters parsed by `ArgumentParse` and start the mining process
     """
+    Name_Email = namedtuple("Name_Email", ["name", "email"])
 
     def __init__(self, args):
         self.interface = args.interface
@@ -46,6 +48,9 @@ class BaseMiner(metaclass=ABCMeta):
         self.db_host = args.db_host
         self.db_port = args.db_port
         self.db_log = args.db_log
+
+        self.login_id = {}
+        self.name_email_id = {}
 
         self.animator = args.animator
         self.tokens = args.tokens
@@ -268,6 +273,29 @@ class BaseMiner(metaclass=ABCMeta):
     def init_worker():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
+    @locked
+    def __add_user_to_cache(self, login, name=None, email=None):
+        if login:
+            res = self._conn.execute(
+                f"""
+                SELECT id
+                FROM contributors
+                WHERE login="{login}"
+                """
+            ).fetchone()
+
+            self.login_id[login] = res[0]
+        else:
+            res = self._conn.execute(
+                f"""
+                SELECT id
+                FROM contributors
+                WHERE name="{name}" AND email="{email}"
+                """
+            ).fetchone()
+
+            self.name_email_id[self.Name_Email(name=name, email=email)] = res[0]
+
     def _dump_anon_user_object(self, name, email, object_, locked_insert=True):
         logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")
 
@@ -287,6 +315,8 @@ class BaseMiner(metaclass=ABCMeta):
             self._insert(object_, obj)
         else:
             self._serial_insert(object_, obj)
+
+        self.__add_user_to_cache(login=None, name=name, email=email)
 
         return True
 
@@ -341,6 +371,8 @@ class BaseMiner(metaclass=ABCMeta):
                 self._insert(object_, obj)
             else:
                 self._serial_insert(object_, obj)
+
+            self.__add_user_to_cache(login=login)
         elif user_object:
             obj = self.db_schema.contributors_object(
                 user_type=user_object.user_type,
@@ -359,6 +391,8 @@ class BaseMiner(metaclass=ABCMeta):
                 self._insert(object_, obj)
             else:
                 self._serial_insert(object_, obj)
+
+            self.__add_user_to_cache(login=user_object.login)
         else:
             raise GithubMinerError(msg="`_dump_users()` exception! Please consider reporting this error to the team.")
 

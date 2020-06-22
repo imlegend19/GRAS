@@ -43,6 +43,12 @@ class GithubMiner(BaseMiner):
 
         self._initialise_db()
 
+        self.issues = {}
+        self.pull_requests = {}
+        self.commits = {}
+        self.labels = {}
+        self.milestones = {}
+
     def load_from_file(self, file):
         pass
 
@@ -50,6 +56,8 @@ class GithubMiner(BaseMiner):
         pass
 
     def process(self):
+        self.__init_basic()
+
         self._dump_repository()
 
         if self.basic:
@@ -66,6 +74,87 @@ class GithubMiner(BaseMiner):
 
         if self.pull_tracker:
             self._pull_tracker_miner()
+
+    def __init_basic(self):
+        res = self._conn.execute(
+            """
+            SELECT login, name, email, id
+            FROM contributors
+            """
+        ).fetchall()
+        
+        for row in res:
+            self.login_id[row[0]] = row[3]
+            self.name_email_id[self.Name_Email(name=row[1], email=row[2])] = row[3]
+
+        res = self._conn.execute(
+            """
+            SELECT name, id
+            FROM labels
+            """
+        ).fetchall()
+
+        for row in res:
+            self.labels[row[0]] = row[1]
+
+        res = self._conn.execute(
+            """
+            SELECT number, id
+            FROM milestones
+            """
+        ).fetchall()
+
+        for row in res:
+            self.milestones[row[0]] = row[1]
+
+    def __init_issues(self):
+        res = self._conn.execute(
+            f"""
+            SELECT number, id
+            FROM issues
+            """
+        ).fetchall()
+
+        for row in res:
+            self.issues[row[0]] = row[1]
+
+    def __init_pull_requests(self):
+        res = self._conn.execute(
+            f"""
+            SELECT number, id
+            FROM pull_requests
+            """
+        ).fetchall()
+
+        for row in res:
+            self.pull_requests[row[0]] = row[1]
+
+    def __init_commits(self):
+        res = self._conn.execute(
+            f"""
+            SELECT oid, id
+            FROM commits
+            """
+        ).fetchall()
+
+        for row in res:
+            self.commits[row[0]] = row[1]
+
+    def __add_object_to_cache(self, table, where, key):
+        res = self._conn.execute(
+            f"""
+            SELECT id 
+            FROM {table}
+            WHERE {where}
+            """
+        ).fetchone()
+
+        if table == "issues":
+            self.issues[key] = res[0]
+        elif table == "pull_requests":
+            self.pull_requests[key] = res[0]
+        else:
+            raise NotImplementedError
 
     @timing(name='Basic Stage', is_stage=True)
     def _basic_miner(self):
@@ -102,6 +191,8 @@ class GithubMiner(BaseMiner):
         finally:
             self._refactor_table(id_='id', table='labels', group_by="repo_id, name")
 
+        self.__init_basic()
+
     @timing(name='Basic Extra Stage', is_stage=True)
     def _basic_extra_miner(self):
         self._dump_stargazers()
@@ -110,6 +201,8 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Issue Tracker Stage', is_stage=True)
     def _issue_tracker_miner(self):
+        self.__init_issues()
+
         try:
             self._dump_issues()
         finally:
@@ -120,6 +213,8 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Commit Stage', is_stage=True)
     def _commit_miner(self):
+        self.__init_commits()
+
         try:
             self._dump_commits()
         finally:
@@ -132,10 +227,13 @@ class GithubMiner(BaseMiner):
 
     @timing(name='Pull Tracker Stage', is_stage=True)
     def _pull_tracker_miner(self):
-        # try:
-        #     self._dump_pull_requests()
-        # finally:
-        #     self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
+        self.__init_pull_requests()
+        self.__init_commits()
+
+        try:
+            self._dump_pull_requests()
+        finally:
+            self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
 
         self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
@@ -497,6 +595,7 @@ class GithubMiner(BaseMiner):
             )
 
             self._insert(self.db_schema.issues.insert(), obj)
+            self.__add_object_to_cache(table="issues", where=f"number={number}", key=number)
         else:
             res = self._conn.execute(
                 f"""
@@ -602,9 +701,15 @@ class GithubMiner(BaseMiner):
         obj_list = []
 
         for assignee_login in assignees:
+            try:
+                issue_id = self.issues[number]
+            except KeyError:
+                issue_id = self._get_table_id(table="issues", field="number", value=number)
+                self.issues[number] = issue_id
+
             obj = self.db_schema.issue_assignees_object(
                 repo_id=self.repo_id,
-                issue_id=self._get_table_id(table="issues", field="number", value=number),
+                issue_id=issue_id,
                 assignee_id=self._get_user_id(login=assignee_login)
             )
 
@@ -619,10 +724,18 @@ class GithubMiner(BaseMiner):
         obj_list = []
 
         for label_name in labels:
+            try:
+                issue_id = self.issues[number]
+            except KeyError:
+                issue_id = self._get_table_id(table="issues", field="number", value=number)
+                self.issues[number] = issue_id
+
+            label_id = self.labels[label_name]
+
             obj = self.db_schema.issue_labels_object(
                 repo_id=self.repo_id,
-                issue_id=self._get_table_id(table="issues", field="number", value=number),
-                label_id=self._get_table_id('labels', 'name', label_name)
+                issue_id=issue_id,
+                label_id=label_id
             )
 
             obj_list.append(obj)
@@ -684,7 +797,11 @@ class GithubMiner(BaseMiner):
             number=number
         )
 
-        issue_id = self._get_table_id(table="issues", field="number", value=number)
+        try:
+            issue_id = self.issues[number]
+        except KeyError:
+            issue_id = self._get_table_id(table="issues", field="number", value=number)
+            self.issues[issue_id] = number
 
         obj_list = self._events_object_list(issue_event, id_=issue_id, type_="ISSUE")
 
@@ -765,7 +882,11 @@ class GithubMiner(BaseMiner):
             type_filter="issue"
         )
 
-        issue_id = self._get_table_id(table="issues", field="number", value=number)
+        try:
+            issue_id = self.issues[number]
+        except KeyError:
+            issue_id = self._get_table_id(table="issues", field="number", value=number)
+            self.issues[number] = issue_id
 
         obj_list = self._comments_object_list(issue_comments, issue_id, "ISSUE")
 
@@ -938,11 +1059,17 @@ class GithubMiner(BaseMiner):
         obj_list = []
 
         for node in commit_comments.process():
+            try:
+                commit_id = self.commits[node.commit_id]
+            except KeyError:
+                commit_id = self._get_table_id(table='commits', field='oid', value=node.commit_id)
+                self.commits[node.commit_id] = commit_id
+
             obj = self.db_schema.commit_comments_object(
                 repo_id=self.repo_id,
                 commenter_id=self._get_user_id(login=node.author_login),
                 body=node.body,
-                commit_id=self._get_table_id(table='commits', field='oid', value=node.commit_id),
+                commit_id=commit_id,
                 created_at=node.created_at,
                 updated_at=node.updated_at,
                 path=node.path,
@@ -1062,6 +1189,25 @@ class GithubMiner(BaseMiner):
                     print(f"Ongoing {it} --> {node.number}")
                     it += 1
 
+                    try:
+                        base_ref_commit_id = self.commits[node.base_ref_oid]
+                    except KeyError:
+                        base_ref_commit_id = self._get_table_id(table='commits', field='oid', value=node.base_ref_oid)
+                        self.commits[node.base_ref_oid] = base_ref_commit_id
+
+                    try:
+                        head_red_commit_id = self.commits[node.head_ref_oid]
+                    except KeyError:
+                        head_red_commit_id = self._get_table_id(table='commits', field='oid', value=node.head_ref_oid)
+                        self.commits[node.head_ref_oid] = head_red_commit_id
+
+                    try:
+                        milestone_id = self.milestones[node.milestone_number]
+                    except KeyError:
+                        milestone_id = self._get_table_id(table='milestones', field='number',
+                                                          value=node.milestone_number)
+                        self.milestones[node.milestone_number] = milestone_id
+
                     logger.debug(f"Ongoing PR: {node.number}")
                     obj = self.db_schema.pull_requests_object(
                         repo_id=self.repo_id,
@@ -1075,16 +1221,15 @@ class GithubMiner(BaseMiner):
                         additions=node.additions,
                         deletions=node.deletions,
                         base_ref_name=node.base_ref_name,
-                        base_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.base_ref_oid),
+                        base_ref_commit_id=base_ref_commit_id,
                         head_ref_name=node.head_ref_name,
-                        head_ref_commit_id=self._get_table_id(table='commits', field='oid', value=node.head_ref_oid),
+                        head_ref_commit_id=head_red_commit_id,
                         closed=node.closed,
                         closed_at=node.closed_at,
                         merged=node.merged,
                         merged_at=node.merged_at,
                         merged_by=self._get_user_id(login=None, user_object=node.merged_by),
-                        milestone_id=self._get_table_id(table='milestones', field='number',
-                                                        value=node.milestone_number),
+                        milestone_id=milestone_id,
                         positive_reaction_count=node.positive_reaction_count,
                         negative_reaction_count=node.negative_reaction_count,
                         ambiguous_reaction_count=node.ambiguous_reaction_count,
@@ -1139,9 +1284,15 @@ class GithubMiner(BaseMiner):
             obj_list = []
 
             for assignee_login in assignees:
+                try:
+                    pr_id = self.pull_requests[number]
+                except KeyError:
+                    pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
+                    self.pull_requests[number] = pr_id
+
                 obj = self.db_schema.pull_request_assignee_object(
                     repo_id=self.repo_id,
-                    pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
+                    pr_id=pr_id,
                     assignee_id=self._get_user_id(login=assignee_login)
                 )
 
@@ -1170,9 +1321,15 @@ class GithubMiner(BaseMiner):
             obj_list = []
 
             for label_name in labels:
+                try:
+                    pr_id = self.pull_requests[number]
+                except KeyError:
+                    pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
+                    self.pull_requests[number] = pr_id
+
                 obj = self.db_schema.pull_request_labels_object(
                     repo_id=self.repo_id,
-                    pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
+                    pr_id=pr_id,
                     label_id=self._get_table_id('labels', 'name', label_name)
                 )
 
@@ -1195,9 +1352,15 @@ class GithubMiner(BaseMiner):
 
         obj_list = []
         for node in pr_commit.process():
+            try:
+                pr_id = self.pull_requests[number]
+            except KeyError:
+                pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
+                self.pull_requests[number] = pr_id
+
             obj = self.db_schema.pull_request_commits_object(
                 repo_id=self.repo_id,
-                pr_id=self._get_table_id(table="pull_requests", field="number", value=number),
+                pr_id=pr_id,
                 commit_id=self._get_table_id('commits', 'oid', node.oid)
             )
 
@@ -1233,7 +1396,11 @@ class GithubMiner(BaseMiner):
             number=number
         )
 
-        pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
+        try:
+            pr_id = self.pull_requests[number]
+        except KeyError:
+            pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
+            self.pull_requests[number] = pr_id
 
         obj_list = self._events_object_list(pr_event, id_=pr_id, type_="PULL_REQUEST")
 
@@ -1266,7 +1433,11 @@ class GithubMiner(BaseMiner):
             type_filter="pullRequest"
         )
 
-        pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
+        try:
+            pr_id = self.pull_requests[number]
+        except KeyError:
+            pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
+            self.pull_requests[number] = pr_id
 
         obj_list = self._comments_object_list(pr_comments, pr_id, "PULL_REQUEST")
 
@@ -1292,21 +1463,15 @@ class GithubMiner(BaseMiner):
     @locked
     def __check_user(self, login, name=None, email=None):
         if login:
-            res = self._conn.execute(
-                f"""
-                SELECT id
-                FROM contributors
-                WHERE login="{login}"
-                """
-            ).fetchone()
+            try:
+                res = self.login_id[login]
+            except KeyError:
+                res = None
         else:
-            res = self._conn.execute(
-                f"""
-                SELECT id
-                FROM contributors
-                WHERE name="{name}" AND email="{email}"
-                """
-            ).fetchone()
+            try:
+                res = self.name_email_id[self.Name_Email(name=name, email=email)]
+            except KeyError:
+                res = None
 
         return res
 
