@@ -130,10 +130,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_other_arguments()
 
         try:
-            self.args = self.parse_args([
-                '-m', '-i', 'java-fda', '--path', '/home/mahen/PycharmProjects/GRAS/tests/data/java/mallet.odem',
-                '-dbms', 'neo4j', '-DB', 'mallet', '-U', 'neo4j', '-P', '-p', '7687'
-            ])
+            self.args = self.parse_args()
         except Exception as e:
             logger.error(e)
             sys.exit(1)

@@ -56,6 +56,7 @@ class GithubMiner(BaseMiner):
         pass
 
     def process(self):
+        self.__init_users()
         self.__init_basic()
 
         self._dump_repository()
@@ -75,18 +76,20 @@ class GithubMiner(BaseMiner):
         if self.pull_tracker:
             self._pull_tracker_miner()
 
-    def __init_basic(self):
+    def __init_users(self):
         res = self._conn.execute(
             """
             SELECT login, name, email, id
             FROM contributors
             """
         ).fetchall()
-        
+
         for row in res:
             self.login_id[row[0]] = row[3]
-            self.name_email_id[self.Name_Email(name=row[1], email=row[2])] = row[3]
+            if row[1] or row[2]:
+                self.name_email_id[self.Name_Email(name=row[1], email=row[2])] = row[3]
 
+    def __init_basic(self):
         res = self._conn.execute(
             """
             SELECT name, id
