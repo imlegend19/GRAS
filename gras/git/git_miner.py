@@ -2,11 +2,11 @@ import asyncio
 import concurrent.futures
 import logging
 import multiprocessing as mp
-import os
 import pickle
+from collections import namedtuple
 from datetime import datetime
 
-from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Repository, Oid
+from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Oid, Repository
 
 from gras.base_miner import BaseMiner
 from gras.github.structs.contributor_struct import CommitUserStruct
@@ -30,10 +30,17 @@ lock = mp.Lock()
 
 
 class GitMiner(BaseMiner):
+    Id_Name_Login = namedtuple("Id_Name_Login", ["id", "name", "login"])
+
     def __init__(self, args):
         super().__init__(args)
 
         self._initialise_db()
+
+        self.email_map = {}
+        self.commit_id = {}
+
+        self.__init_user_emails()
 
         self._dump_repository()
 
@@ -54,6 +61,18 @@ class GitMiner(BaseMiner):
 
     def dump_to_file(self, path):
         pass
+
+    def __init_user_emails(self):
+        res = self.execute_query(
+            """
+            SELECT email, id, login, name
+            FROM contributors
+            WHERE email IS NOT NULL 
+            """
+        ).fetchall()
+
+        for row in res:
+            self.email_map[row[0]] = self.Id_Name_Login(id=row[1], name=row[2], login=row[3])
 
     def _dump_repository(self):
         logger.info("Dumping Repository...")
@@ -122,32 +141,43 @@ class GitMiner(BaseMiner):
         else:
             return None
 
-    def __get_commit_id(self, oid):
+    def __init_commits(self):
         res = self.execute_query(
             f"""
-            SELECT id
+            SELECT oid, id
             FROM commits
-            WHERE oid="{oid}" AND repo_id={self.repo_id}
+            WHERE repo_id={self.repo_id}
             """
-        ).fetchone()
+        ).fetchall()
 
-        if res:
-            return res[0]
-        else:
+        for row in res:
+            self.commit_id[row[0]] = row[1]
+
+    def __get_commit_id(self, oid):
+        try:
+            return self.commit_id[oid]
+        except KeyError:
             return None
 
     def __check_user_id(self, email):
-        res = self.execute_query(
-            f"""
-            SELECT id, login, name
-            FROM contributors
-            WHERE email="{email}"
-            """
-        ).fetchone()
+        try:
+            map_ = self.email_map[email]
+            return [map_.id, map_.login, map_.name]
+        except KeyError:
+            res = self.execute_query(
+                f"""
+                SELECT id, login, name
+                FROM contributors
+                WHERE email="{email}"
+                """
+            ).fetchone()
 
-        return res
+            if res:
+                self.email_map[email] = self.Id_Name_Login(id=res[0], login=res[1], name=res[2])
 
-    def __update_contributor(self, name, id_):
+            return res
+
+    def __update_contributor(self, name, id_, login, email):
         name = name.replace('"', '""')
 
         self.execute_query(
@@ -157,6 +187,8 @@ class GitMiner(BaseMiner):
             WHERE id={id_}
             """
         )
+
+        self.email_map[email] = self.Id_Name_Login(id=id_, login=login, name=name)
 
     def __get_user_id(self, name, email, oid, is_author):
         if not email:
@@ -191,7 +223,7 @@ class GitMiner(BaseMiner):
             elif name == res[1]:
                 return res[0]
             else:
-                self.__update_contributor(name, res[0])
+                self.__update_contributor(name=name, id_=res[0], login=res[1], email=email)
                 return res[0]
 
     def _dump_code_change(self, oid):
@@ -225,13 +257,11 @@ class GitMiner(BaseMiner):
 
                 code_change.append(obj)
 
-        logger.debug(f"Inserting for {oid}...")
         self._insert(object_=self.db_schema.code_change.insert(), param=code_change)
-        logger.debug("Inserted!")
-
-        return oid
+        logger.debug(f"Successfully dumped code change for {oid.hex}!")
 
     def _dump_commit(self, oid):
+        logger.debug(f"Inserting for commit: {oid.hex}...")
         commit = self.repo.get(oid)
 
         if not commit.parents:
@@ -284,11 +314,8 @@ class GitMiner(BaseMiner):
             is_merge=is_merge
         )
 
-        logger.debug(f"Inserting for commit: {oid.hex}...")
         self._insert(object_=self.db_schema.commits.insert(), param=obj)
-        logger.debug("Inserted!")
-
-        return oid
+        logger.debug(f"Successfully dumped commit: {oid.hex}")
 
     def __fetch_branch_commits(self, branch_target):
         logger.info(f"Ongoing Branch {branch_target[0]}...")
@@ -318,7 +345,7 @@ class GitMiner(BaseMiner):
 
             for future in concurrent.futures.as_completed(process):
                 branch_target = process[future]
-                logger.info(f"Fetched for {branch_target}")
+                logger.info(f"Fetched for {branch_target[0]}, Total: {len(self.commits)}")
 
         logger.info(f"TOTAL COMMITS: {len(self.commits)}")
         with open(f"/home/mahen/PycharmProjects/GRAS/{self.repo_name}_commits.txt", "wb") as fp:
@@ -338,23 +365,15 @@ class GitMiner(BaseMiner):
         dumped_commits = [x[0] for x in res]
         del res
 
-        index = 1
-        exception = None
-        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
-            process = {executor.submit(self._dump_commit, oid): oid for oid in self.commits if
-                       oid.hex not in dumped_commits}
-            for future in concurrent.futures.as_completed(process):
-                oid = process[future]
-                logger.info(f"Dumped commit: {oid}, index: {index}")
-                index += 1
+        commits = list(self.commits)
+        for i in range(0, len(commits), THREADS):
+            proc = [mp.Process(target=self._dump_commit, args=(oid,)) for oid in commits[i:i + THREADS] if
+                    oid not in dumped_commits]
+            for p in proc:
+                p.start()
 
-                if future.exception():
-                    exception = future.exception()
-                    logger.error(exception)
-                    os._exit(1)
-
-        if exception:
-            raise exception
+            while any([p.is_alive() for p in proc]):
+                continue
 
     @timing(name="code change", is_stage=True)
     def _parse_code_change(self):
@@ -378,11 +397,13 @@ class GitMiner(BaseMiner):
         del dumped_ids
         del id_oid
 
-        index = 1
-        for oid in not_dumped_commits:
-            self._dump_code_change(oid=oid)
-            logger.info(f"Dumped Code Change for commit: {oid}, index: {index}")
-            index += 1
+        for i in range(0, len(not_dumped_commits), THREADS):
+            proc = [mp.Process(target=self._dump_code_change, args=(oid,)) for oid in not_dumped_commits[i: i+THREADS]]
+            for p in proc:
+                p.start()
+
+            while any([x.is_alive() for x in proc]):
+                continue
 
     @timing(name="async -> commits", is_stage=True)
     async def _async_parse_commits(self):
@@ -405,7 +426,8 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            # self._parse_commits()
+            self._parse_commits()
+            self.__init_commits()
             self._parse_code_change()
 
     def __del__(self):

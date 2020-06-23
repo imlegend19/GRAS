@@ -71,7 +71,7 @@ class GithubInterface(BaseInterface):
                 logger.debug("Bad Gateway Error! Retrying...")
                 raise BadGatewayError
 
-            raise ObjectDoesNotExistError(msg=f"Object does not exist! Url: {url}")
+            raise ObjectDoesNotExistError(msg=f"Object does not exist! Url: {url}, Payload={payload['query']}")
         except Exception as e:
             logger.error(e)
             raise e
@@ -128,8 +128,8 @@ class GithubInterface(BaseInterface):
                 content = req.json()
                 if "errors" in content:
                     raise exceptions.RequestException(f"Problem with getting data via url {self.url} + \n "
-                                                      f"{self.query.format_map(self.query_params)} + \n Error:"
-                                                      f" {content}.")
+                                                      f"{self.query.format_map(self.query_params)} + \n Error: "
+                                                      f"{content}.")
 
                 if only_json:
                     return content

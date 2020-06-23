@@ -251,7 +251,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
             if not args.end_date and not args.full:
                 logger.warning(f"End data not provided, using default end date: {DEFAULT_END_DATE}.")
 
-            if not args.repo_name or not args.repo_owner:
+            if (not args.repo_name or not args.repo_owner) and 'fda' not in args.interface:
                 if not args.config:
                     raise GrasArgumentParserError(msg="Either Repo-name and Repo-owner or GrasConfig file should "
                                                       "be provided!")
@@ -269,7 +269,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
                     "Database name not provided! GRAS will create the database with name `gras` if not exists.")
 
             if not args.basic and not args.basic_extra and not args.issue_tracker and not args.commit and \
-                    not args.pull_tracker:
+                    not args.pull_tracker and args.interface == 'github':
                 logger.warning("Stage name not specified, using `basic` by default.")
                 args.basic = True
 
