@@ -4,7 +4,7 @@ from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .Java8Parser import Java8Parser
 else:
-    from gras.file_dependency.java.grammar_v8.Java8Parser import Java8Parser
+    from gras.file_dependency.java.grammar.Java8Parser import Java8Parser
 
 
 # This class defines a complete generic visitor for a parse tree produced by Java8Parser.

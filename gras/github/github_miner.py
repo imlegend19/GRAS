@@ -42,6 +42,7 @@ class GithubMiner(BaseMiner):
         super().__init__(args=args)
 
         self._initialise_db()
+        self._conn.execute("PRAGMA foreign_keys=ON")
 
         self.issues = {}
         self.pull_requests = {}

@@ -36,6 +36,7 @@ class GitMiner(BaseMiner):
         super().__init__(args)
 
         self._initialise_db()
+        self._conn.execute("PRAGMA foreign_keys=ON")
 
         self.email_map = {}
         self.commit_id = {}
