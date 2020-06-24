@@ -294,7 +294,8 @@ class BaseMiner(metaclass=ABCMeta):
                 """
             ).fetchone()
 
-            self.name_email_id[self.Name_Email(name=name, email=email)] = res[0]
+            if res:
+                self.name_email_id[self.Name_Email(name=name, email=email)] = res[0]
 
     def _dump_anon_user_object(self, name, email, object_, locked_insert=True):
         logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")

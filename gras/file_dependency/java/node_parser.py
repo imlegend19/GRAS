@@ -1,8 +1,8 @@
 from antlr4 import CommonTokenStream, InputStream
 
-from gras.file_dependency.java.grammar.Java8ParserVisitor import Java8ParserVisitor
-from gras.file_dependency.java.grammar.Java8Lexer import Java8Lexer
-from gras.file_dependency.java.grammar.Java8Parser import Java8Parser
+from gras.file_dependency.java.grammar_v8.Java8ParserVisitor import Java8ParserVisitor
+from gras.file_dependency.java.grammar_v8.Java8Lexer import Java8Lexer
+from gras.file_dependency.java.grammar_v8.Java8Parser import Java8Parser
 
 
 class NodeParser(Java8ParserVisitor):
