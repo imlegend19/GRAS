@@ -7,7 +7,7 @@ from gras.errors import GrasError
 
 ROOT = "/home/mahen/PycharmProjects/GRAS"
 CACHE = os.path.join(ROOT, ".cache")
-DECOMPILER = os.path.join(ROOT, "gras/file_dependency/java/decompiler/cfr.jar")
+DECOMPILER = os.path.join(ROOT, "gras/file_dependency/java/decompiler/procyon.jar")
 
 
 # noinspection PyMissingConstructor
@@ -43,7 +43,8 @@ class JavaMiner(BaseMiner):
         #         if f.endswith(extensions):
         #             zip_ref.extract(f, CACHE)
 
-        subprocess.run(["java", "-jar", DECOMPILER, jar, "--outputdir", CACHE])
+        subprocess.run(["java", "-jar", DECOMPILER, "-jar", jar, "mv", "-ll", "3", "-o", CACHE])
+        # subprocess.run(["java", "-jar", DECOMPILER, jar, "--outputdir", CACHE])
 
         print("Extracted Successfully!")
 
@@ -88,4 +89,4 @@ class JavaMiner(BaseMiner):
 
 
 if __name__ == '__main__':
-    JavaMiner(None, path="/home/mahen/elasticsearch-7.8.0/lib/").process()
+    JavaMiner(None, path="/home/mahen/PycharmProjects/GRAS/tests/data/java/sample.jar").process()
