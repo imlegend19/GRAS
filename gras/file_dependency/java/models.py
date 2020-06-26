@@ -24,3 +24,14 @@ class TypeParameterModel(BaseModel):
 
     def object_decoder(self, **kwargs):
         ...
+
+
+class CallModel(BaseModel):
+    def __init__(self, reference, target):
+        super().__init__()
+
+        self.reference = reference
+        self.target = target
+
+    def object_decoder(self, **kwargs):
+        ...

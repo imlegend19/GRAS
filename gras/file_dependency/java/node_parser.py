@@ -6,7 +6,9 @@ from antlr4.tree.Tree import TerminalNodeImpl
 from gras.file_dependency.java.grammar_v7.JavaParserVisitor import JavaParserVisitor
 from gras.file_dependency.java.grammar_v7.JavaLexer import JavaLexer
 from gras.file_dependency.java.grammar_v7.JavaParser import JavaParser
-from gras.file_dependency.java.models import ImportModel, TypeParameterModel
+from gras.file_dependency.java.models import CallModel, ImportModel, TypeParameterModel
+
+EXT_CLASSES = set()
 
 
 class NodeParser(JavaParserVisitor):
@@ -36,6 +38,8 @@ class NodeParser(JavaParserVisitor):
     def visitImportDeclaration(self, ctx: JavaParser.ImportDeclarationContext):
         val = NodeParser(node=ctx.qualifiedName()).value.split('.')
         pkg, name = ".".join(val[:-1]), val[-1]
+
+        EXT_CLASSES.add(name)
 
         self.value = ImportModel(
             pkg=pkg,
@@ -112,33 +116,180 @@ class NodeParser(JavaParserVisitor):
         for cld in ctx.children[::2]:
             self.value.append(NodeParser(node=cld).value)
 
+    def visitVariableModifier(self, ctx: JavaParser.VariableModifierContext):
+        # Only check if variable is `final`
+        if ctx.FINAL():
+            self.value = True
+        else:
+            self.value = False
+
+    def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
+        # Currently not parsing n-hop `SUPER` calls and inter-class methods calls (`THIS`)
+        # Not parsing `expressionList` => IDENTIFIER '(' expressionList? ')'
+        if ctx.IDENTIFIER():
+            self.value = NodeParser(node=ctx.IDENTIFIER()).value
+            if self.value not in EXT_CLASSES:  # Considers calls for external classes only
+                self.value = None
+
+    def visitPrimary(self, ctx: JavaParser.PrimaryContext):
+        # Only parsing `SUPER` & `IDENTIFIER`
+        if ctx.SUPER():
+            self.value = "super"
+        elif ctx.IDENTIFIER():
+            self.value = NodeParser(node=ctx.IDENTIFIER()).value
+            if self.value not in EXT_CLASSES:
+                self.value = None
+
+    def visitCreatedName(self, ctx: JavaParser.CreatedNameContext):
+        if ctx.IDENTIFIER():
+            self.value = NodeParser(node=ctx.IDENTIFIER()).value
+
+    def visitCreator(self, ctx: JavaParser.CreatorContext):
+        self.value = NodeParser(node=ctx.createdName()).value
+
+    def visitExpression(self, ctx: JavaParser.ExpressionContext):
+        # Parsing only `primary` & `methodCall`
+        self.value = []
+        call = None
+        new = None
+
+        if ctx.bop:
+            val = []
+            for cld in ctx.children[::2]:
+                temp = NodeParser(node=cld).value
+                if temp is None and len(val) == 0:
+                    val = None
+                    break
+                else:
+                    val.append(temp)
+
+            if val:
+                # noinspection PyTypeChecker
+                call = ".".join(val)
+        else:
+            if isinstance(ctx.children[0], JavaParser.MethodCallContext):
+                call = NodeParser(node=ctx.children[0]).value
+            elif ctx.NEW():
+                new = NodeParser(node=ctx.creator()).value
+                if new not in EXT_CLASSES:
+                    new = None
+
+        if not call:
+            call = call.split(".")
+            if len(call) == 1:
+                ref, target = "this", call[0]
+            else:
+                ref, target = call[0], call[1]
+
+            self.value.append(CallModel(reference=ref, target=target))
+
+        if new:
+            self.value.append(CallModel(reference=new, target=None))
+
+    def visitParExpression(self, ctx: JavaParser.ParExpressionContext):
+        self.value = NodeParser(node=ctx.expression()).value
+
+    def visitVariableInitializer(self, ctx: JavaParser.VariableInitializerContext):
+        if ctx.expression():
+            self.value = NodeParser(node=ctx.expression()).value
+
+    def visitVariableDeclarator(self, ctx: JavaParser.VariableDeclaratorContext):
+        val = NodeParser(node=ctx.variableInitializer()).value
+        if val:
+            self.value = val
+        else:
+            self.value = []
+
+    def visitLocalVariableDeclaration(self, ctx: JavaParser.LocalVariableDeclarationContext):
+        # Only parsing calls
+        calls = []
+
+        for cld in ctx.variableDeclarators().children[::2]:
+            calls.extend(NodeParser(node=cld).value)
+
+    def visitEnhancedForControl(self, ctx: JavaParser.EnhancedForControlContext):
+        self.value = NodeParser(node=ctx.expression()).value
+
+    def visitExpressionList(self, ctx: JavaParser.ExpressionListContext):
+        self.value = []
+
+        for cld in ctx.children[::2]:
+            self.value.extend(NodeParser(node=cld).value)
+
+    def visitForInit(self, ctx: JavaParser.ForInitContext):
+        self.value = NodeParser(node=ctx.children[0]).value
+
+    def visitForControl(self, ctx: JavaParser.ForControlContext):
+        val = []
+
+        for cld in ctx.children:
+            if isinstance(cld, JavaParser.EnhancedForControlContext):
+                val.extend(NodeParser(node=cld).value)
+            elif isinstance(cld, JavaParser.ForInitContext):
+                val.extend(NodeParser(node=cld).value)
+            elif isinstance(cld, JavaParser.ExpressionContext):
+                val.extend(NodeParser(node=cld).value)
+            elif isinstance(cld, JavaParser.ExpressionListContext):
+                val.extend(NodeParser(node=cld).value)
+
+        self.value = val
+
+    def visitStatement(self, ctx: JavaParser.StatementContext):
+        calls = []
+
+        if ctx.IF():  # `if` statement
+            calls.extend(NodeParser(node=ctx.parExpression()).value)
+            calls.extend(NodeParser(node=ctx.getChild(2)).value)
+            if ctx.ELSE():
+                calls.extend(NodeParser(node=ctx.getChild(4)).value)
+        elif ctx.FOR():
+            calls.extend(NodeParser(node=ctx.forControl()).value)
+            calls.extend(NodeParser(node=ctx.statement()).value)
+        elif ctx.DO():
+            calls.extend(NodeParser(node=ctx.statement()).value)
+            calls.extend(NodeParser(node=ctx.parExpression()).value)
+        elif ctx.WHILE():
+            calls.extend(NodeParser(node=ctx.parExpression()).value)
+            calls.extend(NodeParser(node=ctx.statement()).value)
+        elif ctx.THROW() or ctx.RETURN():
+            if ctx.expression():
+                calls.extend(NodeParser(node=ctx.expression()).value)
+        elif ctx.ASSERT():
+            for cld in ctx.children[1: -1: 2]:
+                calls.extend(NodeParser(node=cld).value)
+        elif ctx.TRY():
+            ...
+
+        self.value = calls
+
     def visitBlockStatement(self, ctx: JavaParser.BlockStatementContext):
+        calls = []
+
         if ctx.localVariableDeclaration():
-            ...
+            calls.extend(NodeParser(node=ctx.localVariableDeclaration()).value)
         elif ctx.statement():
-            ...
+            calls.extend(NodeParser(node=ctx.statement()).value)
         else:
             # localTypeDeclaration
             ...
 
     def visitBlock(self, ctx: JavaParser.BlockContext):
         if ctx.getChildCount() == 2:
-            pass
+            self.value = []
         else:
             stmt = []
             for cld in ctx.children[1: -1, :2]:
                 stmt.append(NodeParser(node=cld).value)
 
     def visitMethodBody(self, ctx: JavaParser.MethodBodyContext):
-        if ctx.block():
-            self.value = NodeParser(node=ctx.block()).value
+        self.value = NodeParser(node=ctx.block()).value
 
     def visitMethodDeclaration(self, ctx: JavaParser.MethodDeclarationContext):
         return_type = NodeParser(node=ctx.typeTypeOrVoid()).value
         name = NodeParser(node=ctx.IDENTIFIER()).value
         total_param = NodeParser(node=ctx.formalParameters()).value
         throws = NodeParser(node=ctx.qualifiedNameList()).value if ctx.THROWS() else None
-        body = NodeParser(node=ctx.methodBody()).value
+        calls = NodeParser(node=ctx.methodBody()).value
 
     def visitMemberDeclaration(self, ctx: JavaParser.MemberDeclarationContext):
         self.value = NodeParser(node=ctx.children.pop()).value
