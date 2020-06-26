@@ -23,11 +23,11 @@ class NodeParser(JavaParserVisitor):
         self.value = node.getText()
 
     def visitQualifiedName(self, ctx: JavaParser.QualifiedNameContext):
-        pkg = ""
+        val = []
         for cld in ctx.children:
-            pkg += NodeParser(node=cld).value
+            val.append(NodeParser(node=cld).value)
 
-        self.value = pkg
+        self.value = "".join(val)
 
     def visitPackageDeclaration(self, ctx: JavaParser.PackageDeclarationContext):
         self.value = NodeParser(node=ctx.qualifiedName()).value
@@ -44,14 +44,24 @@ class NodeParser(JavaParserVisitor):
         )
 
     def visitClassOrInterfaceModifier(self, ctx: JavaParser.ClassOrInterfaceModifierContext):
-        # TODO: Parse annotation
-
         self.value = []
         for cld in ctx.children:
             self.value.append(NodeParser(node=cld).value)
 
+    def visitClassOrInterfaceType(self, ctx: JavaParser.ClassOrInterfaceTypeContext):
+        # TODO: Only considering first identifier
+
+        children = [cld for cld in ctx.children if not isinstance(cld, JavaParser.TypeArgumentsContext)]
+        self.value = NodeParser(node=children[0]).value
+
+    def visitPrimitiveType(self, ctx: JavaParser.PrimitiveTypeContext):
+        self.value = NodeParser(node=ctx.children[0]).value
+
     def visitTypeType(self, ctx: JavaParser.TypeTypeContext):
-        self.value = NodeParser(node=ctx.classOrInterfaceType()).value
+        if ctx.classOrInterfaceType():
+            self.value = NodeParser(node=ctx.classOrInterfaceType()).value
+        elif ctx.primitiveType():
+            self.value = NodeParser(node=ctx.primitiveType()).value
 
     def visitTypeBound(self, ctx: JavaParser.TypeBoundContext):
         self.value = []
@@ -79,6 +89,71 @@ class NodeParser(JavaParserVisitor):
 
         for cld in ctx.children[1: -1: 2]:
             self.value.append(NodeParser(node=cld).value)
+
+    def visitTypeList(self, ctx: JavaParser.TypeListContext):
+        self.value = []
+
+        for cld in ctx.children[::2]:
+            self.value.extend(NodeParser(node=cld).value)
+
+    def visitTypeTypeOrVoid(self, ctx: JavaParser.TypeTypeOrVoidContext):
+        if ctx.VOID():
+            self.value = NodeParser(node=ctx.VOID()).value
+        else:
+            self.value = NodeParser(node=ctx.typeType()).value
+
+    def visitFormalParameters(self, ctx: JavaParser.FormalParametersContext):
+        # Only considers the total number of parameters for a method
+        self.value = len(ctx.formalParameterList().children)
+
+    def visitQualifiedNameList(self, ctx: JavaParser.QualifiedNameListContext):
+        self.value = []
+
+        for cld in ctx.children[::2]:
+            self.value.append(NodeParser(node=cld).value)
+
+    def visitBlockStatement(self, ctx: JavaParser.BlockStatementContext):
+        if ctx.localVariableDeclaration():
+            ...
+        elif ctx.statement():
+            ...
+        else:
+            # localTypeDeclaration
+            ...
+
+    def visitBlock(self, ctx: JavaParser.BlockContext):
+        if ctx.getChildCount() == 2:
+            pass
+        else:
+            stmt = []
+            for cld in ctx.children[1: -1, :2]:
+                stmt.append(NodeParser(node=cld).value)
+
+    def visitMethodBody(self, ctx: JavaParser.MethodBodyContext):
+        if ctx.block():
+            self.value = NodeParser(node=ctx.block()).value
+
+    def visitMethodDeclaration(self, ctx: JavaParser.MethodDeclarationContext):
+        return_type = NodeParser(node=ctx.typeTypeOrVoid()).value
+        name = NodeParser(node=ctx.IDENTIFIER()).value
+        total_param = NodeParser(node=ctx.formalParameters()).value
+        throws = NodeParser(node=ctx.qualifiedNameList()).value if ctx.THROWS() else None
+        body = NodeParser(node=ctx.methodBody()).value
+
+    def visitMemberDeclaration(self, ctx: JavaParser.MemberDeclarationContext):
+        self.value = NodeParser(node=ctx.children.pop()).value
+
+    def visitClassBodyDeclaration(self, ctx: JavaParser.ClassBodyDeclarationContext):
+        modifiers = []
+
+        if ctx.STATIC():
+            modifiers.append(NodeParser(node=ctx.STATIC()).value)
+
+        member = NodeParser(node=ctx.memberDeclaration()).value
+
+        for cld in ctx.children:
+            if isinstance(cld, JavaParser.ModifierContext):
+                modifiers.append(NodeParser(node=cld).value)
 
     def visitClassDeclaration(self, ctx: JavaParser.ClassDeclarationContext):
         # TODO: Name may be type<annotation>

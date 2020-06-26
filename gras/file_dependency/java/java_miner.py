@@ -43,8 +43,8 @@ class JavaMiner(BaseMiner):
         #         if f.endswith(extensions):
         #             zip_ref.extract(f, CACHE)
 
-        subprocess.run(["java", "-jar", DECOMPILER, "-jar", jar, "mv", "-ll", "3", "-o", CACHE])
-        # subprocess.run(["java", "-jar", DECOMPILER, jar, "--outputdir", CACHE])
+        # subprocess.run(["java", "-jar", DECOMPILER, "-jar", jar, "mv", "-ll", "3", "-o", CACHE])
+        subprocess.run(["java", "-jar", DECOMPILER, jar, "--hidelangimports", "false", "--outputdir", CACHE])
 
         print("Extracted Successfully!")
 

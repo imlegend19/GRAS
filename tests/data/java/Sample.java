@@ -58,7 +58,10 @@ class Pair<T, S> {
 
 interface I<T> {}
 
-class Point { int x, y; }
+class Point {
+    int x, y;
+    Point(int x, int y) { this.x = x; this.y = y; }
+}
 
 class Sample extends Point implements I<String>, Cloneable {
     class Inner extends Object {
