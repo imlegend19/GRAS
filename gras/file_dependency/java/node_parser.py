@@ -1,12 +1,14 @@
 from typing import Any
 
 from antlr4 import CommonTokenStream, InputStream
-from antlr4.tree.Tree import TerminalNodeImpl
 
 from gras.file_dependency.java.grammar_v7.JavaParserVisitor import JavaParserVisitor
 from gras.file_dependency.java.grammar_v7.JavaLexer import JavaLexer
 from gras.file_dependency.java.grammar_v7.JavaParser import JavaParser
-from gras.file_dependency.java.models import CallModel, ImportModel, TypeParameterModel
+from gras.file_dependency.java.models import (
+    AnnotationTypeModel, BodyModel, CallModel, ClassModel, EnumModel, ImportModel, InterfaceModel, MemberModel,
+    MethodModel, TypeParameterModel
+)
 
 EXT_CLASSES = set()
 
@@ -19,7 +21,8 @@ class NodeParser(JavaParserVisitor):
         self.base_type = node.__class__.__name__
         self.value: Any = None
 
-        self.visit(node)
+        if node:
+            self.visit(node)
 
     def visitTerminal(self, node):
         self.value = node.getText()
@@ -54,7 +57,6 @@ class NodeParser(JavaParserVisitor):
 
     def visitClassOrInterfaceType(self, ctx: JavaParser.ClassOrInterfaceTypeContext):
         # TODO: Only considering first identifier
-
         children = [cld for cld in ctx.children if not isinstance(cld, JavaParser.TypeArgumentsContext)]
         self.value = NodeParser(node=children[0]).value
 
@@ -77,11 +79,11 @@ class NodeParser(JavaParserVisitor):
     def visitTypeParameter(self, ctx: JavaParser.TypeParameterContext):
         name = NodeParser(node=ctx.IDENTIFIER()).value
         extends = None if not ctx.EXTENDS() else NodeParser(node=ctx.typeBound()).value
-        annotations = NodeParser(node=ctx.annotation()) if ctx.annotation() else None
+        annotate = NodeParser(node=ctx.annotation()) if ctx.annotation() else None
 
         self.value(
             TypeParameterModel(
-                annotations=annotations,
+                annotations=annotate,
                 name=name,
                 extends=None if not extends else extends,
                 lineno=ctx.start.line
@@ -108,7 +110,8 @@ class NodeParser(JavaParserVisitor):
 
     def visitFormalParameters(self, ctx: JavaParser.FormalParametersContext):
         # Only considers the total number of parameters for a method
-        self.value = len(ctx.formalParameterList().children)
+        if ctx.formalParameterList():
+            self.value = len(ctx.formalParameterList().children)
 
     def visitQualifiedNameList(self, ctx: JavaParser.QualifiedNameListContext):
         self.value = []
@@ -157,7 +160,7 @@ class NodeParser(JavaParserVisitor):
             val = []
             for cld in ctx.children[::2]:
                 temp = NodeParser(node=cld).value
-                if temp is None and len(val) == 0:
+                if not temp:
                     val = None
                     break
                 else:
@@ -174,24 +177,30 @@ class NodeParser(JavaParserVisitor):
                 if new not in EXT_CLASSES:
                     new = None
 
-        if not call:
+        if call:
             call = call.split(".")
             if len(call) == 1:
                 ref, target = "this", call[0]
             else:
                 ref, target = call[0], call[1]
 
-            self.value.append(CallModel(reference=ref, target=target))
+            self.value.append(CallModel(reference=ref, target=target, lineno=ctx.start.line))
 
         if new:
-            self.value.append(CallModel(reference=new, target=None))
+            self.value.append(CallModel(reference=new, target=None, lineno=ctx.start.line))
 
     def visitParExpression(self, ctx: JavaParser.ParExpressionContext):
         self.value = NodeParser(node=ctx.expression()).value
 
+    def visitArrayInitializer(self, ctx: JavaParser.ArrayInitializerContext):
+        calls = []
+
+        for cld in ctx.children[1: -1]:
+            if isinstance(cld, JavaParser.VariableInitializerContext):
+                calls.extend(NodeParser(node=cld).value)
+
     def visitVariableInitializer(self, ctx: JavaParser.VariableInitializerContext):
-        if ctx.expression():
-            self.value = NodeParser(node=ctx.expression()).value
+        self.value = NodeParser(node=ctx.children[0]).value
 
     def visitVariableDeclarator(self, ctx: JavaParser.VariableDeclaratorContext):
         val = NodeParser(node=ctx.variableInitializer()).value
@@ -200,12 +209,17 @@ class NodeParser(JavaParserVisitor):
         else:
             self.value = []
 
-    def visitLocalVariableDeclaration(self, ctx: JavaParser.LocalVariableDeclarationContext):
-        # Only parsing calls
+    def visitVariableDeclarators(self, ctx: JavaParser.VariableDeclaratorsContext):
         calls = []
 
-        for cld in ctx.variableDeclarators().children[::2]:
+        for cld in ctx.children[::2]:
             calls.extend(NodeParser(node=cld).value)
+
+        self.value = calls
+
+    def visitLocalVariableDeclaration(self, ctx: JavaParser.LocalVariableDeclarationContext):
+        # Only parsing calls
+        self.value = NodeParser(node=ctx.variableDeclarators()).value
 
     def visitEnhancedForControl(self, ctx: JavaParser.EnhancedForControlContext):
         self.value = NodeParser(node=ctx.expression()).value
@@ -234,52 +248,63 @@ class NodeParser(JavaParserVisitor):
 
         self.value = val
 
+    def visitCatchClause(self, ctx: JavaParser.CatchClauseContext):
+        self.value = NodeParser(node=ctx.block()).value
+
+    def visitFinallyBlock(self, ctx: JavaParser.FinallyBlockContext):
+        self.value = NodeParser(node=ctx.block()).value
+
+    def visitResource(self, ctx: JavaParser.ResourceContext):
+        self.value = NodeParser(node=ctx.expression()).value
+
+    def visitResources(self, ctx: JavaParser.ResourcesContext):
+        calls = []
+
+        for cld in ctx.children[::2]:
+            calls.extend(NodeParser(node=cld).value)
+
+    def visitResourceSpecification(self, ctx: JavaParser.ResourceSpecificationContext):
+        self.value = NodeParser(node=ctx.resources()).value
+
     def visitStatement(self, ctx: JavaParser.StatementContext):
         calls = []
 
-        if ctx.IF():  # `if` statement
-            calls.extend(NodeParser(node=ctx.parExpression()).value)
-            calls.extend(NodeParser(node=ctx.getChild(2)).value)
-            if ctx.ELSE():
-                calls.extend(NodeParser(node=ctx.getChild(4)).value)
-        elif ctx.FOR():
-            calls.extend(NodeParser(node=ctx.forControl()).value)
-            calls.extend(NodeParser(node=ctx.statement()).value)
-        elif ctx.DO():
-            calls.extend(NodeParser(node=ctx.statement()).value)
-            calls.extend(NodeParser(node=ctx.parExpression()).value)
-        elif ctx.WHILE():
-            calls.extend(NodeParser(node=ctx.parExpression()).value)
-            calls.extend(NodeParser(node=ctx.statement()).value)
-        elif ctx.THROW() or ctx.RETURN():
-            if ctx.expression():
-                calls.extend(NodeParser(node=ctx.expression()).value)
-        elif ctx.ASSERT():
-            for cld in ctx.children[1: -1: 2]:
+        for cld in ctx.children:
+            if isinstance(cld, (
+                    JavaParser.BlockContext,
+                    JavaParser.SwitchBlockStatementGroupContext,
+                    JavaParser.FinallyBlockContext,
+                    JavaParser.CatchClauseContext,
+                    JavaParser.ForControlContext,
+                    JavaParser.ExpressionContext,
+                    JavaParser.StatementContext,
+                    JavaParser.ParExpressionContext,
+                    JavaParser.ResourceSpecificationContext
+            )):
                 calls.extend(NodeParser(node=cld).value)
-        elif ctx.TRY():
-            ...
 
         self.value = calls
 
     def visitBlockStatement(self, ctx: JavaParser.BlockStatementContext):
         calls = []
 
+        # Not parsing localTypeDeclaration (Class or Interface)
         if ctx.localVariableDeclaration():
             calls.extend(NodeParser(node=ctx.localVariableDeclaration()).value)
         elif ctx.statement():
             calls.extend(NodeParser(node=ctx.statement()).value)
-        else:
-            # localTypeDeclaration
-            ...
+
+        self.value = calls
 
     def visitBlock(self, ctx: JavaParser.BlockContext):
         if ctx.getChildCount() == 2:
             self.value = []
         else:
-            stmt = []
-            for cld in ctx.children[1: -1, :2]:
-                stmt.append(NodeParser(node=cld).value)
+            calls = []
+            for cld in ctx.children[1: -1:2]:
+                calls.append(NodeParser(node=cld).value)
+
+            self.value = calls
 
     def visitMethodBody(self, ctx: JavaParser.MethodBodyContext):
         self.value = NodeParser(node=ctx.block()).value
@@ -287,53 +312,335 @@ class NodeParser(JavaParserVisitor):
     def visitMethodDeclaration(self, ctx: JavaParser.MethodDeclarationContext):
         return_type = NodeParser(node=ctx.typeTypeOrVoid()).value
         name = NodeParser(node=ctx.IDENTIFIER()).value
-        total_param = NodeParser(node=ctx.formalParameters()).value
+        total_args = NodeParser(node=ctx.formalParameters()).value
         throws = NodeParser(node=ctx.qualifiedNameList()).value if ctx.THROWS() else None
         calls = NodeParser(node=ctx.methodBody()).value
 
+        self.value = MethodModel(
+            name=name,
+            return_type=return_type,
+            total_args=total_args,
+            throws=throws,
+            calls=calls,
+            lineno=ctx.start.line
+        )
+
+    def visitGenericMethodDeclaration(self, ctx: JavaParser.GenericMethodDeclarationContext):
+        self.value = NodeParser(node=ctx.methodDeclaration()).value
+
+    def visitFieldDeclaration(self, ctx: JavaParser.FieldDeclarationContext):
+        self.value = NodeParser(node=ctx.variableDeclarators()).value
+
+    def visitConstructorDeclaration(self, ctx: JavaParser.ConstructorDeclarationContext):
+        self.value = NodeParser(node=ctx.constructorBody).value
+
+    def visitGenericConstructorDeclaration(self, ctx: JavaParser.GenericConstructorDeclarationContext):
+        self.value = NodeParser(node=ctx.constructorDeclaration()).value
+
     def visitMemberDeclaration(self, ctx: JavaParser.MemberDeclarationContext):
-        self.value = NodeParser(node=ctx.children.pop()).value
+        val = ctx.children[0]
+
+        if isinstance(val, JavaParser.MethodDeclarationContext):
+            self.value = MemberModel(
+                subtype="Method",
+                value=NodeParser(node=val).value
+            )
+        elif isinstance(val, JavaParser.GenericMethodDeclarationContext):
+            self.value = MemberModel(
+                subtype="Method",
+                value=NodeParser(node=val).value
+            )
+        elif isinstance(val, JavaParser.FieldDeclarationContext):
+            self.value = MemberModel(
+                subtype="Call",
+                value=NodeParser(node=val).value
+            )
+        elif isinstance(val, JavaParser.ConstructorDeclarationContext):
+            self.value = MemberModel(
+                subtype="Call",
+                value=NodeParser(node=val).value
+            )
+
+    def visitConstantDeclarator(self, ctx: JavaParser.ConstantDeclaratorContext):
+        self.value = NodeParser(node=ctx.variableInitializer()).value
+
+    def visitConstDeclaration(self, ctx: JavaParser.ConstDeclarationContext):
+        calls = []
+
+        for cld in ctx.children:
+            if isinstance(cld, JavaParser.ConstantDeclaratorContext):
+                calls.extend(NodeParser(node=cld).value)
+
+        self.value = calls
+
+    def visitInterfaceMethodDeclaration(self, ctx: JavaParser.InterfaceMethodDeclarationContext):
+        modifiers, calls = [], []
+
+        return_type, throws = None, None
+        total_args = 0
+        name = NodeParser(node=ctx.IDENTIFIER()).value
+
+        for cld in ctx.children:
+            if isinstance(cld, JavaParser.InterfaceMethodModifierContext):
+                modifiers.append(NodeParser(node=cld).value)
+            elif isinstance(cld, JavaParser.TypeTypeOrVoidContext):
+                return_type = NodeParser(node=cld).value
+            elif isinstance(cld, JavaParser.QualifiedNameListContext):
+                throws = NodeParser(node=cld).value
+            elif isinstance(cld, JavaParser.MethodBodyContext):
+                calls = NodeParser(node=cld).value
+            elif isinstance(cld, JavaParser.FormalParametersContext):
+                total_args = NodeParser(node=cld).value
+
+        self.value = MethodModel(
+            name=name,
+            modifiers=modifiers,
+            return_type=return_type,
+            total_args=total_args,
+            throws=throws,
+            calls=calls,
+            lineno=ctx.start.line
+        )
+
+    def visitGenericInterfaceMethodDeclaration(self, ctx: JavaParser.GenericInterfaceMethodDeclarationContext):
+        self.value = NodeParser(node=ctx.interfaceMethodDeclaration()).value
+
+    def visitInterfaceMemberDeclaration(self, ctx: JavaParser.InterfaceMemberDeclarationContext):
+        val = ctx.children[0]
+
+        if isinstance(val, JavaParser.ConstDeclarationContext):
+            self.value = MemberModel(
+                subtype="Call",
+                value=NodeParser(node=val).value
+            )
+        elif isinstance(val, JavaParser.InterfaceMethodDeclarationContext):
+            self.value = MemberModel(
+                subtype="Method",
+                value=NodeParser(node=val).value
+            )
+        elif isinstance(val, JavaParser.GenericMethodDeclarationContext):
+            self.value = MemberModel(
+                subtype="Method",
+                value=NodeParser(node=val).value
+            )
 
     def visitClassBodyDeclaration(self, ctx: JavaParser.ClassBodyDeclarationContext):
+        if not ctx.STATIC():
+            modifiers = []
+            for cld in ctx.children:
+                if isinstance(cld, JavaParser.ModifierContext):
+                    modifiers.append(NodeParser(node=cld).value)
+
+            method, calls = None, []
+
+            # noinspection PyTypeChecker
+            member = NodeParser(node=ctx.memberDeclaration()).value
+
+            if member:
+                member: MemberModel
+                if member.subtype == "Method":
+                    tmp: MethodModel = member.value
+                    if tmp.modifiers:
+                        tmp.modifiers.extend(modifiers)
+                    else:
+                        tmp.modifiers = modifiers
+
+                    method = tmp
+                elif member.subtype == "Call":
+                    calls.extend(member.value)
+
+            self.value = BodyModel(
+                method=method,
+                calls=calls
+            )
+        else:
+            calls = NodeParser(node=ctx.block()).value
+
+            self.value = BodyModel(
+                method=None,
+                calls=calls
+            )
+
+    def visitInterfaceBodyDeclaration(self, ctx: JavaParser.InterfaceBodyDeclarationContext):
         modifiers = []
-
-        if ctx.STATIC():
-            modifiers.append(NodeParser(node=ctx.STATIC()).value)
-
-        member = NodeParser(node=ctx.memberDeclaration()).value
-
         for cld in ctx.children:
             if isinstance(cld, JavaParser.ModifierContext):
                 modifiers.append(NodeParser(node=cld).value)
 
+        method, calls = None, []
+
+        # noinspection PyTypeChecker
+        member = NodeParser(node=ctx.interfaceMemberDeclaration()).value
+
+        if member:
+            member: MemberModel
+            if member.subtype == "Method":
+                tmp: MethodModel = member.value
+                tmp.modifiers = modifiers
+                method = tmp
+            elif member.subtype == "Call":
+                calls.extend(member.value)
+
+        self.value = BodyModel(
+            method=method,
+            calls=calls
+        )
+
     def visitClassDeclaration(self, ctx: JavaParser.ClassDeclarationContext):
         # TODO: Name may be type<annotation>
-        children = ctx.children
+        name = NodeParser(node=ctx.IDENTIFIER()).value
+        EXT_CLASSES.add(name)  # Used in case of recursion
 
-        type_ = NodeParser(node=children.pop(0)).value
-        name = NodeParser(node=children.pop(0)).value
-        body: JavaParser.ClassBodyContext = children.pop(-1)
+        extends, implements = None, None
 
-        type_parameters, extends, implements = None, None, None
+        if ctx.EXTENDS():
+            extends = NodeParser(node=ctx.typeType()).value
+        elif ctx.IMPLEMENTS():
+            implements = NodeParser(node=ctx.typeList()).value
 
-        if isinstance(children[0], JavaParser.TypeParametersContext):
-            type_parameters = NodeParser(node=children.pop(0)).value
+        methods, calls = [], []
 
-        if isinstance(children[0], TerminalNodeImpl):
-            val = NodeParser(node=children.pop(0)).value
-            if val == "extends":
-                extends = NodeParser(node=children.pop(0)).value
-            else:
-                implements = NodeParser(node=children.pop(0)).value
+        body = ctx.classBody()
+        for cld in body.children[1: -1]:
+            # noinspection PyTypeChecker
+            val = NodeParser(node=cld).value
+            if val:
+                val: BodyModel
+                if val.method:
+                    methods.append(val.method)
+                elif val.calls:
+                    calls.extend(val.calls)
 
-        body = body.children[1: -1]
-        # for cld in body:
+        self.value = ClassModel(
+            name=name,
+            extends=extends,
+            implements=implements,
+            methods=methods,
+            calls=calls,
+            lineno=ctx.start.line
+        )
+
+    def visitEnumDeclaration(self, ctx: JavaParser.EnumDeclarationContext):
+        name = NodeParser(node=ctx.IDENTIFIER()).value
+        EXT_CLASSES.add(name)
+
+        implements = None
+        if ctx.IMPLEMENTS():
+            implements = NodeParser(node=ctx.typeList()).value
+
+        methods, calls = [], []
+
+        body = ctx.enumBodyDeclarations()
+        if body:
+            for cld in body.children[1:]:
+                # noinspection PyTypeChecker
+                val = NodeParser(node=cld).value
+                if val:
+                    val: BodyModel
+                    if val.method:
+                        methods.append(val.method)
+                    elif val.calls:
+                        calls.extend(val.calls)
+
+        self.value = EnumModel(
+            name=name,
+            implements=implements,
+            methods=methods,
+            calls=calls,
+            lineno=ctx.start.line
+        )
+
+    def visitInterfaceDeclaration(self, ctx: JavaParser.InterfaceDeclarationContext):
+        name = NodeParser(node=ctx.IDENTIFIER()).value
+        EXT_CLASSES.add(name)
+
+        extends = None
+
+        if ctx.EXTENDS():
+            extends = NodeParser(node=ctx.typeList())
+
+        methods, calls = [], []
+
+        body = ctx.interfaceBody()
+        for cld in body.children[1:-1]:
+            # noinspection PyTypeChecker
+            val = NodeParser(node=cld).value
+            if val:
+                val: BodyModel
+                if val.method:
+                    methods.append(val.method)
+                elif val.calls:
+                    calls.extend(val.calls)
+
+        self.value = InterfaceModel(
+            name=name,
+            extends=extends,
+            methods=methods,
+            calls=calls,
+            lineno=ctx.start.line
+        )
+
+    def visitAnnotationConstantRest(self, ctx: JavaParser.AnnotationConstantRestContext):
+        calls = NodeParser(node=ctx.variableDeclarators()).value
+
+        self.value = BodyModel(
+            method=None,
+            calls=calls
+        )
+
+    def visitAnnotationMethodOrConstantRest(self, ctx: JavaParser.AnnotationMethodOrConstantRestContext):
+        if ctx.annotationConstantRest():
+            self.value = NodeParser(node=ctx.annotationConstantRest()).value
+
+    def visitAnnotationTypeElementRest(self, ctx: JavaParser.AnnotationTypeElementRestContext):
+        if ctx.annotationMethodOrConstantRest():
+            self.value = NodeParser(node=ctx.annotationMethodOrConstantRest()).value
+
+    def visitAnnotationTypeElementDeclaration(self, ctx: JavaParser.AnnotationTypeElementDeclarationContext):
+        if ctx.annotationTypeElementRest():
+            self.value = NodeParser(node=ctx.annotationTypeElementRest()).value
+
+    def visitAnnotationTypeDeclaration(self, ctx: JavaParser.AnnotationTypeDeclarationContext):
+        name = NodeParser(node=ctx.IDENTIFIER()).value
+
+        calls = []
+
+        body = ctx.annotationTypeBody()
+        for cld in body.children[1:-1]:
+            # noinspection PyTypeChecker
+            val = NodeParser(node=cld).value
+            if val:
+                val: BodyModel
+                if val.calls:
+                    calls.extend(val.calls)
+
+        self.value = AnnotationTypeModel(
+            name=name,
+            calls=calls,
+            lineno=ctx.start.line
+        )
 
     def visitTypeDeclaration(self, ctx: JavaParser.TypeDeclarationContext):
-        children = ctx.children
-        children.pop()
+        modifiers = []
+        node = None
 
-        modifier = NodeParser(node=children.pop(0)).value
+        for cld in ctx.children:
+            if isinstance(cld, JavaParser.ClassOrInterfaceModifierContext):
+                modifiers.append(NodeParser(node=cld).value)
+            elif isinstance(cld, JavaParser.ClassDeclarationContext):
+                node = NodeParser(node=cld).value
+                node.modifiers = modifiers
+            elif isinstance(cld, JavaParser.EnumDeclarationContext):
+                node = NodeParser(node=cld).value
+                node.modifiers = modifiers
+            elif isinstance(cld, JavaParser.InterfaceDeclarationContext):
+                node = NodeParser(node=cld).value
+                node.modifiers = modifiers
+            elif isinstance(cld, JavaParser.AnnotationTypeDeclarationContext):
+                node = NodeParser(node=cld).value
+                node.modifiers = modifiers
+
+        self.value = node
 
 
 if __name__ == '__main__':
@@ -351,9 +658,21 @@ if __name__ == '__main__':
 
     loc = tree.stop.line - tree.start.line + 1
 
-    imports = []
+    if tree.packageDeclaration():
+        pkg = NodeParser(node=tree.children.pop(0)).value
+
+    imports, classes, interfaces, annotations, enums = [], [], [], [], []
     for child in tree.children:
-        np = NodeParser(node=child).value
-        imports.extend(np)
+        model = NodeParser(node=child).value
+        if isinstance(model, ImportModel):
+            imports.append(model)
+        elif isinstance(model, ClassModel):
+            classes.append(model)
+        elif isinstance(model, EnumModel):
+            enums.append(model)
+        elif isinstance(model, InterfaceModel):
+            interfaces.append(model)
+        elif isinstance(model, AnnotationTypeModel):
+            annotations.append(model)
 
     print(imports)

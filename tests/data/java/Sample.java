@@ -1,4 +1,7 @@
-import java.lang.*;
+package ext.some.pkg;
+
+import java.lang.Object;
+import java.lang.Cloneable;
 import org.gras.Person;
 
 /* Subclass Student */
@@ -86,12 +89,12 @@ class Pair<T, S> {
 
 interface I<T> {}
 
-class Point {
+protected class Point {
     int x, y;
     Point(int x, int y) { this.x = x; this.y = y; }
 }
 
-class Sample extends Point implements I<String>, Cloneable {
+public abstract class Sample extends Point implements I<String>, Cloneable {
     class Inner extends Object {
         static final int x = 3; // OK: constant variable
     }
