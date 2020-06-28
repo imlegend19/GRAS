@@ -36,6 +36,7 @@ class GitMiner(BaseMiner):
         super().__init__(args)
 
         self._initialise_db()
+        self._conn.execute("PRAGMA foreign_keys=ON")
 
         self.email_map = {}
         self.commit_id = {}
@@ -368,7 +369,7 @@ class GitMiner(BaseMiner):
         commits = list(self.commits)
         for i in range(0, len(commits), THREADS):
             proc = [mp.Process(target=self._dump_commit, args=(oid,)) for oid in commits[i:i + THREADS] if
-                    oid not in dumped_commits]
+                    oid.hex not in dumped_commits]
             for p in proc:
                 p.start()
 

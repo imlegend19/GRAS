@@ -63,7 +63,7 @@ class BaseMiner(metaclass=ABCMeta):
         self.__dict__[attr] = value
 
     @abstractmethod
-    def load_from_file(self, file):
+    def load_from_file(self, **kwargs):
         """
         :func: `abc.abstractmethod` to load the settings from a .cfg file and instantiate the
         :class:`gras.base_miner.BaseMiner` class.
@@ -77,7 +77,7 @@ class BaseMiner(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def dump_to_file(self, path):
+    def dump_to_file(self, **kwargs):
         """
         Method to dump the :class:`gras.base_miner.BaseMiner` object to a .cfg (config) file
         
@@ -294,7 +294,8 @@ class BaseMiner(metaclass=ABCMeta):
                 """
             ).fetchone()
 
-            self.name_email_id[self.Name_Email(name=name, email=email)] = res[0]
+            if res:
+                self.name_email_id[self.Name_Email(name=name, email=email)] = res[0]
 
     def _dump_anon_user_object(self, name, email, object_, locked_insert=True):
         logger.info(f"Dumping anonymous user (name: {name}, email: {email})...")

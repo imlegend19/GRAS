@@ -148,7 +148,7 @@ def get_value(str_):
     if not str_:
         return None
     else:
-        return str_.strip().replace('\x00', '').replace("'", "\\'")
+        return str_.strip().replace('\x00', '').replace("'", "''").replace('"', '""')
 
 
 class DeprecatedWarning(UserWarning):
