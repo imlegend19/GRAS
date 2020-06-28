@@ -1,4 +1,8 @@
 file-dependency: ["gras/file_dependency/*"]
+python3: ["gras/file_dependency/python/*"]
+java: ["gras/file_dependency/java/*"]
+javascript: ["gras/file_dependency/javascript/*"]
+parser: ["gras/file_dependency/*/node_parser.py"]
 github-miner: ["gras/github/*"]
 git-miner: ["gras/git/*"]
 identity-miner: ["gras/identity_merging/*"]
