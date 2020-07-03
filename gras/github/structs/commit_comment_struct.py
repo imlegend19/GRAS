@@ -36,7 +36,7 @@ class CommitCommentStruct(GithubInterface, CommitCommentModel):
                         author {{
                             login
                         }}
-                        bodyText
+                        body
                         commit {{
                             oid
                         }}

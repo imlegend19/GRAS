@@ -44,7 +44,7 @@ class IssueDetailStruct(GithubInterface, IssueModel):
                     updatedAt
                     closedAt
                     title
-                    bodyText
+                    body
                     author {{
                         ... on User {{
                             type: __typename
@@ -166,7 +166,7 @@ class IssueSearchStruct(GithubInterface, IssueModel):
                         updatedAt
                         closedAt
                         title
-                        bodyText
+                        body
                         author {{
                             ... on User {{
                                 type: __typename
@@ -314,7 +314,7 @@ class IssueStruct(GithubInterface, IssueModel):
                         updatedAt
                         closedAt
                         title
-                        bodyText
+                        body
                         author {{
                             ... on User {{
                                 type: __typename

@@ -58,7 +58,7 @@ class PullRequestDetailStruct(GithubInterface, PullRequestModel):
                             login
                         }}
                     }}
-                    bodyText
+                    body
                     changedFiles
                     closed
                     closedAt
@@ -209,7 +209,7 @@ class PullRequestSearchStruct(GithubInterface, PullRequestModel):
                                 login
                             }}
                         }}
-                        bodyText
+                        body
                         changedFiles
                         closed
                         closedAt
@@ -391,7 +391,7 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
                                 login
                             }}
                         }}
-                        bodyText
+                        body
                         changedFiles
                         closed
                         closedAt

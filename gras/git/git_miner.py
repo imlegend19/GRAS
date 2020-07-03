@@ -330,7 +330,7 @@ class GitMiner(BaseMiner):
 
     def _fetch_commit_ids(self):
         try:
-            with open(f"{ROOT}/commits/{self.repo_name}_commits.txt", "rb") as fp:
+            with open(f"{ROOT}/.gras-cache/{self.repo_name}_commits.txt", "rb") as fp:
                 self.commits = pickle.load(fp)
 
             self.commits = [Oid(hex=x) for x in self.commits]
@@ -350,7 +350,7 @@ class GitMiner(BaseMiner):
                 logger.info(f"Fetched for {branch_target[0]}, Total: {len(self.commits)}")
 
         logger.info(f"TOTAL COMMITS: {len(self.commits)}")
-        with open(f"{ROOT}/commits/{self.repo_name}_commits.txt", "wb") as fp:
+        with open(f"{ROOT}/.gras-cache/{self.repo_name}_commits.txt", "wb") as fp:
             temp = [x.hex for x in self.commits]
             pickle.dump(temp, fp)
             del temp

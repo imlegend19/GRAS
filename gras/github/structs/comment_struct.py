@@ -37,7 +37,7 @@ class CommentStruct(GithubInterface, CommentModel):
                             author {{
                                 login
                             }}
-                            bodyText
+                            body
                             createdAt
                             isMinimized
                             minimizedReason
