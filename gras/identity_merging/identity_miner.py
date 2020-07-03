@@ -5,14 +5,15 @@ import re
 import sys
 import unicodedata
 from collections import namedtuple
-import networkx as nx
 
+import networkx as nx
 import requests
 from joblib import load
 from numpy import isnan
 from sklearn.ensemble import RandomForestClassifier
 from yandex.Translater import Translater, TranslaterError
 
+from gras import ROOT
 from gras.base_miner import BaseMiner
 from gras.db.db_models import DBSchema
 from gras.errors import YandexError, YandexKeyError
@@ -380,7 +381,7 @@ class IdentityMiner(BaseMiner):
         file.close()
 
     def init_contributors(self):
-        extensions = get_domain_extensions(path="/home/mahen/PycharmProjects/GRAS/gras/identity_merging/data"
+        extensions = get_domain_extensions(path=f"{ROOT}/gras/identity_merging/data"
                                                 "/domain_ext.csv")
 
         res = self._conn.execute(

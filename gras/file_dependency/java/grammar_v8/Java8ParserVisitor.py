@@ -962,7 +962,8 @@ class Java8ParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by Java8Parser#postIncrementExpression_lf_postfixExpression.
     def visitPostIncrementExpression_lf_postfixExpression(self,
-                                                          ctx: Java8Parser.PostIncrementExpression_lf_postfixExpressionContext):
+                                                          ctx:
+                                                          Java8Parser.PostIncrementExpression_lf_postfixExpressionContext):
         return self.visitChildren(ctx)
 
     # Visit a parse tree produced by Java8Parser#postDecrementExpression.
@@ -971,7 +972,8 @@ class Java8ParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by Java8Parser#postDecrementExpression_lf_postfixExpression.
     def visitPostDecrementExpression_lf_postfixExpression(self,
-                                                          ctx: Java8Parser.PostDecrementExpression_lf_postfixExpressionContext):
+                                                          ctx:
+                                                          Java8Parser.PostDecrementExpression_lf_postfixExpressionContext):
         return self.visitChildren(ctx)
 
     # Visit a parse tree produced by Java8Parser#castExpression.

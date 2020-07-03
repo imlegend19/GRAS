@@ -1,9 +1,8 @@
 import csv
 from collections import Counter, namedtuple
 
-from numpy import nan
 import numpy as np
-
+from numpy import nan
 
 CONTRIBUTOR_TEMPLATE = namedtuple("Contributor", ["name", "first_name", "last_name", "prefix", "domain"])
 

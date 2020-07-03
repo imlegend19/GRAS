@@ -1,9 +1,10 @@
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.tree.Tree import TerminalNodeImpl
 
-from gras.file_dependency.java.grammar_v7.JavaParserVisitor import JavaParserVisitor
+from gras import ROOT
 from gras.file_dependency.java.grammar_v7.JavaLexer import JavaLexer
 from gras.file_dependency.java.grammar_v7.JavaParser import JavaParser
+from gras.file_dependency.java.grammar_v7.JavaParserVisitor import JavaParserVisitor
 from gras.file_dependency.java.models import (
     AnnotationTypeModel, BodyModel, CallModel, ClassModel, EnumModel, ImportModel, InterfaceModel, MemberModel,
     MethodModel, TypeParameterModel
@@ -654,7 +655,7 @@ class NodeParser(JavaParserVisitor):
 
 
 if __name__ == '__main__':
-    with open("/home/mahen/PycharmProjects/GRAS/tests/data/java/Sample.java") as f:
+    with open(f"{ROOT}/tests/data/java/Sample.java") as f:
         content = f.read()
 
     # TODO: Use antlr.FileStream

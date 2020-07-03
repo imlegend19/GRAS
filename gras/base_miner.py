@@ -5,11 +5,11 @@ import signal
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 
+from neo4j import GraphDatabase
 from neo4j._exceptions import BoltError
 from neo4j.exceptions import ServiceUnavailable
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
-from neo4j import GraphDatabase
 
 from gras.db.db_models import DBSchema
 from gras.errors import DatabaseError, GithubMinerError, InvalidTokenError
@@ -64,30 +64,10 @@ class BaseMiner(metaclass=ABCMeta):
 
     @abstractmethod
     def load_from_file(self, **kwargs):
-        """
-        :func: `abc.abstractmethod` to load the settings from a .cfg file and instantiate the
-        :class:`gras.base_miner.BaseMiner` class.
-        
-        Args:
-            file: The .cfg file where the settings are stored
-
-        Returns:
-            None
-        """
         pass
 
     @abstractmethod
     def dump_to_file(self, **kwargs):
-        """
-        Method to dump the :class:`gras.base_miner.BaseMiner` object to a .cfg (config) file
-        
-        Args:
-            path: The path of the .cfg file to be dumped
-
-        Returns:
-            None
-
-        """
         pass
 
     @abstractmethod

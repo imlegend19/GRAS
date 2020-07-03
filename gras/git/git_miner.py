@@ -8,6 +8,7 @@ from datetime import datetime
 
 from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Oid, Repository
 
+from gras import ROOT
 from gras.base_miner import BaseMiner
 from gras.github.structs.contributor_struct import CommitUserStruct
 from gras.github.structs.repository_struct import RepositoryStruct
@@ -329,7 +330,7 @@ class GitMiner(BaseMiner):
 
     def _fetch_commit_ids(self):
         try:
-            with open(f"/home/mahen/PycharmProjects/GRAS/{self.repo_name}_commits.txt", "rb") as fp:
+            with open(f"{ROOT}/commits/{self.repo_name}_commits.txt", "rb") as fp:
                 self.commits = pickle.load(fp)
 
             self.commits = [Oid(hex=x) for x in self.commits]
@@ -349,7 +350,7 @@ class GitMiner(BaseMiner):
                 logger.info(f"Fetched for {branch_target[0]}, Total: {len(self.commits)}")
 
         logger.info(f"TOTAL COMMITS: {len(self.commits)}")
-        with open(f"/home/mahen/PycharmProjects/GRAS/{self.repo_name}_commits.txt", "wb") as fp:
+        with open(f"{ROOT}/commits/{self.repo_name}_commits.txt", "wb") as fp:
             temp = [x.hex for x in self.commits]
             pickle.dump(temp, fp)
             del temp
@@ -399,7 +400,8 @@ class GitMiner(BaseMiner):
         del id_oid
 
         for i in range(0, len(not_dumped_commits), THREADS):
-            proc = [mp.Process(target=self._dump_code_change, args=(oid,)) for oid in not_dumped_commits[i: i+THREADS]]
+            proc = [mp.Process(target=self._dump_code_change, args=(oid,)) for oid in
+                    not_dumped_commits[i: i + THREADS]]
             for p in proc:
                 p.start()
 

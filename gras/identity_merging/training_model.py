@@ -7,7 +7,7 @@ from joblib import dump
 from sklearn.ensemble import RandomForestClassifier
 
 from gras.identity_merging.identity_miner import Alias
-from gras.identity_merging.utils import gen_count_dict, gen_feature_vector, get_domain_extensions, CONTRIBUTOR_TEMPLATE
+from gras.identity_merging.utils import CONTRIBUTOR_TEMPLATE, gen_count_dict, gen_feature_vector, get_domain_extensions
 
 
 def generate_train_data():

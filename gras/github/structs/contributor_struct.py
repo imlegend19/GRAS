@@ -1,7 +1,6 @@
 import logging
 
 from requests import exceptions
-from itertools import zip_longest
 
 from gras.errors import ObjectDoesNotExistError
 from gras.github.entity.api_static import APIStaticV3, APIStaticV4, CommitStatic, UserStatic

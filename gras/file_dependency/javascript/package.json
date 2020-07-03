@@ -1,20 +1,20 @@
 {
-  "name": "javascript",
-  "version": "1.0.0",
-  "description": "Parser for Javascript",
-  "private": true,
-  "main": "esprima-parser.js",
-  "scripts": {
+  "name"           : "javascript",
+  "version"        : "1.0.0",
+  "description"    : "Parser for Javascript",
+  "private"        : true,
+  "main"           : "esprima-parser.js",
+  "scripts"        : {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [
+  "keywords"       : [
     "parser",
     "ast"
   ],
-  "author": "Mahen Gandhi <mahengandhi19@gmail.com>",
-  "license": "BSD-3-Clause",
+  "author"         : "Mahen Gandhi <mahengandhi19@gmail.com>",
+  "license"        : "BSD-3-Clause",
   "devDependencies": {
     "commander": "^5.1.0",
-    "esprima": "^4.0.1"
+    "esprima"  : "^4.0.1"
   }
 }

@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 import xml.etree.ElementTree as Et
 
 from gras.base_miner import BaseMiner
@@ -70,7 +70,7 @@ class Cda2Neo4j(BaseMiner):
                         self.class_id[name] = dep_id, dep_type
 
                     self.session.run(create_relationship(id1=class_id, id2=dep_id, label1=class_type,
-                                                       label2=dep_type, relation=relation))
+                                                         label2=dep_type, relation=relation))
 
     def parse_package(self, package: Et.Element, container_id):
         name = package.attrib[NAME]
@@ -84,7 +84,7 @@ class Cda2Neo4j(BaseMiner):
 
         logger.debug("Creating Package Relationship...")
         self.session.run(create_relationship(id1=package_id, id2=container_id, label1="Package", label2="Container",
-                                           relation="is_package_of"))
+                                             relation="is_package_of"))
 
         pkg_classes = []
 
@@ -98,14 +98,14 @@ class Cda2Neo4j(BaseMiner):
 
             logger.debug(f"\tDumping Class: {name}...")
             out = self.session.run(create_node(node_type=type_.title(), name=name, type=type_, visibility=visibility,
-                                             is_abstract=is_abstract, is_final=is_final))
+                                               is_abstract=is_abstract, is_final=is_final))
             class_id = out.single()[0]
             self.class_id[name] = class_id, type_.title()
 
             pkg_classes.append(name)
 
             self.session.run(create_relationship(id1=class_id, id2=package_id, label1=type_.title(),
-                                               label2="Package", relation=f"is_{type_}_of"))
+                                                 label2="Package", relation=f"is_{type_}_of"))
 
         self.package_class[package_id] = pkg_classes
 

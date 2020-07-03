@@ -1,5 +1,6 @@
 import os
 
+from gras import ROOT
 from gras.base_miner import BaseMiner
 from gras.file_dependency.python.models import DirectoryModel
 from gras.file_dependency.python.node_parser import FileAnalyzer
@@ -117,4 +118,4 @@ class PythonMiner(BaseMiner):
 
 if __name__ == '__main__':
     obj = PythonMiner(args=None, project_dir=None,
-                      file_path="/home/mahen/PycharmProjects/GRAS/gras/file_dependency/python/node_parser.py").process()
+                      file_path=f"{ROOT}/gras/file_dependency/python/node_parser.py").process()

@@ -20,14 +20,15 @@ class DependencyGraph(object):
                 line: "{import_node.lineno}"
             }})
             WITH {import_node.name}
-            MATCH (p: {parent_node.label}{{name: "{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name }"}})                    
+            MATCH (p: {parent_node.label}{{name: "
+{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name}"}})                    
             CREATE ({import_node.name})<-[:IMPORTS]-(p)
         """
         print('import', run)
 
         self.session.run(
             run
-            )
+        )
 
     def _create_var_node(self, var_node, parent_node):
         run = f"""
@@ -36,14 +37,14 @@ class DependencyGraph(object):
                 scope: "{var_node.scope}"
             }})
             WITH {var_node.name}
-            MATCH (p: {parent_node.label}{{name: "{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name }"}})                    
+            MATCH (p: {parent_node.label}{{name: "{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name}"}})                    
             CREATE ({var_node.name})-[:IS_VARIABLE_OF]->(p)
             """
         print(run)
 
         self.session.run(
             run
-            )
+        )
 
     def _create_decorator_node(self, decorator_node, parent_node):
         run = f"""
@@ -60,7 +61,7 @@ class DependencyGraph(object):
 
         self.session.run(
             run
-            )
+        )
 
     def _create_func_node(self, func_node, parent_node):
         # removed -> decorators: {func_node.decorator_list},
@@ -72,13 +73,13 @@ class DependencyGraph(object):
                 bases: {json.dumps(func_node.argument_list)}
             }})
             WITH {func_node.name}
-            MATCH (p: {parent_node.label}{{name: "{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name }"}})                   
+            MATCH (p: {parent_node.label}{{name: "{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name}"}})                   
             CREATE ({func_node.name})-[:IS_FUNCTION_OF]->(p)
         """
         print('func', run)
         self.session.run(
             run
-            )
+        )
 
         if func_node.decorators:
             for dec_node in func_node.decorators:
@@ -109,13 +110,13 @@ class DependencyGraph(object):
                 bases: {class_node.argument_list}
             }})
             WITH {class_node.name}
-            MATCH (p: {parent_node.label}{{name: "{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name }"}})                    
+            MATCH (p: {parent_node.label}{{name: "{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name}"}})                    
             CREATE ({class_node.name})-[:IS_CLASS_OF]->(p)
         """
         print('class', run)
         self.session.run(
             run
-            )
+        )
 
         if class_node.decorators:
             for dec_node in class_node.decorators:
@@ -165,7 +166,7 @@ class DependencyGraph(object):
                 MATCH (p: {parent_node.label}{{name: "{parent_node.name}"}})                    
                 CREATE ({file.name[:-3]})-[:IS_FILE_OF]->(p)
                 """
-            )
+                   )
 
         self.session.run(run)
 
@@ -205,8 +206,8 @@ class DependencyGraph(object):
                 CREATE ({dir_node.name})-[:IS_DIRECTORY_OF]->(p)
             """
         self.session.run(
-                run
-            )
+            run
+        )
 
         if dir_node.files:
             for file_node in dir_node.files:
@@ -215,8 +216,6 @@ class DependencyGraph(object):
         if dir_node.directories:
             for dir_node_ in dir_node.directories:
                 self._create_directory_node(dir_node=dir_node_, parent_node=dir_node)
-
-
 
     def process(self):
         self._create_directory_node(dir_node=self.model)
@@ -230,7 +229,7 @@ if __name__ == '__main__':
     # fl = PythonMiner(args=None, project_dir="/home/viper/dev/GRAS/tests/deptest",
     #                  file_path=None).process()
     fl = PythonMiner(args=None, project_dir="/home/viper/dev/GRAS/gras/file_dependency/dependency_graph",
-                                       file_path=None).process()
+                     file_path=None).process()
 
     Driver = DependencyGraph(uri="bolt://localhost:7687", user="neo4j", password="gras", model=fl)
     Driver.process()

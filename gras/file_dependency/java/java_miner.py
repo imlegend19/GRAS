@@ -1,11 +1,11 @@
 import os
-import subprocess
 import shutil
+import subprocess
 
+from gras import ROOT
 from gras.base_miner import BaseMiner
 from gras.errors import GrasError
 
-ROOT = "/home/mahen/PycharmProjects/GRAS"
 CACHE = os.path.join(ROOT, ".cache")
 DECOMPILER = os.path.join(ROOT, "gras/file_dependency/java/decompiler/procyon.jar")
 
@@ -89,4 +89,4 @@ class JavaMiner(BaseMiner):
 
 
 if __name__ == '__main__':
-    JavaMiner(None, path="/home/mahen/PycharmProjects/GRAS/tests/data/java/sample.jar").process()
+    JavaMiner(None, path=f"{ROOT}/tests/data/java/sample.jar").process()

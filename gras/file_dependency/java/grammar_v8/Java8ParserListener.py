@@ -1,5 +1,6 @@
 # Generated from Java8Parser.g4 by ANTLR 4.7.1
 from antlr4 import *
+
 from gras.file_dependency.java.grammar_v8.Java8Parser import Java8Parser
 
 
@@ -1906,12 +1907,14 @@ class Java8ParserListener(ParseTreeListener):
 
     # Enter a parse tree produced by Java8Parser#postIncrementExpression_lf_postfixExpression.
     def enterPostIncrementExpression_lf_postfixExpression(self,
-                                                          ctx: Java8Parser.PostIncrementExpression_lf_postfixExpressionContext):
+                                                          ctx:
+                                                          Java8Parser.PostIncrementExpression_lf_postfixExpressionContext):
         pass
 
     # Exit a parse tree produced by Java8Parser#postIncrementExpression_lf_postfixExpression.
     def exitPostIncrementExpression_lf_postfixExpression(self,
-                                                         ctx: Java8Parser.PostIncrementExpression_lf_postfixExpressionContext):
+                                                         ctx:
+                                                         Java8Parser.PostIncrementExpression_lf_postfixExpressionContext):
         pass
 
     # Enter a parse tree produced by Java8Parser#postDecrementExpression.
@@ -1924,12 +1927,14 @@ class Java8ParserListener(ParseTreeListener):
 
     # Enter a parse tree produced by Java8Parser#postDecrementExpression_lf_postfixExpression.
     def enterPostDecrementExpression_lf_postfixExpression(self,
-                                                          ctx: Java8Parser.PostDecrementExpression_lf_postfixExpressionContext):
+                                                          ctx:
+                                                          Java8Parser.PostDecrementExpression_lf_postfixExpressionContext):
         pass
 
     # Exit a parse tree produced by Java8Parser#postDecrementExpression_lf_postfixExpression.
     def exitPostDecrementExpression_lf_postfixExpression(self,
-                                                         ctx: Java8Parser.PostDecrementExpression_lf_postfixExpressionContext):
+                                                         ctx:
+                                                         Java8Parser.PostDecrementExpression_lf_postfixExpressionContext):
         pass
 
     # Enter a parse tree produced by Java8Parser#castExpression.

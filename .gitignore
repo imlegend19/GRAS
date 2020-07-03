@@ -138,5 +138,5 @@ custom_miners/*/data
 gras/file_dependency/javascript/node_modules
 *.db
 
-*_commits.txt
+.gras-cache/
 *_matches.csv

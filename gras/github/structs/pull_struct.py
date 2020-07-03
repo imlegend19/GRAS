@@ -1,7 +1,8 @@
+import logging
+
 from gras.github.entity.api_static import APIStaticV4, IssueStatic
 from gras.github.entity.github_models import PullRequestCommitModel, PullRequestModel, time_period_chunks
 from gras.github.github import GithubInterface
-import logging
 
 logger = logging.getLogger("main")
 
