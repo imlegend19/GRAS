@@ -165,34 +165,28 @@ class GithubMiner(BaseMiner):
         node_ids = self._dump_anon_users()
         self._dump_users(node_ids=node_ids)
 
-        try:
-            self._dump_branches()
-        finally:
+        inserted = self._dump_branches()
+        if inserted:
             self._refactor_table(id_='id', table='branches', group_by="repo_id, name")
 
-        try:
-            self._dump_languages()
-        finally:
+        inserted = self._dump_languages()
+        if inserted:
             self._refactor_table(id_='id', table='languages', group_by="repo_id, name")
 
-        try:
-            self._dump_milestones()
-        finally:
+        inserted = self._dump_milestones()
+        if inserted:
             self._refactor_table(id_='id', table='milestones', group_by="repo_id, number")
 
-        try:
-            self._dump_topics()
-        finally:
+        inserted = self._dump_topics()
+        if inserted:
             self._refactor_table(id_='id', table='topics', group_by="repo_id, url")
 
-        try:
-            self._dump_releases()
-        finally:
+        inserted = self._dump_releases()
+        if inserted:
             self._refactor_table(id_='id', table='releases', group_by="repo_id, creator_id")
 
-        try:
-            self._dump_labels()
-        finally:
+        inserted = self._dump_labels()
+        if inserted:
             self._refactor_table(id_='id', table='labels', group_by="repo_id, name")
 
         self.__init_basic()
@@ -367,7 +361,7 @@ class GithubMiner(BaseMiner):
             obj_list.append(obj)
 
         logger.info("Dumping Languages...")
-        self._insert(self.db_schema.languages.insert(), obj_list)
+        return self._insert(self.db_schema.languages.insert(), obj_list)
 
     @timing(name='milestones')
     def _dump_milestones(self):
@@ -394,7 +388,7 @@ class GithubMiner(BaseMiner):
             obj_list.append(obj)
 
         logger.info("Dumping Milestones...")
-        self._insert(self.db_schema.milestones.insert(), obj_list)
+        return self._insert(self.db_schema.milestones.insert(), obj_list)
 
     @timing(name='stargazers')
     def _dump_stargazers(self):
@@ -497,7 +491,7 @@ class GithubMiner(BaseMiner):
 
             obj_list.append(obj)
 
-        self._insert(self.db_schema.topics.insert(), obj_list)
+        return self._insert(self.db_schema.topics.insert(), obj_list)
 
     @timing(name='releases')
     def _dump_releases(self):
@@ -524,7 +518,7 @@ class GithubMiner(BaseMiner):
 
             obj_list.append(obj)
 
-        self._insert(self.db_schema.releases.insert(), obj_list)
+        return self._insert(self.db_schema.releases.insert(), obj_list)
 
     @timing(name='branches')
     def _dump_branches(self):
@@ -546,7 +540,7 @@ class GithubMiner(BaseMiner):
 
             obj_list.append(obj)
 
-        self._insert(self.db_schema.branches.insert(), obj_list)
+        return self._insert(self.db_schema.branches.insert(), obj_list)
 
     @timing(name='labels')
     def _dump_labels(self):
@@ -571,7 +565,7 @@ class GithubMiner(BaseMiner):
 
             obj_list.append(obj)
 
-        self._insert(self.db_schema.labels.insert(), obj_list)
+        return self._insert(self.db_schema.labels.insert(), obj_list)
 
     @timing(name='issues')
     def _dump_issues(self, number=None):
@@ -825,7 +819,7 @@ class GithubMiner(BaseMiner):
 
                     if future.exception():
                         exception = future.exception()
-                        logger.error(exception)
+                        logger.error(f"_fetch_issue_events: {exception}")
                         os._exit(1)
 
     def _comments_object_list(self, comments, id_, type_):
@@ -910,7 +904,7 @@ class GithubMiner(BaseMiner):
 
                     if future.exception():
                         exception = future.exception()
-                        logger.error(exception)
+                        logger.error(f"_fetch_issue_comments: {exception}")
                         os._exit(1)
 
     def _fetch_code_change(self):
@@ -926,7 +920,7 @@ class GithubMiner(BaseMiner):
 
                     if future.exception():
                         exception = future.exception()
-                        logger.error(exception)
+                        logger.error(f"_fetch_code_change: {exception}")
                         os._exit(1)
 
     def _dump_commits(self, oid=None):
@@ -1386,7 +1380,7 @@ class GithubMiner(BaseMiner):
 
                     if future.exception():
                         exception = future.exception()
-                        logger.error(exception)
+                        logger.error(f"_fetch_pull_request_commits: {exception}")
                         os._exit(1)
 
     def _dump_pull_request_events(self, number):
@@ -1424,7 +1418,7 @@ class GithubMiner(BaseMiner):
 
                     if future.exception():
                         exception = future.exception()
-                        logger.error(exception)
+                        logger.error(f"_fetch_pull_request_events: {exception}")
                         os._exit(1)
 
     def _dump_pull_request_comments(self, number):
@@ -1461,7 +1455,7 @@ class GithubMiner(BaseMiner):
 
                     if future.exception():
                         exception = future.exception()
-                        logger.error(exception)
+                        logger.error(f"_fetch_pull_request_comments: {exception}")
                         os._exit(1)
 
     @locked
@@ -1491,7 +1485,7 @@ class GithubMiner(BaseMiner):
                 else:
                     return None
             else:
-                return res[0]
+                return res
         elif login:
             res = self.__check_user(login=login)
 
@@ -1502,7 +1496,7 @@ class GithubMiner(BaseMiner):
                 else:
                     return None
             else:
-                return res[0]
+                return res
         elif name and email:
             res = self.__check_user(login=None, name=name, email=email)
 
@@ -1514,7 +1508,7 @@ class GithubMiner(BaseMiner):
                 else:
                     return None
             else:
-                return res[0]
+                return res
         else:
             return None
 

@@ -263,7 +263,7 @@ class GitMiner(BaseMiner):
         logger.debug(f"Successfully dumped code change for {oid.hex}!")
 
     def _dump_commit(self, oid):
-        logger.debug(f"Inserting for commit: {oid.hex}...")
+        logger.debug(f"Inserting for commit: {oid}...")
         commit = self.repo.get(oid)
 
         if not commit.parents:

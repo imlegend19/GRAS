@@ -220,7 +220,7 @@ class IssueModel(BaseModel):
             updated_at=dic[APIStaticV4.UPDATED_AT],
             closed_at=dic[IssueStatic.CLOSED_AT],
             title=dic[IssueStatic.TITLE],
-            body=dic[IssueStatic.BODY_TEXT],
+            body=dic[IssueStatic.BODY],
             author=author,
             assignees=list(node[UserStatic.LOGIN] for node in dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]),
             number=dic[APIStaticV4.NUMBER],
@@ -255,7 +255,7 @@ class CommentModel(BaseModel):
         obj = CommentModel(
             created_at=dic[APIStaticV4.CREATED_AT],
             updated_at=dic[APIStaticV4.UPDATED_AT],
-            body=dic[IssueStatic.BODY_TEXT],
+            body=dic[IssueStatic.BODY],
             author_login=None if dic[IssueStatic.AUTHOR] is None else dic[IssueStatic.AUTHOR][UserStatic.LOGIN],
             positive_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], 1),
             negative_reaction_count=reaction_count(dic[IssueStatic.REACTION_GROUPS], -1),
@@ -356,7 +356,7 @@ class PullRequestModel(BaseModel):
             author=author,
             assignees=list(node[UserStatic.LOGIN] for node in (dic[IssueStatic.ASSIGNEES][APIStaticV4.NODES]
                                                                if dic[IssueStatic.ASSIGNEES] is not None else [])),
-            body=dic[IssueStatic.BODY_TEXT],
+            body=dic[IssueStatic.BODY],
             num_files_changed=dic[IssueStatic.CHANGED_FILES],
             closed=dic[IssueStatic.CLOSED],
             closed_at=dic[IssueStatic.CLOSED_AT],
@@ -711,7 +711,7 @@ class CommitCommentModel(BaseModel):
 
         obj = CommitCommentModel(
             author_login=dic[CommitStatic.AUTHOR][UserStatic.LOGIN],
-            body=dic[CommitStatic.BODY_TEXT],
+            body=dic[CommitStatic.BODY],
             commit_id=dic[CommitStatic.COMMIT][APIStaticV4.OID],
             created_at=dic[APIStaticV4.CREATED_AT],
             updated_at=dic[APIStaticV4.UPDATED_AT],

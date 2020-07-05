@@ -9,6 +9,7 @@ from neo4j import GraphDatabase
 from neo4j._exceptions import BoltError
 from neo4j.exceptions import ServiceUnavailable
 from sqlalchemy import create_engine
+from sqlalchemy.engine import ResultProxy
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
 from gras.db.db_models import DBSchema
@@ -166,7 +167,8 @@ class BaseMiner(metaclass=ABCMeta):
     def _reorder_table(self, id_, table):
         logger.debug(f"Reordering Table: {table}")
 
-        table_ids = self._conn.execute(f"SELECT DISTINCT {id_} FROM {table}")
+        table_ids: ResultProxy = self._conn.execute(f"SELECT DISTINCT {id_} FROM {table}")
+
         ids = sorted([x[0] for x in table_ids])
 
         num = [x for x in range(1, len(ids) + 1)]
@@ -178,15 +180,18 @@ class BaseMiner(metaclass=ABCMeta):
 
         itm = sorted(update_id.items(), key=lambda x: x[0])
 
-        for i in itm:
-            self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
+        # for i in itm:
+        #     self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
 
     @locked
     def _insert(self, object_, param, tries=1):
+        cnt = 0
+
         try:
             if param:
                 inserted = self._conn.execute(object_, param)
-                logger.debug(f"Try 1: Affected Rows = {inserted.rowcount}")
+                cnt = inserted.rowcount
+                logger.debug(f"Try 1: Affected Rows = {cnt}")
         except IntegrityError as e:
             logger.debug(f"Caught Integrity Error: {e}")
         except OperationalError as e:
@@ -194,10 +199,12 @@ class BaseMiner(metaclass=ABCMeta):
                 logger.error(f"Maximum tries exceeded. Cannot connect to database. Error: {e}")
                 os._exit(1)
             logger.debug(f"Caught Operational Error! Try: {tries + 1}")
-            self._connect_to_engine()
+            self._initialise_db()
             self._insert(object_, param, tries + 1)
         except Exception as e:
-            logger.error(e)
+            logger.error(f"_insert(): {e}")
+
+        return cnt
 
     def _serial_insert(self, object_, param, tries=1):
         try:

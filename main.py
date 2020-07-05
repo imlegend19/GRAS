@@ -509,7 +509,8 @@ def main():
         print_func_timings(STAGE_WISE_TIME, name="Stage Timings", col_name="Stage")
 
 
-if __name__ == '__main__':
+if __name__ == \
+        '__main__':
     logger = logging.getLogger("main")
     set_up_logging()
 
