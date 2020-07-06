@@ -130,7 +130,11 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self._add_other_arguments()
 
         try:
-            self.args = self.parse_args()
+            self.args = self.parse_args([
+                '-i', 'identity-merging', '-m', '-dbms', 'sqlite', '-dbo', '/home/mahen/GRAS-Data/spring.db',
+                '-RO', 'spring-projects', '-RN', 'spring-boot', '-yk',
+                'trnsl.1.1.20200525T144617Z.4bb3599a9c1ff300.76524f1e1e18006d544a377ed2bcec9e9d8e0212'
+            ])
         except Exception as e:
             logger.error(e)
             sys.exit(1)

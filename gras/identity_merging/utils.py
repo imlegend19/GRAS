@@ -194,7 +194,7 @@ def dice_coefficient(a, b):
     return dice_coeff
 
 
-def get_domain_extensions(path):
+def read_csv(path):
     ext = []
 
     file = open(path)

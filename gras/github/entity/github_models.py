@@ -773,6 +773,14 @@ class EventModel(BaseModel):
         if event_type == EventStatic.ASSIGNED_EVENT:
             obj.added = dic[EventStatic.ADDED][UserStatic.LOGIN] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = "USER"
+        elif event_type == EventStatic.CLOSED_EVENT:
+            if dic[EventStatic.ADDED]:
+                if dic[EventStatic.ADDED][EventStatic.TYPE].upper() == "COMMIT":
+                    obj.added = dic[EventStatic.ADDED][EventStatic.TYPE][APIStaticV4.OID]
+                    obj.added_type = "COMMIT"
+                else:
+                    obj.added = dic[EventStatic.ADDED][EventStatic.TYPE][APIStaticV4.NUMBER]
+                    obj.added_type = "PULL_REQUEST"
         elif event_type == EventStatic.CROSS_REFERENCED_EVENT:
             obj.added = dic[EventStatic.ADDED][APIStaticV4.NUMBER] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.ADDED][
@@ -795,7 +803,7 @@ class EventModel(BaseModel):
             pass
         elif event_type == EventStatic.REFERENCED_EVENT:
             obj.added = dic[EventStatic.ADDED][APIStaticV4.OID] if dic[EventStatic.ADDED] is not None else None
-            obj.added_type = "COMMIT_ID"
+            obj.added_type = "COMMIT"
             obj.is_cross_repository = dic[EventStatic.IS_CROSS_REPOSITORY]
         elif event_type == EventStatic.RENAMED_TITLE_EVENT:
             obj.removed = dic[EventStatic.REMOVED]

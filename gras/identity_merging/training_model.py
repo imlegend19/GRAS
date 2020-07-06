@@ -7,7 +7,7 @@ from joblib import dump
 from sklearn.ensemble import RandomForestClassifier
 
 from gras.identity_merging.identity_miner import Alias
-from gras.identity_merging.utils import CONTRIBUTOR_TEMPLATE, gen_count_dict, gen_feature_vector, get_domain_extensions
+from gras.identity_merging.utils import CONTRIBUTOR_TEMPLATE, gen_count_dict, gen_feature_vector, read_csv
 
 
 def generate_train_data():
@@ -38,7 +38,7 @@ def generate_train_data():
         if email_2 == "None":
             email_2 = None
 
-        extensions = get_domain_extensions(path="data/domain_ext.csv")
+        extensions = read_csv(path="data/domain_ext.csv")
 
         alias_1 = Alias(
             contributor_id=None,

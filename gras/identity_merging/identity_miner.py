@@ -15,11 +15,9 @@ from yandex.Translater import Translater, TranslaterError
 
 from gras import ROOT
 from gras.base_miner import BaseMiner
-from gras.db.db_models import DBSchema
 from gras.errors import YandexError, YandexKeyError
 from gras.identity_merging.utils import (
-    damerau_levenshtein as dl, gen_count_dict, gen_feature_vector, get_domain_extensions,
-    monge_elkan
+    damerau_levenshtein as dl, gen_count_dict, gen_feature_vector, monge_elkan, read_csv
 )
 from gras.utils import exception_handler
 
@@ -53,7 +51,8 @@ class Alias:
     :type is_anonymous: int
     """
 
-    def __init__(self, id_, contributor_id, login, name, email, extensions, location=None, is_anonymous=0):
+    def __init__(self, id_, contributor_id, login, name, email, extensions, email_prefixes, location=None,
+                 is_anonymous=0):
         self.id_ = id_
         self.contributor_id = contributor_id
 
@@ -95,7 +94,11 @@ class Alias:
                     self.domain_ref = None
                 else:
                     self.email = self.__get_email(email)
-                    self.prefix = self.normalize_unicode_to_ascii(self.email.split("@")[0]).replace(' ', '').strip()
+                    self.prefix = self.normalize_unicode_to_ascii(self._get_prefix(email, email_prefixes))
+
+                    if self.prefix:
+                        self.prefix = self.prefix.replace(' ', '').strip()
+
                     self.domain = self.email.split("@")[1].lower().strip()
 
                     if self.domain.strip() == '':
@@ -104,8 +107,9 @@ class Alias:
                     else:
                         self.domain_ref = self.__refactor_domain(self.domain, extensions)
 
-                    if self.prefix.strip() == '':
-                        self.prefix = None
+                    if self.prefix:
+                        if self.prefix.strip() == '':
+                            self.prefix = None
             else:
                 self.email = None
                 self.prefix = None
@@ -116,6 +120,14 @@ class Alias:
             self.prefix = None
             self.domain = None
             self.domain_ref = None
+
+    @staticmethod
+    def _get_prefix(email, email_prefixes):
+        prefix = email.split("@")[0]
+        if prefix.strip() not in email_prefixes:
+            return prefix
+        else:
+            return ''
 
     @staticmethod
     def __is_english(s):
@@ -214,17 +226,13 @@ class IdentityMiner(BaseMiner):
     def __init__(self, args):
         super().__init__(args=args)
 
-        self._engine, self._conn = self._connect_to_db()
-
-        self.db_schema = DBSchema(conn=self._conn, engine=self._engine)
-        self.db_schema.create_tables()
+        self._initialise_db()
+        # TODO: The statement is for sqlite, do for other db's
+        self._conn.execute("PRAGMA foreign_keys=ON")
 
         self.yandex_key = args.yandex_key
         self.anon_contributors = []
         self.non_anon_contributors = []
-
-        # TODO: The statement is for sqlite, do for other db's
-        self._conn.execute("PRAGMA foreign_keys=ON")
 
         if self.yandex_key:
             translator.set_key(self.yandex_key)
@@ -381,8 +389,8 @@ class IdentityMiner(BaseMiner):
         file.close()
 
     def init_contributors(self):
-        extensions = get_domain_extensions(path=f"{ROOT}/gras/identity_merging/data"
-                                                "/domain_ext.csv")
+        extensions = read_csv(path=f"{ROOT}/gras/identity_merging/data/domain_ext.csv")
+        email_prefixes = read_csv(path=f"{ROOT}/gras/identity_merging/data/email_prefixes.csv")
 
         res = self._conn.execute(
             """
@@ -400,7 +408,8 @@ class IdentityMiner(BaseMiner):
                 name=r[2],
                 email=r[3],
                 is_anonymous=1,
-                extensions=extensions
+                extensions=extensions,
+                email_prefixes=email_prefixes
             )
 
             self.anon_contributors.append(alias)
@@ -422,7 +431,8 @@ class IdentityMiner(BaseMiner):
                 email=r[4],
                 location=r[5],
                 is_anonymous=0,
-                extensions=extensions
+                extensions=extensions,
+                email_prefixes=email_prefixes
             )
 
             self.non_anon_contributors.append(alias)
@@ -513,16 +523,16 @@ class IdentityMiner(BaseMiner):
             self.__update_contributors(lst)
 
     def process(self):
-        # self.__init_contributor_id()
-        #
-        # self._delete_duplicates()
-        #
-        # logger.info("Forming exact contributor clusters...")
-        # self.refactor_contributors(field='login')
-        # self.refactor_contributors(field='email')
+        self.__init_contributor_id()
+
+        self._delete_duplicates()
+
+        logger.info("Forming exact contributor clusters...")
+        self.refactor_contributors(field='login')
+        self.refactor_contributors(field='email')
 
         self.init_contributors()
-        self.evaluate_exact_matches()
+        self.generate_exact_matches()
 
     def _dump_pair(self, writer, pair):
         c1: Alias = pair[0]

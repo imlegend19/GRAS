@@ -174,6 +174,7 @@ class ReleaseStatic(metaclass=BaseStatic):
 
 class EventStatic(metaclass=BaseStatic):
     ASSIGNED_EVENT = "AssignedEvent"
+    CLOSED_EVENT = "ClosedEvent"
     CROSS_REFERENCED_EVENT = "CrossReferencedEvent"
     DEMILESTONED_EVENT = "DemilestonedEvent"
     LABELED_EVENT = "LabeledEvent"

@@ -118,6 +118,21 @@ class EventDetailStruct(GithubInterface, EventModel):
                                     }}
                                 }}
                             }}
+                            ... on ClosedEvent {{
+                                who: actor {{
+                                    login
+                                }}
+                                when: createdAt
+                                added: closer {{
+                                    type: __typename
+                                    ... on Commit {{
+                                        oid
+                                    }}
+                                    ... on PullRequest {{
+                                        number
+                                    }}
+                                }}
+                            }}
                             ... on CrossReferencedEvent {{
                                 who: actor {{
                                     login
