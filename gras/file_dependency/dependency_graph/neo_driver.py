@@ -37,7 +37,8 @@ class DependencyGraph(object):
                 scope: "{var_node.scope}"
             }})
             WITH {var_node.name}
-            MATCH (p: {parent_node.label}{{name: "{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name}"}})                    
+            MATCH (p: {parent_node.label}{{name: "
+{parent_node.name[:-3] if parent_node.label == 'File' else parent_node.name}"}})                    
             CREATE ({var_node.name})-[:IS_VARIABLE_OF]->(p)
             """
         print(run)

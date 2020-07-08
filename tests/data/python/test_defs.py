@@ -1,4 +1,5 @@
 import functools
+
 # noinspection PyUnresolvedReferences,PyPackageRequirements
 import asyncpg
 
@@ -15,7 +16,7 @@ async def run():
 async def af():
     return [i async for i in var]
 
- 
+
 class AsyncClass:
     def __init__(self): pass
 
