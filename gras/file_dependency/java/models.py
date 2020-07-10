@@ -56,7 +56,7 @@ class CallModel(BaseModel):
 
 
 class MethodModel(BaseModel):
-    def __init__(self, name, return_type, total_args, throws, calls, lineno, modifiers=None):
+    def __init__(self, name, return_type, total_args, throws, calls, loc, modifiers=None):
         super().__init__()
 
         self.name = name
@@ -65,7 +65,7 @@ class MethodModel(BaseModel):
         self.total_args = total_args
         self.throws = throws
         self.calls = calls
-        self.lineno = lineno
+        self.loc = loc
 
     def object_decoder(self, **kwargs):
         ...
@@ -94,7 +94,7 @@ class BodyModel(BaseModel):
 
 
 class ClassModel(BaseModel):
-    def __init__(self, name, extends, implements, methods, calls, lineno, modifiers=None):
+    def __init__(self, name, extends, implements, methods, calls, loc, modifiers=None):
         super().__init__()
 
         self.modifiers = modifiers
@@ -103,21 +103,21 @@ class ClassModel(BaseModel):
         self.implements = implements
         self.methods = methods
         self.calls = calls
-        self.lineno = lineno
+        self.loc = loc
 
     def object_decoder(self, **kwargs):
         ...
 
 
 class InterfaceModel(BaseModel):
-    def __init__(self, name, extends, methods, calls, lineno, modifiers=None):
+    def __init__(self, name, extends, methods, calls, loc, modifiers=None):
         super().__init__()
 
         self.name = name
         self.extends = extends
         self.methods = methods
         self.calls = calls
-        self.lineno = lineno
+        self.loc = loc
         self.modifiers = modifiers
 
     def object_decoder(self, **kwargs):
@@ -125,14 +125,14 @@ class InterfaceModel(BaseModel):
 
 
 class EnumModel(BaseModel):
-    def __init__(self, name, implements, methods, calls, lineno, modifiers=None):
+    def __init__(self, name, implements, methods, calls, loc, modifiers=None):
         super().__init__()
 
         self.name = name
         self.implements = implements
         self.methods = methods
         self.calls = calls
-        self.lineno = lineno
+        self.loc = loc
         self.modifiers = modifiers
 
     def object_decoder(self, **kwargs):
@@ -140,12 +140,12 @@ class EnumModel(BaseModel):
 
 
 class AnnotationTypeModel(BaseModel):
-    def __init__(self, name, calls, lineno, modifiers=None):
+    def __init__(self, name, calls, loc, modifiers=None):
         super().__init__()
 
         self.name = name
         self.calls = calls
-        self.lineno = lineno
+        self.loc = loc
         self.modifiers = modifiers
 
     def object_decoder(self, **kwargs):

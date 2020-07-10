@@ -1,13 +1,23 @@
+import glob
 import os
 import shutil
 import subprocess
 
+from antlr4 import CommonTokenStream, FileStream
+
 from gras import ROOT
 from gras.base_miner import BaseMiner
 from gras.errors import GrasError
+from gras.file_dependency.java.grammar_v7.JavaLexer import JavaLexer
+from gras.file_dependency.java.grammar_v7.JavaParser import JavaParser
+from gras.file_dependency.java.models import (
+    AnnotationTypeModel, ClassModel, EnumModel, FileModel, ImportModel,
+    InterfaceModel
+)
+from gras.file_dependency.java.node_parser import NodeParser
 
 CACHE = os.path.join(ROOT, ".cache")
-DECOMPILER = os.path.join(ROOT, "gras/file_dependency/java/decompiler/procyon.jar")
+DECOMPILER = os.path.join(ROOT, "gras/file_dependency/java/decompiler/cfr.jar")
 
 
 # noinspection PyMissingConstructor
@@ -24,12 +34,48 @@ class JavaMiner(BaseMiner):
     def dump_to_file(self, path):
         pass
 
-    def parse_file(self, file):
+    @staticmethod
+    def parse_file(file):
         file_name = os.path.basename(os.path.relpath(file, CACHE))
         package = os.path.dirname(os.path.relpath(file, CACHE))
 
-        with open(file) as fp:
-            content = fp.read()
+        lexer = JavaLexer(FileStream(file))
+        stream = CommonTokenStream(lexer)
+        parser = JavaParser(stream)
+
+        print("Compiling...")
+        tree = parser.compilationUnit()
+        print("Done!")
+
+        loc = tree.stop.line - tree.start.line + 1
+
+        if tree.packageDeclaration():
+            package = NodeParser(node=tree.children.pop(0)).process()
+
+        imports, classes, interfaces, annotations, enums = [], [], [], [], []
+        for child in tree.children:
+            model = NodeParser(node=child).process()
+            if isinstance(model, ImportModel):
+                imports.append(model)
+            elif isinstance(model, ClassModel):
+                classes.append(model)
+            elif isinstance(model, EnumModel):
+                enums.append(model)
+            elif isinstance(model, InterfaceModel):
+                interfaces.append(model)
+            elif isinstance(model, AnnotationTypeModel):
+                annotations.append(model)
+
+        return FileModel(
+            name=file_name,
+            pkg=package,
+            imports=imports,
+            classes=classes,
+            interfaces=interfaces,
+            enums=enums,
+            annotations=annotations,
+            loc=loc
+        )
 
     def parse_jar(self, jar):
         shutil.rmtree(CACHE)
@@ -43,7 +89,10 @@ class JavaMiner(BaseMiner):
         #         if f.endswith(extensions):
         #             zip_ref.extract(f, CACHE)
 
+        # procyon
         # subprocess.run(["java", "-jar", DECOMPILER, "-jar", jar, "mv", "-ll", "3", "-o", CACHE])
+
+        # cfr
         subprocess.run(["java", "-jar", DECOMPILER, jar, "--hidelangimports", "false", "--outputdir", CACHE])
 
         print("Extracted Successfully!")
@@ -56,13 +105,45 @@ class JavaMiner(BaseMiner):
 
             for f in filenames:
                 file = os.path.join(dir_path, f)
-                if os.path.splitext(file)[1] == ".class":
+                if os.path.splitext(file)[1] in ".java":
                     class_files.append(file)
 
         print(f"TOTAL FILES: {len(class_files)}")
 
         for file in class_files:
             self.parse_file(file)
+
+    def parse_directory(self, path):
+        dirs = []
+        for d in os.listdir(path):
+            if os.path.isdir(os.path.join(path, d)) and not \
+                    (d.startswith(".") or d in ["build", "buildSrc", "gradle", "ci"]):
+                dirs.append(os.path.join(path, d))
+
+        jars = []
+        for d in dirs:
+            jars.extend(self.fetch_jars_from_dir(d))
+
+        print(f"TOTAL JARS: {len(jars)}")
+
+        for jar in jars:
+            self.parse_jar(jar)
+
+    def fetch_jars_from_dir(self, dir_path, ph="sources"):
+        final_jars = []
+
+        sub_dirs = os.listdir(dir_path)
+        if "build" and "src" in sub_dirs:
+            jars = glob.glob(os.path.join(dir_path, f"build/libs/*{ph}.jar"))
+            final_jars.extend(jars)
+        elif "build" in sub_dirs:
+            pass
+        else:
+            for dir_ in sub_dirs:
+                if os.path.isdir(os.path.join(dir_path, dir_)):
+                    final_jars.extend(self.fetch_jars_from_dir(os.path.join(dir_path, dir_)))
+
+        return final_jars
 
     def process(self):
         if os.path.exists(CACHE):
@@ -74,19 +155,12 @@ class JavaMiner(BaseMiner):
         if os.path.isfile(self.path) and os.path.splitext(self.path)[1] == ".jar":
             self.parse_jar(self.path)
         elif os.path.isdir(self.path):
-            jars = []
-            for dir_name, _, filenames in os.walk(self.path):
-                for f in filenames:
-                    if os.path.splitext(f)[1] == ".jar":
-                        jars.append(os.path.abspath(os.path.join(dir_name, f)))
-
-            for jar in jars:
-                print(f"Ongoing jar: {jar}")
-                self.parse_jar(jar)
-                break
+            self.parse_directory(self.path)
         else:
             raise GrasError(msg="Not a valid path!")
 
 
 if __name__ == '__main__':
-    JavaMiner(None, path=f"{ROOT}/tests/data/java/sample.jar").process()
+    fm = JavaMiner(None, path=None).parse_file(
+        "/home/mahen/.config/JetBrains/PyCharm2020.1/scratches/AbstractDataSourceInitializer.java")
+    print(fm)

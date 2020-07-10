@@ -1,8 +1,5 @@
-from antlr4 import CommonTokenStream, InputStream
 from antlr4.tree.Tree import TerminalNodeImpl
 
-from gras import ROOT
-from gras.file_dependency.java.grammar_v7.JavaLexer import JavaLexer
 from gras.file_dependency.java.grammar_v7.JavaParser import JavaParser
 from gras.file_dependency.java.grammar_v7.JavaParserVisitor import JavaParserVisitor
 from gras.file_dependency.java.models import (
@@ -338,7 +335,7 @@ class NodeParser(JavaParserVisitor):
             total_args=total_args,
             throws=throws,
             calls=calls,
-            lineno=ctx.start.line
+            loc=ctx.stop.line - ctx.start.line + 1
         )
 
     def visitGenericMethodDeclaration(self, ctx: JavaParser.GenericMethodDeclarationContext):
@@ -414,7 +411,7 @@ class NodeParser(JavaParserVisitor):
             total_args=total_args,
             throws=throws,
             calls=calls,
-            lineno=ctx.start.line
+            loc=ctx.stop.line - ctx.start.line + 1
         )
 
     def visitGenericInterfaceMethodDeclaration(self, ctx: JavaParser.GenericInterfaceMethodDeclarationContext):
@@ -531,7 +528,7 @@ class NodeParser(JavaParserVisitor):
             implements=implements,
             methods=methods,
             calls=calls,
-            lineno=ctx.start.line
+            loc=ctx.stop.line - ctx.start.line + 1
         )
 
     def visitEnumDeclaration(self, ctx: JavaParser.EnumDeclarationContext):
@@ -560,7 +557,7 @@ class NodeParser(JavaParserVisitor):
             implements=implements,
             methods=methods,
             calls=calls,
-            lineno=ctx.start.line
+            loc=ctx.stop.line - ctx.start.line + 1
         )
 
     def visitInterfaceDeclaration(self, ctx: JavaParser.InterfaceDeclarationContext):
@@ -589,7 +586,7 @@ class NodeParser(JavaParserVisitor):
             extends=extends,
             methods=methods,
             calls=calls,
-            lineno=ctx.start.line
+            loc=ctx.stop.line - ctx.start.line + 1
         )
 
     def visitAnnotationConstantRest(self, ctx: JavaParser.AnnotationConstantRestContext):
@@ -628,7 +625,7 @@ class NodeParser(JavaParserVisitor):
         return AnnotationTypeModel(
             name=name,
             calls=calls,
-            lineno=ctx.start.line
+            loc=ctx.stop.line - ctx.start.line + 1
         )
 
     def visitTypeDeclaration(self, ctx: JavaParser.TypeDeclarationContext):
@@ -652,38 +649,3 @@ class NodeParser(JavaParserVisitor):
                 node.modifiers = modifiers
 
         return node
-
-
-if __name__ == '__main__':
-    with open(f"{ROOT}/tests/data/java/Sample.java") as f:
-        content = f.read()
-
-    # TODO: Use antlr.FileStream
-    lexer = JavaLexer(InputStream(content))
-    stream = CommonTokenStream(lexer)
-    parser = JavaParser(stream)
-
-    print("Compiling...")
-    tree = parser.compilationUnit()
-    print("Done!")
-
-    loc = tree.stop.line - tree.start.line + 1
-
-    if tree.packageDeclaration():
-        pkg = NodeParser(node=tree.children.pop(0)).process()
-
-    imports, classes, interfaces, annotations, enums = [], [], [], [], []
-    for child in tree.children:
-        model = NodeParser(node=child).process()
-        if isinstance(model, ImportModel):
-            imports.append(model)
-        elif isinstance(model, ClassModel):
-            classes.append(model)
-        elif isinstance(model, EnumModel):
-            enums.append(model)
-        elif isinstance(model, InterfaceModel):
-            interfaces.append(model)
-        elif isinstance(model, AnnotationTypeModel):
-            annotations.append(model)
-
-    print(imports)
