@@ -99,7 +99,7 @@ class EventDetailStruct(GithubInterface, EventModel):
                                         LABELED_EVENT, MARKED_AS_DUPLICATE_EVENT, MENTIONED_EVENT, UNPINNED_EVENT,
                                         MILESTONED_EVENT, PINNED_EVENT, REFERENCED_EVENT, RENAMED_TITLE_EVENT,
                                         REOPENED_EVENT, TRANSFERRED_EVENT, UNASSIGNED_EVENT, UNLABELED_EVENT,
-                                        UNMARKED_AS_DUPLICATE_EVENT], since: {since}, after: {after}) {{
+                                        UNMARKED_AS_DUPLICATE_EVENT, CLOSED_EVENT], since: {since}, after: {after}) {{
                         totalCount
                         pageInfo {{
                             endCursor

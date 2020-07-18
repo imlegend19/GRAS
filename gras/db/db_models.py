@@ -47,17 +47,7 @@ class EventType(enum.Enum):
     UNLABELED_EVENT = "UNLABELED_EVENT"
     UNMARKED_AS_DUPLICATE_EVENT = "UNMARKED_AS_DUPLICATE_EVENT"
     UNPINNED_EVENT = "UNPINNED_EVENT"
-
-
-class AddedOrRemovedType(enum.Enum):
-    USER = "USER"
-    MILESTONE = "MILESTONE"
-    LABEL = "LABEL"
-    COMMIT_ID = "COMMIT_ID"
-    TITLE = "TITLE"
-    REPOSITORY = "REPOSITORY"
-    ISSUE = "ISSUE"
-    PULL_REQUEST = "PULL_REQUEST"
+    CLOSED_EVENT = "CLOSED_EVENT"
 
 
 class ReviewDecision(enum.Enum):
@@ -89,7 +79,6 @@ class DBSchema:
         self._pr_state_enum = self.__get_enum(PullRequestState)
         self._label_enum = self.__get_enum(LabelType)
         self._event_type_enum = self.__get_enum(EventType)
-        self._added_or_removed_type = self.__get_enum(AddedOrRemovedType)
         self._review_decision_enum = self.__get_enum(ReviewDecision)
         self._issue_type_enum = self.__get_enum(IssueType)
         self._user_type_enum = self.__get_enum(UserType)
@@ -218,7 +207,7 @@ class DBSchema:
             Column('disk_usage', INTEGER, nullable=False),
             Column('fork_count', INTEGER, server_default='0', nullable=False),
             Column('url', UNICODE, nullable=False),
-            Column('homepage_url', UNICODE, nullable=False),
+            Column('homepage_url', UNICODE),
             Column('primary_language', UNICODE, nullable=False),
             Column('total_stargazers', INTEGER, server_default='0', nullable=False),
             Column('total_watchers', INTEGER, server_default='0', nullable=False),
@@ -610,24 +599,15 @@ class DBSchema:
             Column('who', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('when', self.__get_date_field(), nullable=False),
             Column('added', self.__get_large_text_type()),
-            Column('added_type', self._added_or_removed_type[0]),
+            Column('added_type', UNICODE),
             Column('removed', self.__get_large_text_type()),
-            Column('removed_type', self._added_or_removed_type[0]),
+            Column('removed_type', UNICODE),
             Column('is_cross_repository', BOOLEAN, server_default='0', nullable=False)
         )
 
         if self._event_type_enum[1]:
             self.issue_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
                                                                 name='event_enum_check'))
-
-        if self._added_or_removed_type[1]:
-            self.issue_events.append_constraint(
-                CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
-            )
-
-            self.issue_events.append_constraint(
-                CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
-            )
 
         self.issue_comments.create(bind=self.conn, checkfirst=True)
         self.issue_assignees.create(bind=self.conn, checkfirst=True)
@@ -965,24 +945,15 @@ class DBSchema:
             Column('who', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('when', self.__get_date_field(), nullable=False),
             Column('added', self.__get_large_text_type()),
-            Column('added_type', self._added_or_removed_type[0]),
+            Column('added_type', UNICODE),
             Column('removed', self.__get_large_text_type()),
-            Column('removed_type', self._added_or_removed_type[0]),
+            Column('removed_type', VARCHAR),
             Column('is_cross_repository', BOOLEAN, server_default='0', nullable=False)
         )
 
         if self._event_type_enum[1]:
             self.pull_request_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
                                                                        name='event_enum_check'))
-
-        if self._added_or_removed_type[1]:
-            self.pull_request_events.append_constraint(
-                CheckConstraint(f"added_type IN ({self._get_string(AddedOrRemovedType)})", name='added_enum_check')
-            )
-
-            self.pull_request_events.append_constraint(
-                CheckConstraint(f"removed_type IN ({self._get_string(AddedOrRemovedType)})", name='removed_enum_check')
-            )
 
         self.pull_request_comments.create(bind=self.conn, checkfirst=True)
         self.pull_request_commits.create(bind=self.conn, checkfirst=True)

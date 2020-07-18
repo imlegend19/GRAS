@@ -6,13 +6,12 @@ import subprocess
 from antlr4 import CommonTokenStream, FileStream
 
 from gras import ROOT
-from gras.base_miner import BaseMiner
 from gras.errors import GrasError
 from gras.file_dependency.java.grammar_v7.JavaLexer import JavaLexer
 from gras.file_dependency.java.grammar_v7.JavaParser import JavaParser
 from gras.file_dependency.java.models import (
     AnnotationTypeModel, ClassModel, EnumModel, FileModel, ImportModel,
-    InterfaceModel
+    InterfaceModel, JarModel
 )
 from gras.file_dependency.java.node_parser import NodeParser
 
@@ -20,19 +19,9 @@ CACHE = os.path.join(ROOT, ".cache")
 DECOMPILER = os.path.join(ROOT, "gras/file_dependency/java/decompiler/cfr.jar")
 
 
-# noinspection PyMissingConstructor
-class JavaMiner(BaseMiner):
-    def __init__(self, args, path):
-        # super().__init__(args)
-
-        # TODO: Take from args
+class JavaMiner:
+    def __init__(self, path):
         self.path = path
-
-    def load_from_file(self, file):
-        pass
-
-    def dump_to_file(self, path):
-        pass
 
     @staticmethod
     def parse_file(file):
@@ -110,8 +99,14 @@ class JavaMiner(BaseMiner):
 
         print(f"TOTAL FILES: {len(class_files)}")
 
+        file_models = []
         for file in class_files:
-            self.parse_file(file)
+            file_models.append(self.parse_file(file))
+
+        return JarModel(
+            name=os.path.basename(jar),
+            files=file_models
+        )
 
     def parse_directory(self, path):
         dirs = []
@@ -126,8 +121,11 @@ class JavaMiner(BaseMiner):
 
         print(f"TOTAL JARS: {len(jars)}")
 
+        jar_models = []
         for jar in jars:
-            self.parse_jar(jar)
+            jar_models.append(self.parse_jar(jar))
+
+        return jar_models
 
     def fetch_jars_from_dir(self, dir_path, ph="sources"):
         final_jars = []
@@ -153,14 +151,16 @@ class JavaMiner(BaseMiner):
             os.makedirs(CACHE)
 
         if os.path.isfile(self.path) and os.path.splitext(self.path)[1] == ".jar":
-            self.parse_jar(self.path)
+            jars = self.parse_jar(self.path)
         elif os.path.isdir(self.path):
-            self.parse_directory(self.path)
+            jars = self.parse_directory(self.path)
         else:
             raise GrasError(msg="Not a valid path!")
 
+        return jars
+
 
 if __name__ == '__main__':
-    fm = JavaMiner(None, path=None).parse_file(
+    fm = JavaMiner(path=None).parse_file(
         "/home/mahen/.config/JetBrains/PyCharm2020.1/scratches/AbstractDataSourceInitializer.java")
     print(fm)

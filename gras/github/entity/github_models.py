@@ -776,10 +776,10 @@ class EventModel(BaseModel):
         elif event_type == EventStatic.CLOSED_EVENT:
             if dic[EventStatic.ADDED]:
                 if dic[EventStatic.ADDED][EventStatic.TYPE].upper() == "COMMIT":
-                    obj.added = dic[EventStatic.ADDED][EventStatic.TYPE][APIStaticV4.OID]
+                    obj.added = dic[EventStatic.ADDED][APIStaticV4.OID]
                     obj.added_type = "COMMIT"
                 else:
-                    obj.added = dic[EventStatic.ADDED][EventStatic.TYPE][APIStaticV4.NUMBER]
+                    obj.added = dic[EventStatic.ADDED][APIStaticV4.NUMBER]
                     obj.added_type = "PULL_REQUEST"
         elif event_type == EventStatic.CROSS_REFERENCED_EVENT:
             obj.added = dic[EventStatic.ADDED][APIStaticV4.NUMBER] if dic[EventStatic.ADDED] is not None else None

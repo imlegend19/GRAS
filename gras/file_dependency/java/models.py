@@ -1,6 +1,17 @@
 from gras.base_model import BaseModel
 
 
+class JarModel(BaseModel):
+    def __init__(self, name, files):
+        super().__init__()
+
+        self.name = name
+        self.files = files
+
+    def object_decoder(self, **kwargs):
+        ...
+
+
 class FileModel(BaseModel):
     def __init__(self, name, pkg, imports, classes, interfaces, enums, annotations, loc):
         super().__init__()
