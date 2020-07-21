@@ -698,7 +698,7 @@ class DBSchema:
             Column('additions', INTEGER, server_default='0'),
             Column('deletions', INTEGER, server_default='0'),
             Column('changes', INTEGER, server_default='0'),
-            Column('change_type', VARCHAR(255)),
+            Column('change_type', UNICODE),
             Column('patch', self.__get_large_text_type())
         )
 
@@ -947,7 +947,7 @@ class DBSchema:
             Column('added', self.__get_large_text_type()),
             Column('added_type', UNICODE),
             Column('removed', self.__get_large_text_type()),
-            Column('removed_type', VARCHAR),
+            Column('removed_type', UNICODE),
             Column('is_cross_repository', BOOLEAN, server_default='0', nullable=False)
         )
 

@@ -42,7 +42,9 @@ class GithubMiner(BaseMiner):
         super().__init__(args=args)
 
         self._initialise_db()
-        self._conn.execute("PRAGMA foreign_keys=ON")
+
+        if args.dbms == "sqlite":
+            self._conn.execute("PRAGMA foreign_keys=ON")
 
         self.issues = {}
         self.pull_requests = {}
@@ -275,7 +277,7 @@ class GithubMiner(BaseMiner):
                 node_ids.append("\"" + cont + "\"")
 
         logger.info("Dumping Anonymous Contributors...")
-        self._insert(self.db_schema.contributors.insert(), obj_list)
+        # self._insert(self.db_schema.contributors.insert(), obj_list)
 
         return node_ids
 

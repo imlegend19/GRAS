@@ -93,10 +93,10 @@ class BaseMiner(metaclass=ABCMeta):
                 self._connect_to_engine()
             elif self.dbms == 'mysql':
                 self.engine = create_engine(
-                    f'mysql+pymysql://{self.db_username}:{self.db_password}@{self.db_host}:'
+                    f'mysql+mysqldb://{self.db_username}:{self.db_password}@{self.db_host}:'
                     f'{self.db_port}/{self.db_name}?charset=utf8mb4', echo=self.db_log, pool_pre_ping=True,
                     connect_args={
-                        'check_same_thread': False
+                        'charset': "utf8mb4"
                     })
                 self._connect_to_engine()
             elif self.dbms == 'postgresql':
@@ -152,11 +152,14 @@ class BaseMiner(metaclass=ABCMeta):
             f"""
             DELETE FROM {table}
             WHERE {id_} IN (
-                SELECT max({id_})
-                FROM {table}
-                WHERE {self.__get_not_null_clause(group_by)}
-                GROUP BY {group_by}
-                HAVING COUNT(*) > 1
+                SELECT {id_}
+                FROM (
+                    SELECT max({id_})
+                    FROM {table}
+                    WHERE {self.__get_not_null_clause(group_by)}
+                    GROUP BY {group_by}
+                    HAVING COUNT(*) > 1   
+                ) AS c
             )
             """
         )
