@@ -78,3 +78,9 @@ class YandexError(GrasError):
     """Exception to be thrown by :class:`~gras.identity_merging.IdentityMiner`"""
 
     message = "Yandex Error! %(msg)s"
+
+
+class StructError(GrasError):
+    """Exception to be thrown by structs of :class:`~gras.github.github_miner.GithubMiner`"""
+
+    message = "Struct Error! %(msg)s"

@@ -814,8 +814,9 @@ class EventModel(BaseModel):
             pass
         elif event_type == EventStatic.TRANSFERRED_EVENT:
             rem = dic[EventStatic.REMOVED]
-            obj.removed = rem[RepositoryStatic.OWNER][UserStatic.LOGIN] + "/" + rem[UserStatic.NAME]
-            obj.removed_type = "REPOSITORY"
+            if rem:
+                obj.removed = rem[RepositoryStatic.OWNER][UserStatic.LOGIN] + "/" + rem[UserStatic.NAME]
+                obj.removed_type = "REPOSITORY"
         elif event_type == EventStatic.UNASSIGNED_EVENT:
             pass
         elif event_type == EventStatic.UNLABELED_EVENT:

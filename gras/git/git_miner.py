@@ -37,7 +37,9 @@ class GitMiner(BaseMiner):
         super().__init__(args)
 
         self._initialise_db()
-        self._conn.execute("PRAGMA foreign_keys=ON")
+
+        if args.dbms == "sqlite":
+            self._conn.execute("PRAGMA foreign_keys=ON")
 
         self.email_map = {}
         self.commit_id = {}
@@ -243,7 +245,7 @@ class GitMiner(BaseMiner):
 
         total_diffs = len(diffs)
         for diff in diffs:
-            print(f"Remaining: {total_diffs}")
+            logger.debug(f"Remaining: {total_diffs}")
             total_diffs -= 1
             for patch in diff:
                 obj = self.db_schema.code_change_object(
@@ -260,7 +262,7 @@ class GitMiner(BaseMiner):
                 code_change.append(obj)
 
         self._insert(object_=self.db_schema.code_change.insert(), param=code_change)
-        logger.debug(f"Successfully dumped code change for {oid.hex}!")
+        logger.debug(f"Successfully dumped code change for {oid}!")
 
     def _dump_commit(self, oid):
         logger.debug(f"Inserting for commit: {oid}...")

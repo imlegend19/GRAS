@@ -15,6 +15,7 @@ NODE = namedtuple("Node", ["type", "name", "file_id"])
 class JavaNeoExecutor(BaseMiner):
     def __init__(self, args):
         super().__init__(args=args)
+
         # args.path -> path where java files are to be parsed
         self.jars = JavaMiner(path=args.path).process()
 

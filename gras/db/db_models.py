@@ -1,7 +1,7 @@
 import enum
 
 from sqlalchemy import Unicode, UnicodeText
-from sqlalchemy.dialects.mysql import ENUM
+from sqlalchemy.dialects.mysql import ENUM, LONGTEXT
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.schema import CheckConstraint, Column, ForeignKey, MetaData, Table, UniqueConstraint
 from sqlalchemy.types import BOOLEAN, DATETIME, INTEGER, TEXT, VARCHAR
@@ -88,7 +88,7 @@ class DBSchema:
 
         if self.engine == "mysql":
             UNICODE = Unicode(255, collation='utf8mb4_bin')
-            UNICODE_TEXT = UnicodeText(collation='utf8m_bin')
+            UNICODE_TEXT = UnicodeText(collation='utf8mb4_bin')
         else:
             UNICODE = VARCHAR(255)
             UNICODE_TEXT = TEXT
@@ -103,7 +103,7 @@ class DBSchema:
 
     def __get_large_text_type(self):
         if self.engine.name == "mysql":
-            return UNICODE_TEXT
+            return LONGTEXT
         elif self.engine.name == "sqlite":
             return TEXT
         else:
@@ -564,7 +564,7 @@ class DBSchema:
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('commenter_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
-            Column('body', self.__get_large_text_type(), nullable=False),
+            Column('body', self.__get_large_text_type()),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('updated_at', self.__get_date_field(), nullable=False),
             Column('is_minimized', BOOLEAN, server_default='0'),
@@ -902,7 +902,7 @@ class DBSchema:
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('commenter_id', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
-            Column('body', self.__get_large_text_type(), nullable=False),
+            Column('body', self.__get_large_text_type()),
             Column('created_at', self.__get_date_field(), nullable=False),
             Column('updated_at', self.__get_date_field(), nullable=False),
             Column('is_minimized', BOOLEAN, server_default='0'),

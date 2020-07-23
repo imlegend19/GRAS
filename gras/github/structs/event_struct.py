@@ -1,3 +1,4 @@
+from gras.errors import StructError
 from gras.github.entity.api_static import APIStaticV4, EventStatic
 from gras.github.entity.github_models import EventModel
 from gras.github.github import GithubInterface
@@ -308,4 +309,7 @@ class EventDetailStruct(GithubInterface, EventModel):
         """
         for lst in self.iterator():
             for node in lst:
-                yield self.object_decoder(node, number=self.issue_number)
+                try:
+                    yield self.object_decoder(node, number=self.issue_number)
+                except Exception as e:
+                    raise StructError(msg=f"({__class__.__name__}) {e}")

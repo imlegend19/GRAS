@@ -16,6 +16,7 @@ from tabulate import tabulate
 
 from gras.errors import GrasArgumentParserError, GrasConfigError
 from gras.file_dependency.java.cda_to_neo4j import Cda2Neo4j
+from gras.file_dependency.java.neo_executor import JavaNeoExecutor
 from gras.git.git_miner import GitMiner
 from gras.github.github_miner import GithubMiner
 from gras.github.github_repo_stats import RepoStatistics
@@ -132,7 +133,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
         try:
             self.args = self.parse_args()
         except Exception as e:
-            logger.error(e)
+            logger.error(f"Parsing args: {e}")
             sys.exit(1)
 
         if self.args.tokens is not None:
@@ -189,7 +190,8 @@ class GrasArgumentParser(argparse.ArgumentParser):
         self.gras_settings.add_argument('-yk', '--yandex-key', help="Yandex Translator API Key ("
                                                                     "https://translate.yandex.com/developers/keys)")
         self.gras_settings.add_argument('-i', '--interface', help="Interface of choice", default='github',
-                                        choices=['github', 'git', 'identity-merging', 'java-fda'], required=False)
+                                        choices=['github', 'git', 'identity-merging', 'java-cda', 'java-miner'],
+                                        required=False)
         self.gras_settings.add_argument('-RO', '--repo-owner', help="Owner of the repository")
         self.gras_settings.add_argument('-RN', '--repo-name', help="Name of the repository")
         self.gras_settings.add_argument('-SD', '--start-date',
@@ -251,7 +253,7 @@ class GrasArgumentParser(argparse.ArgumentParser):
             if not args.end_date and not args.full:
                 logger.warning(f"End data not provided, using default end date: {DEFAULT_END_DATE}.")
 
-            if (not args.repo_name or not args.repo_owner) and 'fda' not in args.interface:
+            if (not args.repo_name or not args.repo_owner) and args.interface not in ["java-miner", "java-cda"]:
                 if not args.config:
                     raise GrasArgumentParserError(msg="Either Repo-name and Repo-owner or GrasConfig file should "
                                                       "be provided!")
@@ -330,9 +332,12 @@ class GrasArgumentParser(argparse.ArgumentParser):
             elif self.args.interface == "identity-merging":
                 im = IdentityMiner(args=self.args)
                 im.process()
-            elif self.args.interface == "java-fda":
+            elif self.args.interface == "java-cda":
                 c2n = Cda2Neo4j(args=self.args)
                 c2n.process()
+            elif self.args.interface == "java-miner":
+                jm = JavaNeoExecutor(args=self.args)
+                jm.process()
             else:
                 raise NotImplementedError
 

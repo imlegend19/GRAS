@@ -185,7 +185,7 @@ class GithubMiner(BaseMiner):
 
         inserted = self._dump_releases()
         if inserted:
-            self._refactor_table(id_='id', table='releases', group_by="repo_id, creator_id")
+            self._refactor_table(id_='id', table='releases', group_by="repo_id, name")
 
         inserted = self._dump_labels()
         if inserted:
@@ -206,7 +206,8 @@ class GithubMiner(BaseMiner):
         try:
             self._dump_issues()
         finally:
-            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+            ...
+            # self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
 
         self._fetch_issue_events()
         self._fetch_issue_comments()
@@ -277,7 +278,7 @@ class GithubMiner(BaseMiner):
                 node_ids.append("\"" + cont + "\"")
 
         logger.info("Dumping Anonymous Contributors...")
-        # self._insert(self.db_schema.contributors.insert(), obj_list)
+        self._insert(self.db_schema.contributors.insert(), obj_list)
 
         return node_ids
 
@@ -617,7 +618,10 @@ class GithubMiner(BaseMiner):
                 ).fetchone()
 
                 if res[0]:
-                    since = "T".join(res[0].split())
+                    try:
+                        since = "T".join(res[0].split())
+                    except Exception:
+                        since = res[0].isoformat()
                 else:
                     since = None
 
@@ -680,11 +684,19 @@ class GithubMiner(BaseMiner):
                         obj_list.clear()
                         logger.debug("Success!")
 
+                        objects = []
+
                         for number, assignees in assignee_list:
-                            self._dump_issue_assignees(number, assignees)
+                            objects.extend(self._dump_issue_assignees(number, assignees))
+
+                        self._insert(self.db_schema.issue_assignees.insert(), objects)
+                        objects.clear()
 
                         for number, labels in label_list:
-                            self._dump_issue_labels(number, labels)
+                            objects.extend(self._dump_issue_labels(number, labels))
+
+                        self._insert(self.db_schema.issue_labels.insert(), objects)
+                        del objects
 
                         assignee_list.clear()
                         label_list.clear()
@@ -715,7 +727,7 @@ class GithubMiner(BaseMiner):
 
             obj_list.append(obj)
 
-        self._insert(self.db_schema.issue_assignees.insert(), obj_list)
+        return obj_list
 
     @timing(name='issue_labels')
     def _dump_issue_labels(self, number, labels):
@@ -730,7 +742,10 @@ class GithubMiner(BaseMiner):
                 issue_id = self._get_table_id(table="issues", field="number", value=number)
                 self.issues[number] = issue_id
 
-            label_id = self.labels[label_name]
+            try:
+                label_id = self.labels[label_name]
+            except KeyError:
+                raise Exception("_dump_issue_labels: No label present!")
 
             obj = self.db_schema.issue_labels_object(
                 repo_id=self.repo_id,
@@ -740,7 +755,7 @@ class GithubMiner(BaseMiner):
 
             obj_list.append(obj)
 
-        self._insert(self.db_schema.issue_labels.insert(), obj_list)
+        return obj_list
 
     def _events_object_list(self, events, id_, type_):
         obj_list = []
@@ -890,7 +905,8 @@ class GithubMiner(BaseMiner):
 
         obj_list = self._comments_object_list(issue_comments, issue_id, "ISSUE")
 
-        self._insert(object_=self.db_schema.issue_comments.insert(), param=obj_list)
+        for o in obj_list:
+            self._insert(object_=self.db_schema.issue_comments.insert(), param=o)
 
     @timing(name='issue_comments')
     def _fetch_issue_comments(self):
@@ -1253,11 +1269,19 @@ class GithubMiner(BaseMiner):
                         obj_list.clear()
                         logger.debug("Success!")
 
+                        objects = []
+
                         for number, assignees in assignee_list:
-                            self._dump_pull_request_assignees(number, assignees)
+                            objects.extend(self._dump_pull_request_assignees(number, assignees))
+
+                        self._insert(self.db_schema.pull_request_assignees.insert(), obj_list)
+                        objects.clear()
 
                         for number, labels in label_list:
-                            self._dump_pull_request_labels(number, labels)
+                            objects.extend(self._dump_pull_request_labels(number, labels))
+
+                        self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
+                        del objects
 
                         assignee_list.clear()
                         label_list.clear()
@@ -1302,7 +1326,7 @@ class GithubMiner(BaseMiner):
                     self._insert(object_=self.db_schema.pull_request_assignees.insert(), param=obj_list)
                     obj_list.clear()
 
-            self._insert(self.db_schema.pull_request_assignees.insert(), obj_list)
+            return obj_list
 
     @timing(name='pull_request_labels')
     def _dump_pull_request_labels(self, number, labels):
@@ -1339,7 +1363,7 @@ class GithubMiner(BaseMiner):
                     self._insert(object_=self.db_schema.pull_request_labels.insert(), param=obj_list)
                     obj_list.clear()
 
-            self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
+            return obj_list
 
     def _dump_pull_request_commits(self, number):
         logger.debug(f"Dumping Pull Request Commits for Pull Request Number: {number}...")

@@ -1,7 +1,9 @@
 import glob
+import multiprocessing as mp
 import os
 import shutil
 import subprocess
+import zipfile
 
 from antlr4 import CommonTokenStream, FileStream
 
@@ -17,6 +19,7 @@ from gras.file_dependency.java.node_parser import NodeParser
 
 CACHE = os.path.join(ROOT, ".cache")
 DECOMPILER = os.path.join(ROOT, "gras/file_dependency/java/decompiler/cfr.jar")
+THREADS = min(mp.cpu_count() + 4, 32)
 
 
 class JavaMiner:
@@ -25,6 +28,7 @@ class JavaMiner:
 
     @staticmethod
     def parse_file(file):
+        print("Ongoing file:", os.path.relpath(file, CACHE))
         file_name = os.path.basename(os.path.relpath(file, CACHE))
         package = os.path.dirname(os.path.relpath(file, CACHE))
 
@@ -32,9 +36,7 @@ class JavaMiner:
         stream = CommonTokenStream(lexer)
         parser = JavaParser(stream)
 
-        print("Compiling...")
         tree = parser.compilationUnit()
-        print("Done!")
 
         loc = tree.stop.line - tree.start.line + 1
 
@@ -72,17 +74,18 @@ class JavaMiner:
 
         print("Extracting...")
 
-        # extensions = ('.class', '.java')
-        # with zipfile.ZipFile(jar, "r") as zip_ref:
-        #     for f in zip_ref.namelist():
-        #         if f.endswith(extensions):
-        #             zip_ref.extract(f, CACHE)
+        if "-sources" in jar:
+            extensions = '.java'
+            with zipfile.ZipFile(jar, "r") as zip_ref:
+                for f in zip_ref.namelist():
+                    if f.endswith(extensions):
+                        zip_ref.extract(f, CACHE)
+        else:
+            # procyon
+            # subprocess.run(["java", "-jar", DECOMPILER, "-jar", jar, "mv", "-ll", "3", "-o", CACHE])
 
-        # procyon
-        # subprocess.run(["java", "-jar", DECOMPILER, "-jar", jar, "mv", "-ll", "3", "-o", CACHE])
-
-        # cfr
-        subprocess.run(["java", "-jar", DECOMPILER, jar, "--hidelangimports", "false", "--outputdir", CACHE])
+            # cfr
+            subprocess.run(["java", "-jar", DECOMPILER, jar, "--hidelangimports", "false", "--outputdir", CACHE])
 
         print("Extracted Successfully!")
 
@@ -94,14 +97,27 @@ class JavaMiner:
 
             for f in filenames:
                 file = os.path.join(dir_path, f)
-                if os.path.splitext(file)[1] in ".java":
+                if os.path.splitext(file)[1] in ".java" and "package-info" not in file:
+                    if "$" in file:
+                        print(file)
                     class_files.append(file)
 
         print(f"TOTAL FILES: {len(class_files)}")
 
         file_models = []
+        remaining = len(class_files)
         for file in class_files:
+            print("REMAINING:", remaining)
             file_models.append(self.parse_file(file))
+            remaining -= 1
+
+        # for i in range(0, len(class_files), 1):
+        #     with mp.Pool(processes=1) as pool:
+        #         result = pool.map_async(self.parse_file, class_files[i:i + 1])
+        #         for file_model in result.get():
+        #             print("REMAINING:", remaining)
+        #             file_models.append(file_model)
+        #             remaining -= 1
 
         return JarModel(
             name=os.path.basename(jar),
@@ -162,5 +178,5 @@ class JavaMiner:
 
 if __name__ == '__main__':
     fm = JavaMiner(path=None).parse_file(
-        "/home/mahen/.config/JetBrains/PyCharm2020.1/scratches/AbstractDataSourceInitializer.java")
+        "/home/mahen/PycharmProjects/GRAS/.cache/edu/stanford/nlp/pipeline/StanfordCoreNLP.java")
     print(fm)
