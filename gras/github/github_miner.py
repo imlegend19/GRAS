@@ -33,7 +33,7 @@ logger = logging.getLogger("main")
 logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
 lock = mp.Lock()
-MAX_INSERT_OBJECTS = 1000
+MAX_INSERT_OBJECTS = 500
 THREADS = min(32, mp.cpu_count() + 4)
 
 
@@ -206,8 +206,7 @@ class GithubMiner(BaseMiner):
         try:
             self._dump_issues()
         finally:
-            ...
-            # self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
+            self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
 
         self._fetch_issue_events()
         self._fetch_issue_comments()
@@ -905,8 +904,7 @@ class GithubMiner(BaseMiner):
 
         obj_list = self._comments_object_list(issue_comments, issue_id, "ISSUE")
 
-        for o in obj_list:
-            self._insert(object_=self.db_schema.issue_comments.insert(), param=o)
+        self._insert(object_=self.db_schema.issue_comments.insert(), param=obj_list)
 
     @timing(name='issue_comments')
     def _fetch_issue_comments(self):
@@ -1182,7 +1180,6 @@ class GithubMiner(BaseMiner):
                     limit=50,
                     after=after
                 )
-
             else:
                 logger.info("Dumping Pull Requests using Search API...")
                 prs = PullRequestSearchStruct(
@@ -1274,13 +1271,13 @@ class GithubMiner(BaseMiner):
                         for number, assignees in assignee_list:
                             objects.extend(self._dump_pull_request_assignees(number, assignees))
 
-                        self._insert(self.db_schema.pull_request_assignees.insert(), obj_list)
+                        self._insert(self.db_schema.pull_request_assignees.insert(), objects)
                         objects.clear()
 
                         for number, labels in label_list:
                             objects.extend(self._dump_pull_request_labels(number, labels))
 
-                        self._insert(self.db_schema.pull_request_labels.insert(), obj_list)
+                        self._insert(self.db_schema.pull_request_labels.insert(), objects)
                         del objects
 
                         assignee_list.clear()

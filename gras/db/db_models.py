@@ -792,14 +792,10 @@ class DBSchema:
             Column('positive_reaction_count', INTEGER, server_default='0', nullable=False),
             Column('negative_reaction_count', INTEGER, server_default='0', nullable=False),
             Column('ambiguous_reaction_count', INTEGER, server_default='0', nullable=False),
-            Column('state', self._state_enum[0], nullable=False),
+            Column('state', UNICODE, nullable=False),
             Column('review_decision', self._review_decision_enum[0]),
             UniqueConstraint('number', 'repo_id')
         )
-
-        if self._state_enum[1]:
-            self.pull_requests.append_constraint(CheckConstraint(f"state IN ({self._get_string(PullRequestState)})",
-                                                                 name='enum_check'))
 
         if self._review_decision_enum[1]:
             self.pull_requests.append_constraint(CheckConstraint(f"review_decision IN ("
