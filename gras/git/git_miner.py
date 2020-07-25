@@ -6,7 +6,7 @@ import pickle
 from collections import namedtuple
 from datetime import datetime
 
-from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Oid, Repository
+from pygit2 import GIT_SORT_TIME, GIT_SORT_TOPOLOGICAL, Oid, Repository, Tag
 
 from gras import ROOT
 from gras.base_miner import BaseMiner
@@ -55,6 +55,7 @@ class GitMiner(BaseMiner):
 
         self.repo = Repository(args.path)
         self._fetch_references()
+        self._dump_tags()
         self._fetch_commit_ids()
 
     def _create_loop(self):
@@ -123,6 +124,37 @@ class GitMiner(BaseMiner):
                 self.tags.append(reference)
             else:
                 self.branches[reference] = self.repo.lookup_reference(reference).peel().oid
+
+    def _dump_tags(self):
+        objects = []
+
+        for tag in self.tags:
+            ref = self.repo.lookup_reference(tag)
+            tag_obj = self.repo[ref.target.hex]
+
+            if isinstance(tag_obj, Tag):
+                name = tag_obj.name
+                msg = tag_obj.message
+                tagged_object = tag_obj.hex
+                tagger = self.__get_user_id(name=tag_obj.tagger.name, email=tag_obj.tagger.email, oid=tagged_object,
+                                            is_author=False, is_tagger=True)
+            else:
+                name = tag.split('/')[-1]
+                msg = tag_obj.message
+                tagged_object = tag_obj.hex
+                tagger = self.__get_user_id(name=tag_obj.author.name, email=tag_obj.author.email, oid=tagged_object,
+                                            is_author=True, is_tagger=False)
+
+            obj = self.db_schema.tags_object(
+                name=name,
+                tagged_object=tagged_object,
+                message=msg,
+                tagger=tagger
+            )
+
+            objects.append(obj)
+
+        self._insert(object_=self.db_schema.tags.insert(), param=objects)
 
     @staticmethod
     def __get_status(status):
@@ -194,7 +226,7 @@ class GitMiner(BaseMiner):
 
         self.email_map[email] = self.Id_Name_Login(id=id_, login=login, name=name)
 
-    def __get_user_id(self, name, email, oid, is_author):
+    def __get_user_id(self, name, email, oid, is_author, is_tagger):
         if not email:
             email = None
 
@@ -210,7 +242,8 @@ class GitMiner(BaseMiner):
                 repo_owner=self.repo_owner,
                 name=name,
                 email=email,
-                is_author=is_author
+                is_author=is_author,
+                is_tagger=is_tagger
             ).process()
 
             if user is None:
@@ -220,7 +253,7 @@ class GitMiner(BaseMiner):
                 self._dump_user_object(login=None, user_object=user, object_=self.db_schema.contributors.insert(),
                                        locked_insert=LOCKED)
 
-            return self.__get_user_id(name=name, email=email, oid=oid, is_author=is_author)
+            return self.__get_user_id(name=name, email=email, oid=oid, is_author=is_author, is_tagger=is_tagger)
         else:
             if name == res[2]:
                 return res[0]
@@ -282,7 +315,8 @@ class GitMiner(BaseMiner):
 
         author_name = commit.author.name
         author_email = commit.author.email
-        author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid.hex, is_author=True) if \
+        author_id = self.__get_user_id(name=author_name, email=author_email, oid=oid.hex, is_author=True,
+                                       is_tagger=False) if \
             author_email.strip() else None
         authored_date = datetime.fromtimestamp(commit.author.time)
 
@@ -293,7 +327,7 @@ class GitMiner(BaseMiner):
             committer_id = author_id
         else:
             committer_id = self.__get_user_id(name=committer_name, email=committer_email, oid=oid.hex,
-                                              is_author=False) if committer_email.strip() else None
+                                              is_author=False, is_tagger=False) if committer_email.strip() else None
 
         committed_date = datetime.fromtimestamp(commit.commit_time)
 

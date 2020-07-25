@@ -60,6 +60,7 @@ class APIStaticV3(metaclass=BaseStatic):
 class CommitStatic(metaclass=BaseStatic):
     AUTHOR = "author"
     COMMIT = "commit"
+    TAGGER = "tagger"
     COMMITTER = "committer"
     MESSAGE = "message"
     SHA = "sha"

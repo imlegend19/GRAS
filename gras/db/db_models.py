@@ -354,6 +354,15 @@ class DBSchema:
             self.milestones.append_constraint(CheckConstraint(f"state IN ({self._get_string(State)})",
                                                               name='enum_check'))
 
+        self.tags = Table(
+            'tags', self._metadata,
+            Column('id', INTEGER, autoincrement=True, primary_key=True),
+            Column('name', UNICODE, unique=True, nullable=False),
+            Column('tagged_object', UNICODE, nullable=False),
+            Column('message', UNICODE),
+            Column('tagger', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE"))
+        )
+
         self.stargazers = Table(
             'stargazers', self._metadata,
             Column('id', INTEGER, autoincrement=True, primary_key=True),
@@ -423,6 +432,7 @@ class DBSchema:
 
         self.languages.create(bind=self.conn, checkfirst=True)
         self.milestones.create(bind=self.conn, checkfirst=True)
+        self.tags.create(bind=self.conn, checkfirst=True)
         self.stargazers.create(bind=self.conn, checkfirst=True)
         self.watchers.create(bind=self.conn, checkfirst=True)
         self.topics.create(bind=self.conn, checkfirst=True)
@@ -1020,6 +1030,17 @@ class DBSchema:
             "created_at" : to_datetime(created_at),
             "updated_at" : to_datetime(updated_at),
             "state"      : get_value(state)
+        }
+
+        return obj
+
+    @staticmethod
+    def tags_object(name, tagged_object, message, tagger):
+        obj = {
+            "name"         : name,
+            "tagged_object": tagged_object,
+            "message"      : get_value(message),
+            "tagger"       : tagger
         }
 
         return obj

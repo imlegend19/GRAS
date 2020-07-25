@@ -447,13 +447,36 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         }}
     """
 
-    def __init__(self, name, email, repo_name, repo_owner, oid, is_author):
+    TAG_QUERY = """
+        {{
+            repository(name:"{name}", owner:"{owner}") {{
+                object(oid:"{oid}") {{
+                    ... on Tag {{
+                        tagger {{
+                            user {{
+                                login
+                                createdAt
+                                updatedAt
+                                location
+                                followers {{
+                                    totalCount
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    """
+
+    def __init__(self, name, email, repo_name, repo_owner, oid, is_author, is_tagger):
         super().__init__(
-            query=self.AUTHOR_QUERY if is_author else self.COMMITTER_QUERY,
+            query=self.TAG_QUERY if is_tagger else self.AUTHOR_QUERY if is_author else self.COMMITTER_QUERY,
             query_params=dict(name=repo_name, owner=repo_owner, oid=oid),
         )
 
         self.is_author = is_author
+        self.is_tagger = is_tagger
         self.oid = oid
         self.name = name
         self.email = email
@@ -481,7 +504,14 @@ class CommitUserStruct(GithubInterface, CommitUserModel):
         """
 
         generator = self._generator()
-        user_type = CommitStatic.AUTHOR if self.is_author else CommitStatic.COMMITTER
+
+        if self.is_tagger:
+            user_type = CommitStatic.TAGGER
+        elif self.is_author:
+            user_type = CommitStatic.AUTHOR
+        else:
+            user_type = CommitStatic.COMMITTER
+
         return next(generator)[APIStaticV4.DATA][APIStaticV4.REPOSITORY][CommitStatic.OBJECT][user_type][
             UserStatic.USER]
 
