@@ -6,7 +6,7 @@ from aiohttp import ClientResponseError, ClientSession
 from requests import HTTPError, Session, adapters, exceptions
 
 from gras.base_interface import BaseInterface
-from gras.errors import BadGatewayError, GrasError, ObjectDoesNotExistError
+from gras.errors import BadGatewayError, GithubMinerError, ObjectDoesNotExistError
 from gras.github.entity.api_static import APIStaticV4
 from gras.utils import get_next_token
 
@@ -110,8 +110,8 @@ class GithubInterface(BaseInterface):
                 try:
                     req = self._fetch(url=self.url, headers=self.headers, method=method, payload=param)
                 except Exception as e:
-                    logger.error(e)
-                    raise GrasError(msg=e)
+                    logger.error(f"Url: {self.url}, Payload: {param}")
+                    raise GithubMinerError(msg=e)
 
             if req.status_code == 200:
                 if 'X-RateLimit-Remaining' in req.headers and int(req.headers['X-RateLimit-Remaining']) <= 2:

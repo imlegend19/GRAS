@@ -381,8 +381,6 @@ class PullRequestModel(BaseModel):
             review_decision=dic[IssueStatic.REVIEW_DECISION]
         )
 
-        print(obj.number, ":", obj.state)
-
         return obj
 
 

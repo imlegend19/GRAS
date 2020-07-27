@@ -14,7 +14,7 @@ class GrasError(Exception):
 class GithubMinerError(GrasError):
     """Exception to be raised by :class:`~gras.github.github_miner.GithubMiner`"""
 
-    message = "%(cause)s"
+    message = "%(msg)s"
 
 
 class GrasArgumentParserError(GrasError):

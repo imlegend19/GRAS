@@ -478,6 +478,7 @@ class PullRequestStruct(GithubInterface, PullRequestModel):
 
             self.query_params[APIStaticV4.AFTER] = "\"" + endCursor + "\"" if endCursor is not None else "null"
             final_cursor = endCursor
+            logger.info(f"SKIP after: {final_cursor}")
 
         return final_cursor
 

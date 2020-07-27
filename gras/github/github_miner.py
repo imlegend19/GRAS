@@ -235,6 +235,8 @@ class GithubMiner(BaseMiner):
         finally:
             self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
 
+        self.__init_pull_requests()
+
         self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
         self._fetch_pull_request_comments()
@@ -1269,13 +1271,17 @@ class GithubMiner(BaseMiner):
                         objects = []
 
                         for number, assignees in assignee_list:
-                            objects.extend(self._dump_pull_request_assignees(number, assignees))
+                            temp = self._dump_pull_request_assignees(number, assignees)
+                            if temp:
+                                objects.extend(temp)
 
                         self._insert(self.db_schema.pull_request_assignees.insert(), objects)
                         objects.clear()
 
                         for number, labels in label_list:
-                            objects.extend(self._dump_pull_request_labels(number, labels))
+                            temp = self._dump_pull_request_labels(number, labels)
+                            if temp:
+                                objects.extend(temp)
 
                         self._insert(self.db_schema.pull_request_labels.insert(), objects)
                         del objects
@@ -1557,14 +1563,18 @@ class GithubMiner(BaseMiner):
             if table == "commits":
                 if not toggle:
                     self._dump_commits(oid=value)
-                    return self._get_table_id(table=table, field=field, value=value, toggle=True)
+                    id_ = self._get_table_id(table=table, field=field, value=value, toggle=True)
+                    self.commits[value] = id_
+                    return id_
                 else:
                     logger.debug(f"Commit oid: {value} has been deleted! Returning `None`.")
                     return None
             elif table == "issues":
                 if not toggle:
                     self._dump_issues(number=value)
-                    return self._get_table_id(table=table, field=field, value=value, toggle=True)
+                    id_ = self._get_table_id(table=table, field=field, value=value, toggle=True)
+                    self.issues[value] = id_
+                    return id_
                 else:
                     logger.debug(f"Issue number: {value} has been deleted! Returning `None`.")
                     return None
