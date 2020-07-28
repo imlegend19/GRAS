@@ -30,26 +30,6 @@ class LabelType(enum.Enum):
     COMPONENT = "COMPONENT"
 
 
-class EventType(enum.Enum):
-    ASSIGNED_EVENT = "ASSIGNED_EVENT"
-    CROSS_REFERENCED_EVENT = "CROSS_REFERENCED_EVENT"
-    DEMILESTONED_EVENT = "DEMILESTONED_EVENT"
-    LABELED_EVENT = "LABELED_EVENT"
-    MARKED_AS_DUPLICATE_EVENT = "MARKED_AS_DUPLICATE_EVENT"
-    MENTIONED_EVENT = "MENTIONED_EVENT"
-    MILESTONED_EVENT = "MILESTONED_EVENT"
-    PINNED_EVENT = "PINNED_EVENT"
-    REFERENCED_EVENT = "REFERENCED_EVENT"
-    RENAMED_TITLE_EVENT = "RENAMED_TITLE_EVENT"
-    REOPENED_EVENT = "REOPENED_EVENT"
-    TRANSFERRED_EVENT = "TRANSFERRED_EVENT"
-    UNASSIGNED_EVENT = "UNASSIGNED_EVENT"
-    UNLABELED_EVENT = "UNLABELED_EVENT"
-    UNMARKED_AS_DUPLICATE_EVENT = "UNMARKED_AS_DUPLICATE_EVENT"
-    UNPINNED_EVENT = "UNPINNED_EVENT"
-    CLOSED_EVENT = "CLOSED_EVENT"
-
-
 class ReviewDecision(enum.Enum):
     CHANGES_REQUESTED = "CHANGES_REQUESTED"
     APPROVED = "APPROVED"
@@ -78,7 +58,6 @@ class DBSchema:
         self._state_enum = self.__get_enum(State)
         self._pr_state_enum = self.__get_enum(PullRequestState)
         self._label_enum = self.__get_enum(LabelType)
-        self._event_type_enum = self.__get_enum(EventType)
         self._review_decision_enum = self.__get_enum(ReviewDecision)
         self._issue_type_enum = self.__get_enum(IssueType)
         self._user_type_enum = self.__get_enum(UserType)
@@ -605,7 +584,7 @@ class DBSchema:
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('issue_id', None, ForeignKey('issues.id', ondelete="CASCADE", onupdate="CASCADE")),
-            Column('event_type', self._event_type_enum[0], nullable=False),
+            Column('event_type', UNICODE, nullable=False),
             Column('who', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('when', self.__get_date_field(), nullable=False),
             Column('added', self.__get_large_text_type()),
@@ -614,10 +593,6 @@ class DBSchema:
             Column('removed_type', UNICODE),
             Column('is_cross_repository', BOOLEAN, server_default='0', nullable=False)
         )
-
-        if self._event_type_enum[1]:
-            self.issue_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
-                                                                name='event_enum_check'))
 
         self.issue_comments.create(bind=self.conn, checkfirst=True)
         self.issue_assignees.create(bind=self.conn, checkfirst=True)
@@ -947,19 +922,15 @@ class DBSchema:
             Column('id', INTEGER, autoincrement=True, primary_key=True),
             Column('repo_id', None, ForeignKey('repository.repo_id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('pr_id', None, ForeignKey('pull_requests.id', ondelete="CASCADE", onupdate="CASCADE")),
-            Column('event_type', self._event_type_enum[0], nullable=False),
+            Column('event_type', UNICODE, nullable=False),
             Column('who', None, ForeignKey('contributors.id', ondelete="CASCADE", onupdate="CASCADE")),
-            Column('when', self.__get_date_field(), nullable=False),
+            Column('when', self.__get_date_field()),
             Column('added', self.__get_large_text_type()),
             Column('added_type', UNICODE),
             Column('removed', self.__get_large_text_type()),
             Column('removed_type', UNICODE),
             Column('is_cross_repository', BOOLEAN, server_default='0', nullable=False)
         )
-
-        if self._event_type_enum[1]:
-            self.pull_request_events.append_constraint(CheckConstraint(f"event_type IN ({self._get_string(EventType)})",
-                                                                       name='event_enum_check'))
 
         self.pull_request_comments.create(bind=self.conn, checkfirst=True)
         self.pull_request_commits.create(bind=self.conn, checkfirst=True)

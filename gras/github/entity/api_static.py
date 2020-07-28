@@ -191,6 +191,10 @@ class EventStatic(metaclass=BaseStatic):
     UNLABELED_EVENT = "UnlabeledEvent"
     UNMARKED_AS_DUPLICATE_EVENT = "UnmarkedAsDuplicateEvent"
     UNPINNED_EVENT = "UnpinnedEvent"
+    CONVERTED_TO_DRAFT_EVENT = "ConvertToDraftEvent"
+    MERGED_EVENT = "MergedEvent"
+    PULL_REQUEST_COMMIT = "PullRequestCommit"
+    REVIEW_REQUESTED_EVENT = "ReviewRequestedEvent"
 
     TIMELINE_ITEMS = "timelineItems"
     EVENT_TYPE = "eventType"
@@ -200,3 +204,4 @@ class EventStatic(metaclass=BaseStatic):
     REMOVED = "removed"
     IS_CROSS_REPOSITORY = "isCrossRepository"
     TYPE = "type"
+    MERGE_REF_NAME = "mergeRefName"

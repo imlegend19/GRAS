@@ -92,15 +92,198 @@ class EventDetailStruct(GithubInterface, EventModel):
         :type number: int
     """
 
+    ISSUE_EVENT_TYPES = "ASSIGNED_EVENT, CROSS_REFERENCED_EVENT, DEMILESTONED_EVENT, LABELED_EVENT, " \
+                        "MARKED_AS_DUPLICATE_EVENT, MENTIONED_EVENT, UNPINNED_EVENT, MILESTONED_EVENT, PINNED_EVENT, " \
+                        "REFERENCED_EVENT, RENAMED_TITLE_EVENT, REOPENED_EVENT, TRANSFERRED_EVENT, UNASSIGNED_EVENT, " \
+                        "UNLABELED_EVENT, UNMARKED_AS_DUPLICATE_EVENT, CLOSED_EVENT"
+
+    ISSUE_EVENTS = """
+        
+        ... on AssignedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            added: assignee {
+                ... on User {
+                    login
+                }
+            }
+        }
+        ... on ClosedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            added: closer {
+                type: __typename
+                ... on Commit {
+                    oid
+                }
+                ... on PullRequest {
+                    number
+                }
+            }
+        }
+        ... on CrossReferencedEvent {
+            who: actor {
+                login
+            }
+            when: referencedAt
+            isCrossRepository
+            added: source {
+                type: __typename
+                ... on Issue {
+                    number
+                }
+                ... on PullRequest {
+                    number
+                }
+            }
+        }
+        ... on DemilestonedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            removed: milestoneTitle
+        }
+        ... on LabeledEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            added: label {
+                name
+            }
+        }
+        ... on MarkedAsDuplicateEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+        }
+        ... on MentionedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+        }
+        ... on MilestonedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            added: milestoneTitle
+        }
+        ... on PinnedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+        }
+        ... on ReferencedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            isCrossRepository
+            added: commit {
+                oid
+            }
+        }
+        ... on RenamedTitleEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            removed: previousTitle
+            added: currentTitle
+        }
+        ... on ReopenedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+        }
+        ... on TransferredEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            removed: fromRepository {
+                name
+                owner {
+                    login
+                }
+            }
+        }
+        ... on UnassignedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+        }
+        ... on UnlabeledEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            removed: label {
+                name
+            }
+        }
+        ... on UnmarkedAsDuplicateEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+        }
+        ... on UnpinnedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+        }
+    """
+
+    PULL_REQUEST_EVENT_TYPES = "CONVERT_TO_DRAFT_EVENT, MERGED_EVENT, REVIEW_REQUESTED_EVENT"
+
+    PULL_REQUEST_EVENTS = """
+        ... on ConvertToDraftEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+        }
+        ... on MergedEvent {
+            who: actor {
+                login
+            }
+            removed: commit {
+                oid
+            }
+            when: createdAt
+            added: mergeRefName
+        }
+        ... on ReviewRequestedEvent {
+            who: actor {
+                login
+            }
+            when: createdAt
+            added: requestedReviewer {
+                ... on User {
+                    login
+                }
+            }
+        }
+    """
+
     QUERY = """
         {{
             repository(owner: "{owner}", name: "{name}") {{
                 {type_filter}(number: {number}) {{
-                    timelineItems(first:250, itemTypes:[ASSIGNED_EVENT, CROSS_REFERENCED_EVENT, DEMILESTONED_EVENT,
-                                        LABELED_EVENT, MARKED_AS_DUPLICATE_EVENT, MENTIONED_EVENT, UNPINNED_EVENT,
-                                        MILESTONED_EVENT, PINNED_EVENT, REFERENCED_EVENT, RENAMED_TITLE_EVENT,
-                                        REOPENED_EVENT, TRANSFERRED_EVENT, UNASSIGNED_EVENT, UNLABELED_EVENT,
-                                        UNMARKED_AS_DUPLICATE_EVENT, CLOSED_EVENT], since: {since}, after: {after}) {{
+                    timelineItems(first:250, itemTypes:[{event_types}], since: {since}, after: {after}) {{
                         totalCount
                         pageInfo {{
                             endCursor
@@ -108,152 +291,7 @@ class EventDetailStruct(GithubInterface, EventModel):
                         }}
                         nodes {{
                             eventType: __typename
-                            ... on AssignedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                added: assignee {{
-                                    ... on User {{
-                                        login
-                                    }}
-                                }}
-                            }}
-                            ... on ClosedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                added: closer {{
-                                    type: __typename
-                                    ... on Commit {{
-                                        oid
-                                    }}
-                                    ... on PullRequest {{
-                                        number
-                                    }}
-                                }}
-                            }}
-                            ... on CrossReferencedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: referencedAt
-                                isCrossRepository
-                                added: source {{
-                                    type: __typename
-                                    ... on Issue {{
-                                        number
-                                    }}
-                                    ... on PullRequest {{
-                                        number
-                                    }}
-                                }}
-                            }}
-                            ... on DemilestonedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                removed: milestoneTitle
-                            }}
-                            ... on LabeledEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                added: label {{
-                                    name
-                                }}
-                            }}
-                            ... on MarkedAsDuplicateEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                            }}
-                            ... on MentionedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                            }}
-                            ... on MilestonedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                added: milestoneTitle
-                            }}
-                            ... on PinnedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                            }}
-                            ... on ReferencedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                isCrossRepository
-                                added: commit {{
-                                    oid
-                                }}
-                            }}
-                            ... on RenamedTitleEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                removed: previousTitle
-                                added: currentTitle
-                            }}
-                            ... on ReopenedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                            }}
-                            ... on TransferredEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                removed: fromRepository {{
-                                    name
-                                    owner {{
-                                        login
-                                    }}
-                                }}
-                            }}
-                            ... on UnassignedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                            }}
-                            ... on UnlabeledEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                                removed: label {{
-                                    name
-                                }}
-                            }}
-                            ... on UnmarkedAsDuplicateEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                            }}
-                            ... on UnpinnedEvent {{
-                                who: actor {{
-                                    login
-                                }}
-                                when: createdAt
-                            }}
+                            {events}
                         }}
                     }}
                 }}
@@ -266,6 +304,10 @@ class EventDetailStruct(GithubInterface, EventModel):
         super().__init__(
             query=self.QUERY,
             query_params=dict(name=name, owner=owner, type_filter=type_filter, number=number,
+                              event_types=self.ISSUE_EVENT_TYPES if type_filter == "issue" else
+                              self.ISSUE_EVENT_TYPES + ', ' + self.PULL_REQUEST_EVENT_TYPES,
+                              events=self.ISSUE_EVENTS if type_filter == "issue" else
+                              self.ISSUE_EVENTS + self.PULL_REQUEST_EVENTS,
                               since="\"" + since + "\"" if since else "null", after="null")
         )
 

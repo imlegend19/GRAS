@@ -758,11 +758,21 @@ class EventModel(BaseModel):
     def object_decoder(self, dic, number):
         event_type = dic[EventStatic.EVENT_TYPE]
 
+        try:
+            when = dic[EventStatic.WHEN]
+        except KeyError:
+            when = None
+
+        try:
+            who = None if dic[EventStatic.WHO] is None else dic[EventStatic.WHO][UserStatic.LOGIN]
+        except KeyError:
+            who = None
+
         obj = EventModel(
             number=number,
             event_type=re.sub(r'(?<!^)(?=[A-Z])', '_', dic[EventStatic.EVENT_TYPE]).upper(),
-            who=None if dic[EventStatic.WHO] is None else dic[EventStatic.WHO][UserStatic.LOGIN],
-            when=dic[EventStatic.WHEN],
+            who=who,
+            when=when,
             added=None,
             added_type=None,
             removed=None,
@@ -770,7 +780,7 @@ class EventModel(BaseModel):
             is_cross_repository=False
         )
 
-        if event_type == EventStatic.ASSIGNED_EVENT:
+        if event_type == EventStatic.ASSIGNED_EVENT or event_type == EventStatic.REVIEW_REQUESTED_EVENT:
             obj.added = dic[EventStatic.ADDED][UserStatic.LOGIN] if dic[EventStatic.ADDED] is not None else None
             obj.added_type = "USER"
         elif event_type == EventStatic.CLOSED_EVENT:
@@ -826,6 +836,13 @@ class EventModel(BaseModel):
             pass
         elif event_type == EventStatic.UNPINNED_EVENT:
             pass
+        elif event_type == EventStatic.CONVERTED_TO_DRAFT_EVENT:
+            pass
+        elif event_type == EventStatic.MERGED_EVENT:
+            obj.removed = dic[EventStatic.REMOVED][APIStaticV4.OID] if dic[EventStatic.REMOVED] is not None else None
+            obj.removed_type = "COMMIT"
+            obj.added = dic[EventStatic.ADDED] if dic[EventStatic.ADDED] is not None else None
+            obj.added_type = "MERGE_REF"
         else:
             raise NotImplementedError
 
