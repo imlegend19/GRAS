@@ -230,12 +230,12 @@ class GithubMiner(BaseMiner):
         self.__init_pull_requests()
         self.__init_commits()
 
-        try:
-            self._dump_pull_requests()
-        finally:
-            self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
+        # try:
+        #     self._dump_pull_requests()
+        # finally:
+        #     self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
 
-        self.__init_pull_requests()
+        # self.__init_pull_requests()
 
         self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
@@ -1385,10 +1385,16 @@ class GithubMiner(BaseMiner):
                 pr_id = self._get_table_id(table="pull_requests", field="number", value=number)
                 self.pull_requests[number] = pr_id
 
+            try:
+                commit_id = self.commits[node.oid]
+            except KeyError:
+                commit_id = self._get_table_id('commits', 'oid', node.oid)
+                self.commits[node.oid] = commit_id
+
             obj = self.db_schema.pull_request_commits_object(
                 repo_id=self.repo_id,
                 pr_id=pr_id,
-                commit_id=self._get_table_id('commits', 'oid', node.oid)
+                commit_id=commit_id
             )
 
             obj_list.append(obj)
