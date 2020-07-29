@@ -32,6 +32,7 @@ lock = mp.Lock()
 
 class GitMiner(BaseMiner):
     Id_Name_Login = namedtuple("Id_Name_Login", ["id", "name", "login"])
+    Code_Change = namedtuple("Code_Change", ["commit_id", "filename"])
 
     def __init__(self, args):
         super().__init__(args)
@@ -43,6 +44,8 @@ class GitMiner(BaseMiner):
 
         self.email_map = {}
         self.commit_id = {}
+        self.id_commit = {}
+        self.code_change_map = {}
 
         self.__init_user_emails()
 
@@ -78,6 +81,17 @@ class GitMiner(BaseMiner):
 
         for row in res:
             self.email_map[row[0]] = self.Id_Name_Login(id=row[1], name=row[2], login=row[3])
+
+    def __init_code_change(self):
+        res = self.execute_query(
+            """
+            SELECT id, commit_id, filename
+            FROM code_change
+            """
+        ).fetchall()
+
+        for row in res:
+            self.code_change_map[self.Code_Change(commit_id=row[1], filename=row[2])] = row[0]
 
     def _dump_repository(self):
         logger.info("Dumping Repository...")
@@ -177,23 +191,46 @@ class GitMiner(BaseMiner):
         else:
             return None
 
-    def __init_commits(self):
-        res = self.execute_query(
-            f"""
-            SELECT oid, id
-            FROM commits
-            WHERE repo_id={self.repo_id}
-            """
-        ).fetchall()
+    def __init_commits(self, inverse=False):
+        if not inverse:
+            res = self.execute_query(
+                f"""
+                SELECT oid, id
+                FROM commits
+                WHERE repo_id={self.repo_id}
+                """
+            ).fetchall()
 
-        for row in res:
-            self.commit_id[row[0]] = row[1]
+            for row in res:
+                self.commit_id[row[0]] = row[1]
+        else:
+            res = self._conn.execute(
+                f"""
+                SELECT id, oid
+                FROM commits
+                WHERE repo_id={self.repo_id}
+                """
+            ).fetchall()
 
-    def __get_commit_id(self, oid):
-        try:
-            return self.commit_id[oid]
-        except KeyError:
-            return None
+            for row in res:
+                self.id_commit[row[0]] = row[1]
+
+    def __get_commit_id(self, oid, pk=None):
+        if not pk:
+            try:
+                return self.commit_id[oid]
+            except KeyError:
+                return None
+        else:
+            try:
+                return self.id_commit[pk]
+            except KeyError:
+                self.__init_commits(inverse=True)
+                res = self.__get_commit_id(oid=None, pk=pk)
+                if not res:
+                    raise Exception(f"GitMiner => __get_commit_id: Pk {pk} does not exist!")
+                else:
+                    return res
 
     def __check_user_id(self, email):
         try:
@@ -288,14 +325,48 @@ class GitMiner(BaseMiner):
                     additions=patch.line_stats[1],
                     deletions=patch.line_stats[2],
                     changes=patch.line_stats[1] + patch.line_stats[2],
-                    change_type=self.__get_status(patch.delta.status),
-                    patch=patch.patch
+                    change_type=self.__get_status(patch.delta.status)
                 )
 
                 code_change.append(obj)
 
         self._insert(object_=self.db_schema.code_change.insert(), param=code_change)
         logger.debug(f"Successfully dumped code change for {oid}!")
+
+    def __get_code_change_id(self, commit_id, filename):
+        try:
+            return self.code_change_map[self.Code_Change(commit_id=commit_id, filename=filename)]
+        except KeyError:
+            return Exception(f"GitMiner => __get_code_change_id: Object does not exist! commit_id={commit_id}, "
+                             f"filename:{filename}")
+
+    def _dump_patches(self, oid):
+        commit = self.repo.get(oid)
+        commit_id = self.__get_commit_id(oid)
+
+        logger.debug(f"Dumping Patch for commit_id -> {commit_id}...")
+
+        patches = []
+
+        if not commit.parents:
+            diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
+        else:
+            diffs = [self.repo.diff(i, commit) for i in commit.parents]
+
+        total_diffs = len(diffs)
+        for diff in diffs:
+            logger.debug(f"Remaining: {total_diffs}")
+            total_diffs -= 1
+            for patch in diff:
+                obj = self.db_schema.patches_object(
+                    code_change_id=self.__get_code_change_id(commit_id, patch.delta.new_file.path),
+                    patch=patch.patch
+                )
+
+                patches.append(obj)
+
+        self._insert(object_=self.db_schema.patches.insert(), param=patches)
+        logger.debug(f"Successfully dumped patch for {oid}!")
 
     def _dump_commit(self, oid):
         logger.debug(f"Inserting for commit: {oid}...")
@@ -444,6 +515,42 @@ class GitMiner(BaseMiner):
             while any([x.is_alive() for x in proc]):
                 continue
 
+    @timing(name="patches", is_stage=True)
+    def _parse_patches(self):
+        self.__init_commits(inverse=True)
+
+        res = self.execute_query(
+            f"""
+            SELECT id, commit_id
+            FROM code_change
+            """
+        ).fetchall()
+
+        cc_commit = {}
+        for row in res:
+            cc_commit[row[0]] = row[1]
+
+        res = self.execute_query(
+            """
+            SELECT code_change_id
+            FROM patches
+            """
+        )
+
+        not_dumped_commits = set(cc_commit.values()).difference({cc_commit[x[0]] for x in res})
+        not_dumped_commits = sorted([self.id_commit[id_] for id_ in not_dumped_commits])
+
+        del cc_commit
+
+        for i in range(0, len(not_dumped_commits), THREADS):
+            proc = [mp.Process(target=self._dump_code_change, args=(oid,)) for oid in
+                    not_dumped_commits[i: i + THREADS]]
+            for p in proc:
+                p.start()
+
+            while any([x.is_alive() for x in proc]):
+                continue
+
     @timing(name="async -> commits", is_stage=True)
     async def _async_parse_commits(self):
         loop = asyncio.get_event_loop()
@@ -465,9 +572,11 @@ class GitMiner(BaseMiner):
             self.loop.run_until_complete(self._parse_commits())
             self.loop.run_until_complete(self._parse_code_change())
         else:
-            self._parse_commits()
+            # self._parse_commits()
             self.__init_commits()
             self._parse_code_change()
+
+        # self._parse_patches()
 
     def __del__(self):
         if self.aio:

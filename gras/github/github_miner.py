@@ -208,6 +208,8 @@ class GithubMiner(BaseMiner):
         finally:
             self._refactor_table(id_='id', table='issues', group_by="repo_id, number")
 
+        self.__init_issues()
+
         self._fetch_issue_events()
         self._fetch_issue_comments()
 
@@ -215,10 +217,12 @@ class GithubMiner(BaseMiner):
     def _commit_miner(self):
         self.__init_commits()
 
-        try:
-            self._dump_commits()
-        finally:
-            self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
+        # try:
+        #     self._dump_commits()
+        # finally:
+        #     self._refactor_table(id_='id', table='commits', group_by='repo_id, oid')
+        #
+        # self.__init_commits()
 
         self._dump_commit_comments()
         self._refactor_table(id_='id', table='commit_comments', group_by='repo_id, commenter_id, commit_id, created_at')
@@ -230,12 +234,12 @@ class GithubMiner(BaseMiner):
         self.__init_pull_requests()
         self.__init_commits()
 
-        # try:
-        #     self._dump_pull_requests()
-        # finally:
-        #     self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
+        try:
+            self._dump_pull_requests()
+        finally:
+            self._refactor_table(id_='id', table='pull_requests', group_by="repo_id, number")
 
-        # self.__init_pull_requests()
+        self.__init_pull_requests()
 
         self._fetch_pull_request_commits()
         self._fetch_pull_request_events()
@@ -1055,13 +1059,30 @@ class GithubMiner(BaseMiner):
                 additions=node.additions,
                 deletions=node.deletions,
                 changes=node.changes,
-                change_type=node.change_type,
+                change_type=node.change_type
+            )
+
+            pk = self._insert(object_=self.db_schema.code_change.insert(), param=obj, ret_pk=True)
+
+            if not pk:
+                res = self._conn.execute(
+                    f"""
+                    SELECT id 
+                    FROM code_change
+                    WHERE commit_id={commit_id} AND filename={node.filename}
+                    """
+                ).fetchone()
+
+                pk = res[0]
+
+            obj = self.db_schema.patches_object(
+                code_change_id=pk,
                 patch=node.patch
             )
 
             obj_list.append(obj)
 
-        self._insert(object_=self.db_schema.code_change.insert(), param=obj_list)
+        self._insert(object_=self.db_schema.patches.insert(), param=obj_list)
 
     @timing(name='commit_comments')
     def _dump_commit_comments(self):

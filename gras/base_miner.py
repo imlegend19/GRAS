@@ -183,17 +183,22 @@ class BaseMiner(metaclass=ABCMeta):
 
         itm = sorted(update_id.items(), key=lambda x: x[0])
 
-        # for i in itm:
-        #     self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
+        for i in itm:
+            self._conn.execute(f"UPDATE {table} SET {id_}={i[1]} WHERE {id_}={i[0]}")
 
     @locked
-    def _insert(self, object_, param, tries=1):
+    def _insert(self, object_, param, tries=1, ret_pk=False):
         cnt = 0
+        pk = None
 
         try:
             if param:
                 inserted = self._conn.execute(object_, param)
                 cnt = inserted.rowcount
+
+                if len(param) == 1:
+                    pk = inserted.inserted_primary_key
+
                 logger.debug(f"Try 1: Affected Rows = {cnt}")
         except IntegrityError as e:
             logger.debug(f"Caught Integrity Error: {e}")
@@ -203,11 +208,14 @@ class BaseMiner(metaclass=ABCMeta):
                 os._exit(1)
             logger.debug(f"Caught Operational Error! Try: {tries + 1}")
             self._initialise_db()
-            self._insert(object_, param, tries + 1)
+            return self._insert(object_, param, tries + 1)
         except Exception as e:
             logger.error(f"_insert(): {e}")
 
-        return cnt
+        if ret_pk:
+            return pk
+        else:
+            return cnt
 
     def _serial_insert(self, object_, param, tries=1):
         try:

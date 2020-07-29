@@ -683,7 +683,13 @@ class DBSchema:
             Column('additions', INTEGER, server_default='0'),
             Column('deletions', INTEGER, server_default='0'),
             Column('changes', INTEGER, server_default='0'),
-            Column('change_type', UNICODE),
+            Column('change_type', UNICODE)
+        )
+
+        self.patches = Table(
+            'patches', self._metadata,
+            Column('id', INTEGER, primary_key=True, autoincrement=True),
+            Column('code_change_id', None, ForeignKey('code_change.id', ondelete="CASCADE", onupdate="CASCADE")),
             Column('patch', self.__get_large_text_type())
         )
 
@@ -706,6 +712,7 @@ class DBSchema:
         self.commits.create(bind=self.conn, checkfirst=True)
         self.commit_comments.create(bind=self.conn, checkfirst=True)
         self.code_change.create(bind=self.conn, checkfirst=True)
+        self.patches.create(bind=self.conn, checkfirst=True)
 
     def _create_pr_table(self):
         """
@@ -1296,7 +1303,7 @@ class DBSchema:
         return obj
 
     @staticmethod
-    def code_change_object(repo_id, commit_id, filename, additions, deletions, changes, change_type, patch):
+    def code_change_object(repo_id, commit_id, filename, additions, deletions, changes, change_type):
         obj = {
             "repo_id"    : repo_id,
             "commit_id"  : commit_id,
@@ -1304,8 +1311,16 @@ class DBSchema:
             "additions"  : additions,
             "deletions"  : deletions,
             "changes"    : changes,
-            "change_type": get_value(change_type),
-            "patch"      : patch
+            "change_type": get_value(change_type)
+        }
+
+        return obj
+
+    @staticmethod
+    def patches_object(code_change_id, patch):
+        obj = {
+            "code_change_id": code_change_id,
+            "patch"         : patch
         }
 
         return obj
