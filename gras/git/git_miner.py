@@ -308,30 +308,31 @@ class GitMiner(BaseMiner):
 
         code_change = []
 
-        if not commit.parents:
-            diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
-        else:
-            diffs = [self.repo.diff(i, commit) for i in commit.parents]
+        if commit:
+            if not commit.parents:
+                diffs = [self.repo.diff("4b825dc642cb6eb9a060e54bf8d69288fbee4904", commit)]
+            else:
+                diffs = [self.repo.diff(i, commit) for i in commit.parents]
 
-        total_diffs = len(diffs)
-        for diff in diffs:
-            logger.debug(f"Remaining: {total_diffs}")
-            total_diffs -= 1
-            for patch in diff:
-                obj = self.db_schema.code_change_object(
-                    repo_id=self.repo_id,
-                    commit_id=commit_id,
-                    filename=patch.delta.new_file.path,
-                    additions=patch.line_stats[1],
-                    deletions=patch.line_stats[2],
-                    changes=patch.line_stats[1] + patch.line_stats[2],
-                    change_type=self.__get_status(patch.delta.status)
-                )
+            total_diffs = len(diffs)
+            for diff in diffs:
+                logger.debug(f"Remaining: {total_diffs}")
+                total_diffs -= 1
+                for patch in diff:
+                    obj = self.db_schema.code_change_object(
+                        repo_id=self.repo_id,
+                        commit_id=commit_id,
+                        filename=patch.delta.new_file.path,
+                        additions=patch.line_stats[1],
+                        deletions=patch.line_stats[2],
+                        changes=patch.line_stats[1] + patch.line_stats[2],
+                        change_type=self.__get_status(patch.delta.status)
+                    )
 
-                code_change.append(obj)
+                    code_change.append(obj)
 
-        self._insert(object_=self.db_schema.code_change.insert(), param=code_change)
-        logger.debug(f"Successfully dumped code change for {oid}!")
+            self._insert(object_=self.db_schema.code_change.insert(), param=code_change)
+            logger.debug(f"Successfully dumped code change for {oid}!")
 
     def __get_code_change_id(self, commit_id, filename):
         try:
