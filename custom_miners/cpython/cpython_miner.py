@@ -108,4 +108,4 @@ class CPythonMiner(BaseMiner):
 
 
 if __name__ == '__main__':
-    CPythonMiner(args=Namespace(), url=None, path="/home/mahen/PycharmProjects/GRAS/custom_miners/cpython/data")
+    CPythonMiner(args=Namespace(), url=None, path="GRAS/custom_miners/cpython/data")
