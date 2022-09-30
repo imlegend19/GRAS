@@ -9,7 +9,7 @@ cffi==1.14.3
 chardet==3.0.4
 decorator==4.4.2
 idna==2.10
-joblib==0.16.0
+joblib==1.2.0
 multidict==4.7.6
 mysqlclient==2.0.1
 neo4j==4.0.0
